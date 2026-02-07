@@ -487,11 +487,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                     <ListPlus size={20} className="mr-2 text-[#00FF41]" />
                     Next Match Up
                 </h3>
-                {isHost && (
-                    <button onClick={handleStartQueueing} className="bg-[#001645] hover:bg-[#00FF41] hover:text-[#000B29] text-[#00FF41] border border-[#00FF41] px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2">
-                        <Plus size={14} /> Add Match
-                    </button>
-                )}
+                {/* REMOVED isHost CHECK for Add Match */}
+                <button onClick={handleStartQueueing} className="bg-[#001645] hover:bg-[#00FF41] hover:text-[#000B29] text-[#00FF41] border border-[#00FF41] px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2">
+                    <Plus size={14} /> Add Match
+                </button>
             </div>
 
             {(session.nextMatchups || []).length === 0 ? (
@@ -510,21 +509,20 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                 {/* Header: Match Number + Delete */}
                                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-[#001645]">
                                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Match {idx + 1}</span>
-                                    {isHost && (
-                                        <button onClick={() => {
-                                            triggerHaptic('heavy');
-                                            setConfirmConfig({
-                                                isOpen: true,
-                                                title: 'Cancel Match',
-                                                message: 'Remove this matchup from queue?',
-                                                action: () => { onDeleteQueuedMatch?.(session.id, matchup.id); },
-                                                isDestructive: true,
-                                                confirmLabel: 'Remove'
-                                            });
-                                        }} className="text-gray-500 hover:text-red-500 transition-colors">
-                                            <Trash2 size={14} />
-                                        </button>
-                                    )}
+                                    {/* REMOVED isHost CHECK for Delete Match */}
+                                    <button onClick={() => {
+                                        triggerHaptic('heavy');
+                                        setConfirmConfig({
+                                            isOpen: true,
+                                            title: 'Cancel Match',
+                                            message: 'Remove this matchup from queue?',
+                                            action: () => { onDeleteQueuedMatch?.(session.id, matchup.id); },
+                                            isDestructive: true,
+                                            confirmLabel: 'Remove'
+                                        });
+                                    }} className="text-gray-500 hover:text-red-500 transition-colors">
+                                        <Trash2 size={14} />
+                                    </button>
                                 </div>
 
                                 {/* Teams Display */}
@@ -557,26 +555,25 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                 </div>
 
                                 {/* Promote Actions */}
-                                {isHost && (
-                                    <div className="grid grid-cols-2 gap-2 mt-auto">
-                                        {Array.from({ length: session.courtCount }).map((_, cIdx) => {
-                                            const isFree = (assignments[cIdx] || []).length === 0;
-                                            return (
-                                                <button
-                                                    key={cIdx}
-                                                    disabled={!isFree}
-                                                    onClick={() => { if (isFree) { triggerHaptic('success'); onPromoteMatch?.(session.id, matchup.id, cIdx); } }}
-                                                    className={`px-2 py-2 rounded text-[9px] font-black uppercase tracking-wider transition-all border ${isFree
-                                                        ? 'bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41] hover:bg-[#00FF41] hover:text-[#000B29]'
-                                                        : 'bg-transparent border-gray-800 text-gray-600 cursor-not-allowed'
-                                                        }`}
-                                                >
-                                                    {isFree ? `Push Court ${cIdx + 1}` : `Court ${cIdx + 1} Busy`}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                {/* REMOVED isHost CHECK for Promote Match */}
+                                <div className="grid grid-cols-2 gap-2 mt-auto">
+                                    {Array.from({ length: session.courtCount }).map((_, cIdx) => {
+                                        const isFree = (assignments[cIdx] || []).length === 0;
+                                        return (
+                                            <button
+                                                key={cIdx}
+                                                disabled={!isFree}
+                                                onClick={() => { if (isFree) { triggerHaptic('success'); onPromoteMatch?.(session.id, matchup.id, cIdx); } }}
+                                                className={`px-2 py-2 rounded text-[9px] font-black uppercase tracking-wider transition-all border ${isFree
+                                                    ? 'bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41] hover:bg-[#00FF41] hover:text-[#000B29]'
+                                                    : 'bg-transparent border-gray-800 text-gray-600 cursor-not-allowed'
+                                                    }`}
+                                            >
+                                                {isFree ? `Push Court ${cIdx + 1}` : `Court ${cIdx + 1} Busy`}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         );
                     })}
