@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Session, User, MatchResult } from '../types';
-import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic } from '../utils';
-import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, CheckCircle, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil } from 'lucide-react';
+import { Session, User, MatchResult, NextMatchup } from '../types';
+import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic, wereRecentTeammates } from '../utils';
+import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, CheckCircle, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, ListPlus } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import PullToRefresh from './PullToRefresh';
 import ShareReportModal from './ShareReportModal';
-import QueueDisplay from './QueueDisplay';
 
 interface SessionDetailModalProps {
     session: Session | null;
@@ -25,6 +24,9 @@ interface SessionDetailModalProps {
     onPlayerClick?: (userId: string) => void;
     onRefresh: () => Promise<void>;
     onEdit?: (sessionId: string) => void;
+    onQueueMatch?: (sessionId: string, playerIds: string[]) => void;
+    onPromoteMatch?: (sessionId: string, matchupId: string, courtIndex: number) => void;
+    onDeleteQueuedMatch?: (sessionId: string, matchupId: string) => void;
 }
 
 const START_THRESHOLD_MINUTES = 30; // Button is enabled 30 mins before start
@@ -70,7 +72,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     onRecordMatchResult,
     onPlayerClick,
     onRefresh,
-    onEdit
+    onEdit,
+    onQueueMatch,
+    onPromoteMatch,
+    onDeleteQueuedMatch
 }) => {
     const [confirmConfig, setConfirmConfig] = useState<{
         isOpen: boolean;
@@ -82,6 +87,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     } | null>(null);
 
     const [editingCourt, setEditingCourt] = useState<number | null>(null);
+    const [isQueueingMatch, setIsQueueingMatch] = useState(false);
     const [tempSelectedPlayers, setTempSelectedPlayers] = useState<(string | null)[]>([null, null, null, null]);
     const [finishingGameCourt, setFinishingGameCourt] = useState<number | null>(null);
     const [pendingWinner, setPendingWinner] = useState<1 | 2 | null>(null);
@@ -319,7 +325,22 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
         triggerHaptic('success');
     };
 
+    const handleStartQueueing = () => {
+        setIsQueueingMatch(true);
+        setEditingCourt(999); // Use dummy index
+        triggerHaptic('light');
+        const suggested = getSmartMatchSuggestionV2(session, 999);
+        if (suggested && suggested.length > 0) {
+            const newSlots = [null, null, null, null] as (string | null)[];
+            suggested.forEach((id, i) => { if (i < 4) newSlots[i] = id; });
+            setTempSelectedPlayers(newSlots);
+        } else {
+            setTempSelectedPlayers([null, null, null, null]);
+        }
+    };
+
     const handleOpenCourtEdit = (courtIndex: number) => {
+        setIsQueueingMatch(false);
         setEditingCourt(courtIndex);
         triggerHaptic('light');
         const existingPlayers = assignments[courtIndex] || [];
@@ -361,8 +382,19 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     };
 
     const saveCourtAssignment = () => {
+        const finalPlayers = tempSelectedPlayers.filter((p): p is string => p !== null);
+
+        if (isQueueingMatch) {
+            if (onQueueMatch) {
+                onQueueMatch(session.id, finalPlayers);
+                setEditingCourt(null);
+                setIsQueueingMatch(false);
+                triggerHaptic('success');
+            }
+            return;
+        }
+
         if (editingCourt !== null) {
-            const finalPlayers = tempSelectedPlayers.filter((p): p is string => p !== null);
             // Trigger parent handler - now optimistic
             onCourtAssignment(session.id, editingCourt, finalPlayers);
             setEditingCourt(null);
@@ -417,6 +449,29 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     const team2Count = [tempSelectedPlayers[2], tempSelectedPlayers[3]].filter(Boolean).length;
     const canStartMatch = team1Count > 0 && team2Count > 0;
 
+    // Warning: Check if pair has played together recently
+    const getVarietyWarning = () => {
+        const pIds = tempSelectedPlayers.filter(Boolean) as string[];
+        if (pIds.length < 2) return null;
+
+        let warning = null;
+        // Check T1 pair
+        if (tempSelectedPlayers[0] && tempSelectedPlayers[1]) {
+            if (wereRecentTeammates(tempSelectedPlayers[0], tempSelectedPlayers[1], session.matches || [])) {
+                warning = "Team 1 pair has played together recently.";
+            }
+        }
+        // Check T2 pair
+        if (tempSelectedPlayers[2] && tempSelectedPlayers[3]) {
+            if (wereRecentTeammates(tempSelectedPlayers[2], tempSelectedPlayers[3], session.matches || [])) {
+                warning = "Team 2 pair has played together recently.";
+            }
+        }
+        return warning;
+    };
+
+    const varietyWarning = getVarietyWarning();
+
     const getTeamsForCourt = (courtIndex: number) => {
         const pIds = assignments[courtIndex] || [];
         const mid = Math.ceil(pIds.length / 2);
@@ -424,6 +479,111 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
         const team2 = pIds.slice(mid).map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
         return { team1, team2 };
     };
+
+    const renderNextMatchups = () => (
+        <div className="mb-8">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-black italic text-white uppercase tracking-wider flex items-center">
+                    <ListPlus size={20} className="mr-2 text-[#00FF41]" />
+                    Next Match Up
+                </h3>
+                {isHost && (
+                    <button onClick={handleStartQueueing} className="bg-[#001645] hover:bg-[#00FF41] hover:text-[#000B29] text-[#00FF41] border border-[#00FF41] px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2">
+                        <Plus size={14} /> Add Match
+                    </button>
+                )}
+            </div>
+
+            {(session.nextMatchups || []).length === 0 ? (
+                <div className="bg-[#001645]/50 border border-[#002266] border-dashed rounded-xl p-6 text-center">
+                    <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">No Matches Queued</p>
+                </div>
+            ) : (
+                <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide pr-12">
+                    {(session.nextMatchups || []).map((matchup, idx) => {
+                        const mid = Math.ceil(matchup.playerIds.length / 2);
+                        const team1 = matchup.playerIds.slice(0, mid).map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+                        const team2 = matchup.playerIds.slice(mid).map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+
+                        return (
+                            <div key={matchup.id} className="min-w-[280px] sm:min-w-[320px] bg-[#000B29] border border-[#002266] rounded-xl p-3 relative group snap-start shadow-lg">
+                                {/* Header: Match Number + Delete */}
+                                <div className="flex justify-between items-center mb-3 pb-2 border-b border-[#001645]">
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Match {idx + 1}</span>
+                                    {isHost && (
+                                        <button onClick={() => {
+                                            triggerHaptic('heavy');
+                                            setConfirmConfig({
+                                                isOpen: true,
+                                                title: 'Cancel Match',
+                                                message: 'Remove this matchup from queue?',
+                                                action: () => { onDeleteQueuedMatch?.(session.id, matchup.id); },
+                                                isDestructive: true,
+                                                confirmLabel: 'Remove'
+                                            });
+                                        }} className="text-gray-500 hover:text-red-500 transition-colors">
+                                            <Trash2 size={14} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Teams Display */}
+                                <div className="flex justify-between items-center gap-2 mb-4">
+                                    {/* Team 1 (Blue) */}
+                                    <div className="flex-1 space-y-2">
+                                        {team1.map(u => (
+                                            <div key={u.id} className="flex items-center gap-2 bg-[#001645]/50 rounded-lg p-1 pr-2 border border-[#002266]">
+                                                <img src={u.avatar} className="w-6 h-6 rounded-full object-cover border border-[#000B29]" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
+                                                <span className="text-[10px] font-bold text-white truncate max-w-[70px]">{u.name.split(' ')[0]}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-px h-6 bg-[#002266] mb-1"></div>
+                                        <span className="text-[9px] font-black text-gray-500 bg-[#000B29] border border-[#002266] px-1.5 rounded">VS</span>
+                                        <div className="w-px h-6 bg-[#002266] mt-1"></div>
+                                    </div>
+
+                                    {/* Team 2 (Red) */}
+                                    <div className="flex-1 space-y-2 text-right">
+                                        {team2.map(u => (
+                                            <div key={u.id} className="flex items-center justify-end gap-2 bg-[#001645]/50 rounded-lg p-1 pl-2 border border-[#002266]">
+                                                <span className="text-[10px] font-bold text-white truncate max-w-[70px]">{u.name.split(' ')[0]}</span>
+                                                <img src={u.avatar} className="w-6 h-6 rounded-full object-cover border border-[#000B29]" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Promote Actions */}
+                                {isHost && (
+                                    <div className="grid grid-cols-2 gap-2 mt-auto">
+                                        {Array.from({ length: session.courtCount }).map((_, cIdx) => {
+                                            const isFree = (assignments[cIdx] || []).length === 0;
+                                            return (
+                                                <button
+                                                    key={cIdx}
+                                                    disabled={!isFree}
+                                                    onClick={() => { if (isFree) { triggerHaptic('success'); onPromoteMatch?.(session.id, matchup.id, cIdx); } }}
+                                                    className={`px-2 py-2 rounded text-[9px] font-black uppercase tracking-wider transition-all border ${isFree
+                                                        ? 'bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41] hover:bg-[#00FF41] hover:text-[#000B29]'
+                                                        : 'bg-transparent border-gray-800 text-gray-600 cursor-not-allowed'
+                                                        }`}
+                                                >
+                                                    {isFree ? `Push Court ${cIdx + 1}` : `Court ${cIdx + 1} Busy`}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div >
+    );
 
     const renderLiveCourts = () => (
         <div className="mb-8">
@@ -792,7 +952,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                     )}
 
                     {status === 'END' && (<div className="px-4 pt-4 -mb-2"> <div className="flex p-1 bg-[#000F33] border border-[#002266] rounded-lg"> <button onClick={() => { triggerHaptic('light'); setActiveTab('scoreboard'); }} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-md transition-all ${activeTab === 'scoreboard' ? 'bg-[#00FF41] text-[#000B29] shadow-md' : 'text-gray-500 hover:text-white'}`}>Scoreboard</button> <button onClick={() => { triggerHaptic('light'); setActiveTab('bill'); }} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-md transition-all ${activeTab === 'bill' ? 'bg-[#00FF41] text-[#000B29] shadow-md' : 'text-gray-500 hover:text-white'}`}>Session Bill</button> </div> </div>)}
-                    <div className="p-4 sm:p-6 space-y-6"> {status === 'PLAYING' ? <>{renderLiveCourts()}<QueueDisplay session={session} allUsers={allUsers} currentUser={currentUser} isHost={isHost} onPlayerClick={onPlayerClick} onSkipTurn={(userId) => { onSkipTurn(session.id, userId); }} onAutoAssign={(playerIds) => { /* Find first empty court and assign */ const emptyCourtIndex = Array.from({ length: session.courtCount }).findIndex((_, idx) => { const assigned = session.courtAssignments?.[idx] || []; return assigned.length === 0; }); if (emptyCourtIndex !== -1) { onCourtAssignment(session.id, emptyCourtIndex, playerIds); triggerHaptic('success'); } }} />{renderCheckInList()}</> : status === 'END' ? (activeTab === 'scoreboard' ? renderScoreboard() : renderBillSummary()) : renderNormalPlayerList()} </div>
+                    <div className="p-4 sm:p-6 space-y-6"> {status === 'PLAYING' ? <>{renderNextMatchups()}{renderLiveCourts()}{renderCheckInList()}</> : status === 'END' ? (activeTab === 'scoreboard' ? renderScoreboard() : renderBillSummary()) : renderNormalPlayerList()} </div>
                 </PullToRefresh>
 
                 {/* Fixed Action Bar at Bottom */}
@@ -845,7 +1005,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                 {editingCourt !== null && (
                     <div className="fixed inset-0 z-[160] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                         <div className="bg-[#001645] border border-[#002266] w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-                            <div className="p-4 border-b border-[#002266] flex justify-between items-center bg-[#000B29]"> <h3 className="text-white font-bold uppercase tracking-wider flex items-center gap-2"> Assign Court {editingCourt + 1} </h3> </div>
+                            <div className="p-4 border-b border-[#002266] flex justify-between items-center bg-[#000B29]"> <h3 className="text-white font-bold uppercase tracking-wider flex items-center gap-2"> {isQueueingMatch ? 'Queue Next Match' : `Assign Court ${editingCourt + 1}`} </h3> </div>
                             <div className="bg-[#00123a] p-4 border-b border-[#002266]">
                                 <div className="bg-[#000B29] border border-[#002266] rounded-xl p-3 relative overflow-hidden">
                                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"><div className="bg-[#000B29] border border-[#002266] text-gray-500 text-[10px] font-black w-8 h-8 flex items-center justify-center rounded-full shadow-lg">VS</div></div>
@@ -861,15 +1021,21 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                     </div>
                                     {tempStats && selectedCount === 4 && <div className="absolute bottom-1 left-0 right-0 text-center pointer-events-none"><span className={`text-[9px] font-black px-1.5 py-0.5 rounded backdrop-blur ${tempStats.diff < 50 ? 'bg-[#00FF41]/20 text-[#00FF41]' : 'bg-yellow-500/20 text-yellow-500'}`}>RP Diff: {tempStats.diff}</span></div>}
                                 </div>
+                                {varietyWarning && (
+                                    <div className="mt-3 flex items-start gap-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-500 text-[10px] font-bold">
+                                        <AlertTriangle size={14} className="shrink-0 animate-bounce" />
+                                        <span>{varietyWarning} Consider swapping players for variety.</span>
+                                    </div>
+                                )}
                             </div>
                             <div className="p-4 overflow-y-auto flex-1">
                                 <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-3 flex items-center"><Users size={12} className="mr-2" /> Available Players</h4>
-                                <div className="space-y-2">{checkedInIds.filter(pid => { if (tempSelectedPlayers.includes(pid)) return false; const currentCourt = getPlayerCourtIndex(pid); if (currentCourt !== null && currentCourt !== editingCourt) return false; return true; }).map(playerId => { const user = allUsers.find(u => u.id === playerId); if (!user) return null; const pStats = playerStats[playerId] || { played: 0 }; return (<button key={playerId} onClick={() => handleSelectAvailablePlayer(playerId)} className="w-full flex items-center justify-between p-3 rounded-lg border bg-[#000B29] border-[#002266] hover:border-gray-500 transition-all group"><div className="flex items-center gap-3"><div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}><img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} /></div><div className="text-left"><span className="text-sm font-bold text-white block">{user.name}</span><div className="flex items-center gap-2"><span className="text-[10px] text-yellow-500 font-mono font-bold">{user.points} RP</span><span className="text-[10px] text-gray-500 font-bold">•</span><span className="text-[10px] text-blue-400 font-bold">{pStats.played} Played</span></div></div></div><div className="w-6 h-6 rounded-full bg-[#00FF41]/10 flex items-center justify-center group-hover:bg-[#00FF41] transition-colors"><Plus size={14} className="text-[#00FF41] group-hover:text-[#000B29]" /></div></button>); })}</div>
+                                <div className="space-y-2">{checkedInIds.filter(pid => { if (tempSelectedPlayers.includes(pid)) return false; const currentCourt = getPlayerCourtIndex(pid); if (currentCourt !== null && currentCourt !== editingCourt && !isQueueingMatch) return false; return true; }).map(playerId => { const user = allUsers.find(u => u.id === playerId); if (!user) return null; const pStats = playerStats[playerId] || { played: 0 }; return (<button key={playerId} onClick={() => handleSelectAvailablePlayer(playerId)} className="w-full flex items-center justify-between p-3 rounded-lg border bg-[#000B29] border-[#002266] hover:border-gray-500 transition-all group"><div className="flex items-center gap-3"><div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}><img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} /></div><div className="text-left"><span className="text-sm font-bold text-white block">{user.name}</span><div className="flex items-center gap-2"><span className="text-[10px] text-yellow-500 font-mono font-bold">{user.points} RP</span><span className="text-[10px] text-gray-500 font-bold">•</span><span className="text-[10px] text-blue-400 font-bold">{pStats.played} Played</span></div></div></div><div className="w-6 h-6 rounded-full bg-[#00FF41]/10 flex items-center justify-center group-hover:bg-[#00FF41] transition-colors"><Plus size={14} className="text-[#00FF41] group-hover:text-[#000B29]" /></div></button>); })}</div>
                             </div>
                             <div className="p-4 bg-[#000B29] border-t border-[#002266] flex gap-3">
-                                <button onClick={() => { triggerHaptic('light'); setEditingCourt(null); }} className="py-3.5 px-3 border border-[#002266] hover:bg-[#001645] text-gray-400 hover:text-white transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg]"><span className="skew-x-[6deg] inline-block">Cancel</span></button>
+                                <button onClick={() => { triggerHaptic('light'); setEditingCourt(null); setIsQueueingMatch(false); }} className="py-3.5 px-3 border border-[#002266] hover:bg-[#001645] text-gray-400 hover:text-white transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg]"><span className="skew-x-[6deg] inline-block">Cancel</span></button>
                                 <button onClick={handleRandomize} className="flex-1 py-3.5 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg]"><span className="skew-x-[6deg] flex items-center justify-center gap-2"><Dices size={14} /> Random</span></button>
-                                <button onClick={saveCourtAssignment} disabled={!canStartMatch} className={`flex-1 py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all ${canStartMatch ? 'bg-[#00FF41] hover:bg-white text-[#000B29] hover:shadow-[0_0_20px_rgba(0,255,65,0.4)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}><span className="skew-x-[6deg] flex items-center">{canStartMatch && <Play size={14} className="mr-2 fill-current" />}Start Match</span></button>
+                                <button onClick={saveCourtAssignment} disabled={!canStartMatch} className={`flex-1 py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all ${canStartMatch ? (isQueueingMatch ? 'bg-[#003399] hover:bg-blue-600 text-white' : 'bg-[#00FF41] hover:bg-white text-[#000B29]') : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}><span className="skew-x-[6deg] flex items-center">{canStartMatch && (isQueueingMatch ? <ListPlus size={14} className="mr-2" /> : <Play size={14} className="mr-2 fill-current" />)}{isQueueingMatch ? 'Queue Match' : 'Start Match'}</span></button>
                             </div>
                         </div>
                     </div>

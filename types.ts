@@ -52,7 +52,14 @@ export interface Session {
   matchStartTimes?: Record<number, string>; // Map court index to ISO Start Time string
   matches?: MatchResult[]; // History of matches played
   // Financials
+  nextMatchups?: NextMatchup[];
   finalBill?: FinalBill;
+}
+
+export interface NextMatchup {
+  id: string; // Unique ID for keying
+  playerIds: string[]; // Usually 4 players
+  courtIndex?: number; // Optional: if assigned to specific court queue
 }
 
 export interface CreateSessionDTO {

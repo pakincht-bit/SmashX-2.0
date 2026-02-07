@@ -1,5 +1,5 @@
 
-import { User, Session, MatchResult } from './types';
+import { User, Session, MatchResult, NextMatchup } from './types';
 
 export const generateId = (): string => Math.random().toString(36).substring(2, 9);
 
@@ -132,6 +132,7 @@ export const mapSessionFromDB = (dbSession: any): Session => ({
   courtAssignments: dbSession.court_assignments || {},
   matchStartTimes: dbSession.match_start_times || {},
   matches: dbSession.matches || [],
+  nextMatchups: dbSession.next_matchups || [],
   finalBill: dbSession.final_bill,
   started: dbSession.started || (dbSession.checked_in_player_ids && dbSession.checked_in_player_ids.length > 0) || false
 });

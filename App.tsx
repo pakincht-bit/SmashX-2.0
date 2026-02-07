@@ -90,7 +90,16 @@ const App: React.FC = () => {
                             return [...prev, newSession].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
                         });
                     } else if (payload.eventType === 'UPDATE') {
-                        setSessions(prev => prev.map(s => s.id === payload.new.id ? mapSessionFromDB(payload.new) : s));
+                        setSessions(prev => prev.map(s => {
+                            if (s.id !== payload.new.id) return s;
+                            const newSession = mapSessionFromDB(payload.new);
+                            // Preserve nextMatchups if missing/null in payload (handling incomplete updates or missing column)
+                            // This ensures the optimistic update persists locally until a valid non-null update comes in
+                            if ((payload.new.next_matchups === undefined || payload.new.next_matchups === null) && s.nextMatchups && s.nextMatchups.length > 0) {
+                                newSession.nextMatchups = s.nextMatchups;
+                            }
+                            return newSession;
+                        }));
                     } else if (payload.eventType === 'DELETE') {
                         setSessions(prev => prev.filter(s => s.id !== payload.old.id));
                     }
@@ -696,6 +705,58 @@ const App: React.FC = () => {
         }
     };
 
+    const handleQueueMatch = async (sessionId: string, playerIds: string[]) => {
+        const session = sessions.find(s => s.id === sessionId);
+        if (!session) return;
+        const previousSessions = sessions;
+        const newMatchup = { id: generateId(), playerIds };
+        const updatedQueue = [...(session.nextMatchups || []), newMatchup];
+
+        // Optimistic
+        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, nextMatchups: updatedQueue } : s));
+
+        const { error } = await supabase.from('sessions').update({ next_matchups: updatedQueue }).eq('id', sessionId);
+        if (error) {
+            console.error("SX: Supabase Queue Match Error:", error);
+            setSessions(previousSessions);
+            showToast("Queue failed", true);
+        } else {
+            showToast("Match Queued");
+        }
+    };
+
+    const handleDeleteQueuedMatch = async (sessionId: string, matchupId: string) => {
+        const session = sessions.find(s => s.id === sessionId);
+        if (!session) return;
+        const previousSessions = sessions;
+        const updatedQueue = (session.nextMatchups || []).filter(m => m.id !== matchupId);
+
+        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, nextMatchups: updatedQueue } : s));
+
+        const { error } = await supabase.from('sessions').update({ next_matchups: updatedQueue }).eq('id', sessionId);
+        if (error) {
+            console.error("SX: Supabase Delete Queue Match Error:", error);
+            setSessions(previousSessions);
+            showToast("Delete failed", true);
+        }
+    };
+
+    const handlePromoteMatch = async (sessionId: string, matchupId: string, courtIndex: number) => {
+        const session = sessions.find(s => s.id === sessionId);
+        if (!session) return;
+
+        const matchup = (session.nextMatchups || []).find(m => m.id === matchupId);
+        if (!matchup) return;
+
+        // 1. Remove from Queue (Optimistic handled inside)
+        await handleDeleteQueuedMatch(sessionId, matchupId);
+
+        // 2. Assign to court (Optimistic handled inside)
+        await handleCourtAssignment(sessionId, courtIndex, matchup.playerIds);
+    };
+
+
+
     const handleRecordMatchResult = async (sessionId: string, courtIndex: number, winningTeamIndex: 1 | 2) => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
@@ -953,6 +1014,9 @@ const App: React.FC = () => {
                         onPlayerClick={setViewingPlayerId}
                         onRefresh={fetchData}
                         onEdit={handleEditSessionTrigger}
+                        onQueueMatch={handleQueueMatch}
+                        onPromoteMatch={handlePromoteMatch}
+                        onDeleteQueuedMatch={handleDeleteQueuedMatch}
                     />
                 </Suspense>
             )}
