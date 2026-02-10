@@ -167,9 +167,40 @@ export const getSmartMatchSuggestion = (
     ).length;
   });
 
-  return [...availableIds]
-    .sort((a, b) => playCounts[a] - playCounts[b])
-    .slice(0, 4);
+  // Track recency: higher index = more recent match
+  const lastPlayedIndex: Record<string, number> = {};
+  matches.forEach((m, idx) => {
+    [...m.team1Ids, ...m.team2Ids].forEach(id => {
+      lastPlayedIndex[id] = idx;
+    });
+  });
+
+  // Sort by: fewest games first, then earliest last-played first
+  const sorted = [...availableIds].sort((a, b) => {
+    const countDiff = playCounts[a] - playCounts[b];
+    if (countDiff !== 0) return countDiff;
+    return (lastPlayedIndex[a] ?? -1) - (lastPlayedIndex[b] ?? -1);
+  });
+
+  const selected = sorted.slice(0, 4);
+
+  // Avoid repeating the exact last matchup if possible
+  if (matches.length > 0 && selected.length === 4) {
+    const lastMatch = matches[matches.length - 1];
+    const lastSet = new Set([...lastMatch.team1Ids, ...lastMatch.team2Ids]);
+    const selectedSet = new Set(selected);
+
+    // If the selected 4 are exactly the same people as the last match
+    if (selected.every(id => lastSet.has(id)) && lastSet.size === selectedSet.size) {
+      // Swap one selected player with next available player
+      const remaining = sorted.slice(4);
+      if (remaining.length > 0) {
+        selected[3] = remaining[0];
+      }
+    }
+  }
+
+  return selected;
 };
 
 /**
