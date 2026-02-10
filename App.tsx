@@ -22,6 +22,7 @@ import PullToRefresh from './components/PullToRefresh';
 import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { Analytics } from '@vercel/analytics/react';
 
 const SESSIONS_PER_PAGE = 10;
 const INITIAL_LOAD_TIMEOUT = 15000;
@@ -1023,6 +1024,7 @@ const App: React.FC = () => {
             <PlayerProfileModal isOpen={!!viewingPlayerId} onClose={() => setViewingPlayerId(null)} userId={viewingPlayerId} allUsers={usersWithCalculatedPoints} sessions={sessions} />
             <ArenaTiersModal isOpen={showTiers} onClose={() => setShowTiers(false)} user={activeUser} />
             <InstallGuideModal isOpen={showInstallGuide} onClose={() => setShowInstallGuide(false)} />
+            <Analytics />
         </>
     );
 };
