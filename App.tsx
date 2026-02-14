@@ -139,7 +139,12 @@ const App: React.FC = () => {
             if (profilesRes.error) throw profilesRes.error;
             if (activeSessionsRes.error) throw activeSessionsRes.error;
 
-            if (profilesRes.data) setUsers(profilesRes.data.map(mapProfileFromDB));
+            if (profilesRes.data) {
+                const mappedUsers = profilesRes.data.map(mapProfileFromDB);
+                // Derive rank_frame from stored points (canonical source)
+                mappedUsers.forEach((u: User) => { u.rankFrame = getFrameByPoints(u.points); });
+                setUsers(mappedUsers);
+            }
 
             // Set initial active sessions to unblock UI
             if (activeSessionsRes.data) {
@@ -147,12 +152,10 @@ const App: React.FC = () => {
                 setSessions(activeSessions);
             }
 
-            // Unlock UI immediately
+            // Unlock UI immediately — no history fetch needed!
+            // Points are stored directly in profiles table.
             setIsInitialLoading(false);
-            console.log("SX: Critical Data fetched (Active Sessions)");
-
-            // 2. Background Load: History Sessions (for points calculation)
-            fetchHistoryData(yesterday.toISOString());
+            console.log("SX: Data fetched (points from profiles, active sessions only)");
 
         } catch (error: any) {
             console.error("SX: Fetch data failed:", error.message);
@@ -163,30 +166,8 @@ const App: React.FC = () => {
         }
     };
 
-    const fetchHistoryData = async (cutoffDateISO: string) => {
-        try {
-            console.log("SX: Fetching History Data in background...");
-            const { data, error } = await supabase.from('sessions')
-                .select('*')
-                .lt('end_time', cutoffDateISO) // Older than cutoff
-                .order('start_time', { ascending: true });
-
-            if (error) throw error;
-
-            if (data && data.length > 0) {
-                const historySessions = data.map(mapSessionFromDB);
-                setSessions(prev => {
-                    // Merge history with existing active sessions, avoiding duplicates
-                    const existingIds = new Set(prev.map(s => s.id));
-                    const newSessions = historySessions.filter(s => !existingIds.has(s.id));
-                    return [...newSessions, ...prev].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-                });
-                console.log(`SX: History synced (${data.length} sessions)`);
-            }
-        } catch (err) {
-            console.error("SX: Background history fetch failed", err);
-        }
-    };
+    // fetchHistoryData removed — points are now stored in profiles table.
+    // No need to download historical sessions for points calculation.
 
     const fetchUserProfile = async (userId: string) => {
         console.log("SX: Fetching User Profile for", userId);
@@ -291,34 +272,13 @@ const App: React.FC = () => {
         };
     }, []);
 
-    const usersWithCalculatedPoints = useMemo(() => {
-        const userMap = new Map<string, User>();
-        users.forEach(u => userMap.set(u.id, { ...u, points: 1000 }));
-
-        const sortedSessions = [...sessions].sort((a, b) =>
-            new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-        );
-
-        sortedSessions.forEach(session => {
-            if (session.matches) {
-                session.matches.forEach(match => {
-                    const change = match.pointsChange || 25;
-                    const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
-                    const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
-                    winners.forEach(id => { const u = userMap.get(id); if (u) u.points += change; });
-                    losers.forEach(id => { const u = userMap.get(id); if (u) u.points -= change; });
-                });
-            }
-        });
-
-        userMap.forEach(u => { u.rankFrame = getFrameByPoints(u.points); });
-        return Array.from(userMap.values());
-    }, [users, sessions]);
+    // Points are now stored directly in profiles table — no client-side recalculation needed.
+    // users already has correct points and rankFrame from the DB fetch.
 
     const activeUser = useMemo(() => {
         if (!currentUser) return null;
-        return usersWithCalculatedPoints.find(u => u.id === currentUser.id) || currentUser;
-    }, [currentUser, usersWithCalculatedPoints]);
+        return users.find(u => u.id === currentUser.id) || currentUser;
+    }, [currentUser, users]);
 
     const handleUpdateUser = async (updatedUser: User) => {
         setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
@@ -836,6 +796,43 @@ const App: React.FC = () => {
             }).eq('id', sessionId);
 
             if (updateError) throw updateError;
+
+            // 4. Update player points in profiles table (write-through)
+            const change = newMatch.pointsChange || 25;
+            const winners = winningTeamIndex === 1 ? team1Ids : team2Ids;
+            const losers = winningTeamIndex === 1 ? team2Ids : team1Ids;
+
+            // Fetch fresh points for all involved players to avoid race conditions
+            const { data: freshProfiles } = await supabase
+                .from('profiles')
+                .select('id, points')
+                .in('id', assignedPlayerIds);
+
+            if (freshProfiles) {
+                const pointsMap = new Map(freshProfiles.map(p => [p.id, p.points || 1000]));
+
+                const updates = assignedPlayerIds.map(pid => {
+                    const currentPts = pointsMap.get(pid) || 1000;
+                    const isWinner = winners.includes(pid);
+                    const newPts = isWinner ? currentPts + change : currentPts - change;
+                    return {
+                        id: pid,
+                        points: newPts,
+                        rank_frame: getFrameByPoints(newPts)
+                    };
+                });
+
+                // Batch upsert all player points
+                await supabase.from('profiles').upsert(updates);
+
+                // Update local users state with new points
+                setUsers(prev => prev.map(u => {
+                    const update = updates.find(up => up.id === u.id);
+                    if (update) return { ...u, points: update.points, rankFrame: update.rank_frame };
+                    return u;
+                }));
+            }
+
             showToast("Match Recorded");
 
         } catch (err) {
@@ -878,7 +875,7 @@ const App: React.FC = () => {
 
     // Render logic ordered to prioritize Auth screens over Error screens
     if (authStage === 'splash') return <SplashScreen onLoginClick={() => setAuthStage('login')} onRegisterClick={() => setAuthStage('register')} />;
-    if (authStage === 'login') return <LoginScreen users={usersWithCalculatedPoints} onLogin={handleLogin} onBack={() => setAuthStage('splash')} />;
+    if (authStage === 'login') return <LoginScreen users={users} onLogin={handleLogin} onBack={() => setAuthStage('splash')} />;
     if (authStage === 'register') return <RegisterScreen onRegister={handleRegister} onBack={() => setAuthStage('splash')} />;
 
     if (fetchError && !sessions.length) {
@@ -910,10 +907,10 @@ const App: React.FC = () => {
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'leaderboard': return <Leaderboard users={usersWithCalculatedPoints} sessions={sessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} />;
+            case 'leaderboard': return <Leaderboard users={users} sessions={sessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} />;
             case 'profile':
                 if (isSettingsOpen) return <SettingsScreen currentUser={activeUser} onUpdateUser={handleUpdateUser} onDeleteAccount={handleDeleteAccount} onBack={() => setIsSettingsOpen(false)} onLogout={handleLogout} />;
-                return <Profile user={activeUser} sessions={sessions} allUsers={usersWithCalculatedPoints} onOpenSettings={() => setIsSettingsOpen(true)} onSessionClick={setSelectedSessionId} onOpenTiers={() => setShowTiers(true)} onOpenInstallGuide={() => setShowInstallGuide(true)} onLogout={handleLogout} />;
+                return <Profile user={activeUser} sessions={sessions} allUsers={users} onOpenSettings={() => setIsSettingsOpen(true)} onSessionClick={setSelectedSessionId} onOpenTiers={() => setShowTiers(true)} onOpenInstallGuide={() => setShowInstallGuide(true)} onLogout={handleLogout} />;
             case 'sessions':
             default:
                 return (
@@ -954,7 +951,7 @@ const App: React.FC = () => {
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 {group.sessions.map(session => (
-                                                    <SessionCard key={session.id} session={session} currentUser={activeUser} allUsers={usersWithCalculatedPoints} onJoin={handleJoin} onLeave={handleLeave} onDelete={handleDelete} onClick={setSelectedSessionId} />
+                                                    <SessionCard key={session.id} session={session} currentUser={activeUser} allUsers={users} onJoin={handleJoin} onLeave={handleLeave} onDelete={handleDelete} onClick={setSelectedSessionId} />
                                                 ))}
                                             </div>
                                         </div>
@@ -972,7 +969,7 @@ const App: React.FC = () => {
             <PullToRefresh onRefresh={fetchData}>
                 <div className="min-h-screen pb-24 bg-[#000B29] text-white">
                     <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
-                    <Header currentUser={activeUser} allUsers={usersWithCalculatedPoints} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={activeTab === 'sessions'} showLogoutButton={activeTab === 'profile'} onLogoClick={() => setActiveTab('sessions')} />
+                    <Header currentUser={activeUser} allUsers={users} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={activeTab === 'sessions'} showLogoutButton={activeTab === 'profile'} onLogoClick={() => setActiveTab('sessions')} />
                     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</main>
                 </div>
             </PullToRefresh>
@@ -1001,7 +998,7 @@ const App: React.FC = () => {
                     <SessionDetailModal
                         session={selectedSession}
                         currentUser={activeUser}
-                        allUsers={usersWithCalculatedPoints}
+                        allUsers={users}
                         onClose={() => setSelectedSessionId(null)}
                         onJoin={handleJoin}
                         onLeave={handleLeave}
@@ -1021,7 +1018,7 @@ const App: React.FC = () => {
                     />
                 </Suspense>
             )}
-            <PlayerProfileModal isOpen={!!viewingPlayerId} onClose={() => setViewingPlayerId(null)} userId={viewingPlayerId} allUsers={usersWithCalculatedPoints} sessions={sessions} />
+            <PlayerProfileModal isOpen={!!viewingPlayerId} onClose={() => setViewingPlayerId(null)} userId={viewingPlayerId} allUsers={users} sessions={sessions} />
             <ArenaTiersModal isOpen={showTiers} onClose={() => setShowTiers(false)} user={activeUser} />
             <InstallGuideModal isOpen={showInstallGuide} onClose={() => setShowInstallGuide(false)} />
             <Analytics />
