@@ -1,189 +1,435 @@
-
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>SmashX</title>
-    
-    <!-- PWA / Mobile App Meta Tags -->
-    <meta name="theme-color" content="#000B29" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="SmashX" />
-    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2300FF41'/%3E%3Ctext x='50' y='70' font-family='Inter, sans-serif' font-weight='900' font-style='italic' font-size='55' text-anchor='middle' fill='%23000B29'%3ESX%3C/text%3E%3C/svg%3E" />
-    <link rel="manifest" href="/manifest.json" />
 
-    <!-- Favicon: SX Logo in Neon Green Box -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%2300FF41'/%3E%3Cpath d='M85 0 L100 0 L15 100 L0 100 Z' fill='%23000B29' opacity='0.1'/%3E%3Ctext x='50' y='70' font-family='Inter, sans-serif' font-weight='900' font-style='italic' font-size='55' text-anchor='middle' fill='%23000B29'%3ESX%3C/text%3E%3C/svg%3E" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>SmashX</title>
 
-    <!-- Open Graph / Social Media Meta Tags -->
-    <meta property="og:title" content="SmashX - The Arena" />
-    <meta property="og:description" content="A social platform for close friends to organize, book, and join badminton sessions. Track your ranking, climb the tiers, and dominate the court." />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://smashx.app" />
-    <meta property="og:image" content="https://api.dicebear.com/9.x/adventurer/png?seed=SmashXRoster&backgroundColor=00FF41" />
-    <meta property="og:image:alt" content="SmashX Player Avatar" />
-    
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="SmashX - The Arena" />
-    <meta name="twitter:description" content="A social platform for close friends to organize, book, and join badminton sessions." />
-    <meta name="twitter:image" content="https://api.dicebear.com/9.x/adventurer/png?seed=SmashXRoster&backgroundColor=00FF41" />
+  <!-- PWA / Mobile App Meta Tags -->
+  <meta name="theme-color" content="#000B29" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SmashX" />
+  <link rel="apple-touch-icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2300FF41'/%3E%3Ctext x='50' y='70' font-family='Inter, sans-serif' font-weight='900' font-style='italic' font-size='55' text-anchor='middle' fill='%23000B29'%3ESX%3C/text%3E%3C/svg%3E" />
+  <link rel="manifest" href="/manifest.json" />
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Google Fonts with CORS Fix -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" crossorigin="anonymous">
-    
-    <style>
-      body {
-        font-family: 'Inter', sans-serif;
-        /* Prevent elastic scroll on iOS to feel more app-like */
-        overscroll-behavior-y: none;
-      }
-      /* Hide scrollbar globally but allow scrolling */
-      ::-webkit-scrollbar {
-        display: none;
-      }
-      * {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
-        -webkit-tap-highlight-color: transparent; /* Clean mobile taps */
-      }
-      
-      .hide-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
+  <!-- Favicon: SX Logo in Neon Green Box -->
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%2300FF41'/%3E%3Cpath d='M85 0 L100 0 L15 100 L0 100 Z' fill='%23000B29' opacity='0.1'/%3E%3Ctext x='50' y='70' font-family='Inter, sans-serif' font-weight='900' font-style='italic' font-size='55' text-anchor='middle' fill='%23000B29'%3ESX%3C/text%3E%3C/svg%3E" />
 
-      /* Handle iOS safe area for bottom nav */
-      .safe-area-bottom {
-        padding-bottom: calc(1rem + env(safe-area-inset-bottom));
-      }
+  <!-- Open Graph / Social Media Meta Tags -->
+  <meta property="og:title" content="SmashX - The Arena" />
+  <meta property="og:description"
+    content="A social platform for close friends to organize, book, and join badminton sessions. Track your ranking, climb the tiers, and dominate the court." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://smashx.app" />
+  <meta property="og:image"
+    content="https://api.dicebear.com/9.x/adventurer/png?seed=SmashXRoster&backgroundColor=00FF41" />
+  <meta property="og:image:alt" content="SmashX Player Avatar" />
 
-      .cubic-bezier {
-        transition-timing-function: cubic-bezier(0.68, -0.6, 0.32, 1.6);
-      }
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="SmashX - The Arena" />
+  <meta name="twitter:description"
+    content="A social platform for close friends to organize, book, and join badminton sessions." />
+  <meta name="twitter:image"
+    content="https://api.dicebear.com/9.x/adventurer/png?seed=SmashXRoster&backgroundColor=00FF41" />
 
-      @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .animate-fade-in-up {
-        animation: fadeInUp 0.4s ease-out forwards;
-      }
+  <script src="https://cdn.tailwindcss.com"></script>
 
-      @keyframes glitch {
-        0%, 100% { transform: translate(0); filter: brightness(1) hue-rotate(0deg); }
-        33% { transform: translate(1px, -1px); filter: brightness(1.2) hue-rotate(10deg); }
-        66% { transform: translate(-1px, 1px); filter: brightness(1.1) hue-rotate(-10deg); }
-      }
+  <!-- Google Fonts with CORS Fix -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet"
+    crossorigin="anonymous">
 
-      @keyframes mercury {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-      }
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      /* Prevent elastic scroll on iOS to feel more app-like */
+      overscroll-behavior-y: none;
+    }
 
-      @keyframes heatHaze {
-        0%, 100% { transform: scale(1); filter: blur(0px); opacity: 1; box-shadow: 0 0 15px #f97316; }
-        50% { transform: scale(1.05); filter: blur(1px); opacity: 0.8; box-shadow: 0 0 30px #ef4444; }
+    /* Hide scrollbar globally but allow scrolling */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    * {
+      -ms-overflow-style: none;
+      /* IE and Edge */
+      scrollbar-width: none;
+      /* Firefox */
+      -webkit-tap-highlight-color: transparent;
+      /* Clean mobile taps */
+    }
+
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Handle iOS safe area for bottom nav */
+    .safe-area-bottom {
+      padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    }
+
+    .cubic-bezier {
+      transition-timing-function: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
       }
 
-      @keyframes prismShine {
-        0% { background-position: 0% 50%; filter: hue-rotate(0deg); }
-        100% { background-position: 100% 50%; filter: hue-rotate(360deg); }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade-in-up {
+      animation: fadeInUp 0.4s ease-out forwards;
+    }
+
+    @keyframes glitch {
+
+      0%,
+      100% {
+        transform: translate(0);
+        filter: brightness(1) hue-rotate(0deg);
       }
 
-      @keyframes voidPulse {
-        0%, 100% { box-shadow: 0 0 20px #581c87, inset 0 0 15px #000; }
-        50% { box-shadow: 0 0 40px #7c3aed, inset 0 0 30px #000; }
+      33% {
+        transform: translate(1px, -1px);
+        filter: brightness(1.2) hue-rotate(10deg);
       }
 
-      @keyframes radiantBloom {
-        0%, 100% { box-shadow: 0 0 30px #fff, 0 0 60px #ffd700; filter: brightness(1); }
-        50% { box-shadow: 0 0 60px #fff, 0 0 100px #ffd700; filter: brightness(1.4); }
+      66% {
+        transform: translate(-1px, 1px);
+        filter: brightness(1.1) hue-rotate(-10deg);
+      }
+    }
+
+    @keyframes mercury {
+      0% {
+        background-position: 0% 50%;
       }
 
-      @keyframes dustRise {
-        0% { transform: translateY(0) scale(1); opacity: 0; }
-        50% { opacity: 0.3; }
-        100% { transform: translateY(-40px) scale(0.5); opacity: 0; }
+      50% {
+        background-position: 100% 50%;
       }
 
-      @keyframes valueUpdate {
-        0% { transform: scale(1); color: inherit; }
-        50% { transform: scale(1.15); color: #00FF41; }
-        100% { transform: scale(1); color: inherit; }
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    @keyframes heatHaze {
+
+      0%,
+      100% {
+        transform: scale(1);
+        filter: blur(0px);
+        opacity: 1;
+        box-shadow: 0 0 15px #f97316;
       }
 
-      .dust-particle {
-        position: absolute;
-        width: 3px;
-        height: 3px;
-        background: #71717a;
-        border-radius: 50%;
-        pointer-events: none;
-        animation: dustRise 3s infinite linear;
+      50% {
+        transform: scale(1.05);
+        filter: blur(1px);
+        opacity: 0.8;
+        box-shadow: 0 0 30px #ef4444;
+      }
+    }
+
+    @keyframes prismShine {
+      0% {
+        background-position: 0% 50%;
+        filter: hue-rotate(0deg);
       }
 
-      .animate-value-update {
-        display: inline-block;
-        animation: valueUpdate 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      100% {
+        background-position: 100% 50%;
+        filter: hue-rotate(360deg);
+      }
+    }
+
+    @keyframes voidPulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 20px #581c87, inset 0 0 15px #000;
       }
 
-      .rank-unpolished {
-        background: #27272a;
-        border: 2px solid #52525b;
-        position: relative;
-        overflow: hidden;
+      50% {
+        box-shadow: 0 0 40px #7c3aed, inset 0 0 30px #000;
       }
-      
-      .rank-spark {
-        border: 3px solid #22d3ee;
-        box-shadow: 0 0 15px #22d3ee;
-        animation: glitch 0.2s infinite ease-in-out;
-        animation-play-state: paused;
-      }
-      .rank-spark:hover, .preview-active.rank-spark {
-        animation-play-state: running;
+    }
+
+    @keyframes radiantBloom {
+
+      0%,
+      100% {
+        box-shadow: 0 0 30px #fff, 0 0 60px #ffd700;
+        filter: brightness(1);
       }
 
-      .rank-flow {
-        background: linear-gradient(135deg, #cbd5e1, #ffffff, #94a3b8, #ffffff, #cbd5e1);
-        background-size: 400% 400%;
-        border: 2px solid #f8fafc;
-        animation: mercury 5s infinite ease-in-out;
+      50% {
+        box-shadow: 0 0 60px #fff, 0 0 100px #ffd700;
+        filter: brightness(1.4);
+      }
+    }
+
+    @keyframes dustRise {
+      0% {
+        transform: translateY(0) scale(1);
+        opacity: 0;
       }
 
-      .rank-combustion {
-        border: 4px solid #f97316;
-        animation: heatHaze 2s infinite ease-in-out;
+      50% {
+        opacity: 0.3;
       }
 
-      .rank-prism {
-        background: linear-gradient(45deg, #f472b6, #a855f7, #3b82f6, #00FF41, #f472b6);
-        background-size: 300% 300%;
-        animation: prismShine 4s infinite linear;
-        border: 2px solid rgba(255, 255, 255, 0.8);
+      100% {
+        transform: translateY(-40px) scale(0.5);
+        opacity: 0;
+      }
+    }
+
+    @keyframes valueUpdate {
+      0% {
+        transform: scale(1);
+        color: inherit;
       }
 
-      .rank-void {
-        background: #000;
-        border: 3px solid #581c87;
-        animation: voidPulse 3s infinite ease-in-out;
+      50% {
+        transform: scale(1.15);
+        color: #00FF41;
       }
 
-      .rank-ascended {
-        background: #fff;
-        border: 4px solid #ffd700;
-        animation: radiantBloom 4s infinite ease-in-out;
+      100% {
+        transform: scale(1);
+        color: inherit;
       }
-    </style>
+    }
+
+    .dust-particle {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: #71717a;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: dustRise 3s infinite linear;
+    }
+
+    .animate-value-update {
+      display: inline-block;
+      animation: valueUpdate 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes electricRotate {
+      0% {
+        --angle: 0deg;
+      }
+
+      100% {
+        --angle: 360deg;
+      }
+    }
+
+    @property --angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+
+    .rank-base {
+      position: relative;
+      isolation: isolate;
+      /* Ensure no overflow hidden here, handled by components if needed */
+    }
+
+    .rank-base::after {
+      content: '';
+      position: absolute;
+      inset: -5px;
+      /* Slightly larger */
+      background: conic-gradient(from var(--angle), transparent 50%, var(--glow-color), transparent 90%);
+      border-radius: 50%;
+      z-index: -1;
+      animation: electricRotate var(--speed, 3s) linear infinite;
+      opacity: var(--intensity, 1);
+      /* Mix of SVG distortion + CSS glow layers */
+      filter: url(#electric-filter) drop-shadow(0 0 2px var(--glow-color)) drop-shadow(0 0 5px var(--glow-color));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      padding: 3px;
+    }
+
+    /* Inner sharp line for definition */
+    .rank-base::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 50%;
+      border: 1.5px solid var(--glow-color);
+      opacity: 0.6;
+      z-index: -1;
+      box-shadow: 0 0 10px var(--glow-color), inset 0 0 5px var(--glow-color);
+    }
+
+    .rank-unpolished {
+      /* Standard border for unranked */
+      border: 2px solid #52525b;
+      background: #27272a;
+    }
+
+    /* Rank Configurations */
+    .rank-spark {
+      --glow-color: #22d3ee;
+      --speed: 2s;
+      /* Slower, calmer movement */
+      --intensity: 0.8;
+      /* Reduced intensity */
+    }
+
+    /* Spark "Subtle Energy" Style */
+    .rank-spark.rank-base::after {
+      /* Thinner, more transparent bolts */
+      background: conic-gradient(from var(--angle),
+          transparent 0%,
+          rgba(34, 211, 238, 0.6) 10%,
+          /* Lower opacity cyan */
+          transparent 20%,
+          rgba(255, 255, 255, 0.8) 25%,
+          transparent 30%,
+          rgba(59, 130, 246, 0.5) 50%,
+          transparent 60%,
+          rgba(34, 211, 238, 0.6) 90%,
+          transparent 100%);
+
+      /* Apply subtle spark filter */
+      filter: url(#spark-filter) drop-shadow(0 0 2px rgba(34, 211, 238, 0.6));
+
+      opacity: 0.7;
+      /* Overall less visible */
+      padding: 2px;
+      /* Thinner border */
+      -webkit-mask: none !important;
+      mask: none !important;
+      mix-blend-mode: screen;
+    }
+
+    .rank-combustion {
+      --glow-color: #f59e0b;
+      /* Amber/Gold base */
+      --speed: 1s;
+      /* Faster, energetic */
+      --intensity: 1.2;
+    }
+
+    /* Intense Fire Ring Style with Sparks */
+    .rank-combustion.rank-base::after {
+      /* Hotter Gradient: More White/Yellow, less transparent, highly saturated */
+      background: conic-gradient(from var(--angle),
+          transparent 0%,
+          #dc2626 10%,
+          /* Red */
+          #f97316 20%,
+          /* Orange */
+          #facc15 30%,
+          /* Yellow */
+          #ffffff 40%,
+          /* White Hot Core */
+          #facc15 50%,
+          /* Yellow */
+          #f97316 60%,
+          /* Orange */
+          #dc2626 70%,
+          /* Red */
+          transparent 90%);
+
+      /* Apply fire filter + intense heat bloom */
+      filter: url(#fire-filter) drop-shadow(0 0 5px #facc15)
+        /* Inner Yellow Glow */
+        drop-shadow(0 0 10px #f97316)
+        /* Mid Orange Glow */
+        drop-shadow(0 0 20px #dc2626);
+      /* Outer Red Glow */
+
+      opacity: 1;
+      padding: 5px;
+      mix-blend-mode: screen;
+      /* Blends nicely with dark background */
+    }
+
+    .rank-void {
+      --glow-color: #a855f7;
+      /* Default fallback */
+      --speed: 1.5s;
+      --intensity: 1;
+    }
+
+    /* Void Eclipse Style: Smooth, Ethereal Rainbow Ring */
+    .rank-void.rank-base::after {
+      background: conic-gradient(from var(--angle),
+          #ec4899, #a855f7, #3b82f6, #06b6d4, #10b981, #eab308, #f97316, #ef4444, #ec4899);
+      /* Smooth, intense glow - NO electric filter */
+      filter: blur(6px) brightness(1.2);
+      /* Override the generic filter */
+      -webkit-mask: none !important;
+      mask: none !important;
+      padding: 6px;
+      mix-blend-mode: normal;
+    }
+
+    /* Sharp inner ring for Void */
+    .rank-void.rank-base::before {
+      border: 1.5px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 0 15px rgba(236, 72, 153, 0.6), 0 0 30px rgba(59, 130, 246, 0.6);
+      mix-blend-mode: normal;
+      z-index: 1;
+    }
+
+    .rank-ascended {
+      --glow-color: #ffffff;
+      --speed: 0.3s;
+      /* Super fast vibration */
+      --intensity: 1;
+    }
+
+    /* Ascended "Static Shock" Style */
+    .rank-ascended.rank-base::after {
+      background: conic-gradient(from var(--angle),
+          #ffffff, #e2e8f0, #ffffff, #f8fafc, #ffffff);
+      /* High frequency static spikes */
+      filter: url(#ascended-filter) drop-shadow(0 0 5px #ffffff) drop-shadow(0 0 15px #e2e8f0);
+
+      -webkit-mask: none !important;
+      mask: none !important;
+      opacity: 1;
+      padding: 8px;
+      /* Large spike runoff */
+      mix-blend-mode: screen;
+    }
+
+    /* Intense Core for Ascended */
+    .rank-ascended.rank-base::before {
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 20px #ffffff, inset 0 0 10px #ffffff;
+      z-index: 1;
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -199,10 +445,73 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-[#000B29] text-white antialiased">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+
+<body class="bg-[#000B29] text-white antialiased">
+  <div id="root"></div>
+
+  <!-- SVG Filter for Electric Border (Adapted from CodePen) -->
+  <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+    <defs>
+      <filter id="electric-filter" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+        <feTurbulence type="turbulence" baseFrequency="0.04" numOctaves="2" result="noise1" seed="1" />
+        <feOffset in="noise1" dx="0" dy="0" result="offsetNoise1">
+          <animate attributeName="dy" values="100; 0" dur="2s" repeatCount="indefinite" calcMode="linear" />
+        </feOffset>
+
+        <feTurbulence type="turbulence" baseFrequency="0.04" numOctaves="2" result="noise2" seed="2" />
+        <feOffset in="noise2" dx="0" dy="0" result="offsetNoise2">
+          <animate attributeName="dx" values="100; 0" dur="2s" repeatCount="indefinite" calcMode="linear" />
+        </feOffset>
+
+        <feBlend in="offsetNoise1" in2="offsetNoise2" mode="color-dodge" result="combinedNoise" />
+        <feDisplacementMap in="SourceGraphic" in2="combinedNoise" scale="5" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+
+      <!-- Fire Filter: Spark-like fire texture -->
+      <filter id="fire-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+        <feTurbulence type="turbulence" baseFrequency="0.08" numOctaves="3" result="noise" seed="0">
+          <animate attributeName="seed" values="0;10;0" dur="0.8s" repeatCount="indefinite" />
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" />
+        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
+      </filter>
+
+      <!-- Ascended Filter: High frequency "Static Shock" / Spikes -->
+      <filter id="ascended-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="4" result="noise" seed="0">
+          <animate attributeName="seed" from="0" to="100" dur="0.5s" repeatCount="indefinite" />
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" />
+        <feGaussianBlur stdDeviation="0.5" result="blurred" />
+        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
+      </filter>
+
+      <!-- Void Filter: Wispy, ethereal threads -->
+      <filter id="void-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.005 0.03" numOctaves="3" result="noise" seed="0">
+          <animate attributeName="baseFrequency" values="0.005 0.03;0.008 0.03;0.005 0.03" dur="5s"
+            repeatCount="indefinite" />
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="15" xChannelSelector="R" yChannelSelector="G" />
+        <feGaussianBlur stdDeviation="1" result="blurred" />
+        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
+      </filter>
+
+      <!-- Spark Filter: subtle electric crackle -->
+      <filter id="spark-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+        <feTurbulence type="turbulence" baseFrequency="0.08" numOctaves="3" result="noise" seed="0">
+          <animate attributeName="seed" values="0;10;0" dur="0.5s" repeatCount="indefinite" />
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
+        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
+      </filter>
+    </defs>
+  </svg>
+  </defs>
+  </svg>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>

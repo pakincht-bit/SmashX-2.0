@@ -59,11 +59,9 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
 
     const rankInfo = useMemo(() => {
         const p = user.points;
-        if (p >= 3000) return { name: 'The Ascended', color: 'text-white', dot: 'bg-white shadow-[0_0_8px_white]' };
-        if (p >= 2500) return { name: 'The Void', color: 'text-purple-500', dot: 'bg-purple-900 shadow-[0_0_8px_#581c87]' };
-        if (p >= 2000) return { name: 'The Prism', color: 'text-pink-400', dot: 'bg-pink-400' };
-        if (p >= 1600) return { name: 'The Combustion', color: 'text-orange-500', dot: 'bg-orange-600' };
-        if (p >= 1300) return { name: 'The Flow', color: 'text-blue-200', dot: 'bg-blue-100' };
+        if (p >= 2000) return { name: 'The Ascended', color: 'text-yellow-400', dot: 'bg-yellow-400 shadow-[0_0_8px_gold]' };
+        if (p >= 1600) return { name: 'The Void', color: 'text-purple-500', dot: 'bg-purple-900 shadow-[0_0_8px_#581c87]' };
+        if (p >= 1300) return { name: 'The Combustion', color: 'text-orange-500', dot: 'bg-orange-600' };
         if (p >= 1100) return { name: 'The Spark', color: 'text-cyan-400', dot: 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' };
         return { name: 'The Unpolished', color: 'text-gray-400', dot: 'bg-gray-600' };
     }, [user.points]);
@@ -105,7 +103,7 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
                     {/* Header Row: Avatar + Name/Rank + Actions */}
                     <div className="flex items-center gap-4 mb-5">
                         <div className="relative shrink-0">
-                            <div className={`w-16 h-16 rounded-full p-0.5 shadow-lg transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
+                            <div className={`w-16 h-16 rounded-full p-0.5 shadow-lg transition-all duration-500 ${getRankFrameClass(user.rankFrame)}`}>
                                 <img src={user.avatar} className="w-full h-full rounded-full border-2 border-[#000B29] object-cover relative z-10" style={{ backgroundColor: getAvatarColor(user.avatar) }} alt={user.name} />
                             </div>
                         </div>

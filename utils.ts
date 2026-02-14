@@ -33,11 +33,9 @@ export const getDateParts = (isoString: string) => {
 };
 
 export const getFrameByPoints = (points: number): string => {
-  if (points >= 3000) return 'ascended';
-  if (points >= 2500) return 'void';
-  if (points >= 2000) return 'prism';
-  if (points >= 1600) return 'combustion';
-  if (points >= 1300) return 'flow';
+  if (points >= 2000) return 'ascended';
+  if (points >= 1600) return 'void';
+  if (points >= 1300) return 'combustion';
   if (points >= 1100) return 'spark';
   return 'unpolished';
 };
@@ -46,19 +44,15 @@ export const getRankFrameClass = (frame: string | undefined): string => {
   const base = "ring-offset-2 ring-offset-[#000B29]";
   switch (frame) {
     case 'unpolished':
-      return `${base} rank-unpolished ring-zinc-700`;
+      return `${base} rank-unpolished`;
     case 'spark':
-      return `${base} rank-spark ring-cyan-500`;
-    case 'flow':
-      return `${base} rank-flow ring-slate-200`;
+      return `${base} rank-spark rank-base`;
     case 'combustion':
-      return `${base} rank-combustion ring-orange-500 animate-pulse`;
-    case 'prism':
-      return `${base} rank-prism ring-purple-400`;
+      return `${base} rank-combustion rank-base`;
     case 'void':
-      return `${base} rank-void ring-purple-950`;
+      return `${base} rank-void rank-base`;
     case 'ascended':
-      return `${base} rank-ascended ring-white`;
+      return `${base} rank-ascended rank-base`;
     default:
       return 'ring-0';
   }
@@ -85,12 +79,10 @@ export const getPerformanceGrade = (points: number, winRate: number): { grade: s
 export const getNextTierProgress = (points: number) => {
   const tiers = [
     { id: 'unpolished', min: 0, max: 1099, next: 'spark' },
-    { id: 'spark', min: 1100, max: 1299, next: 'flow' },
-    { id: 'flow', min: 1300, max: 1599, next: 'combustion' },
-    { id: 'combustion', min: 1600, max: 1999, next: 'prism' },
-    { id: 'prism', min: 2000, max: 2499, next: 'void' },
-    { id: 'void', min: 2500, max: 2999, next: 'ascended' },
-    { id: 'ascended', min: 3000, max: Infinity, next: null },
+    { id: 'spark', min: 1100, max: 1299, next: 'combustion' },
+    { id: 'combustion', min: 1300, max: 1599, next: 'void' },
+    { id: 'void', min: 1600, max: 1999, next: 'ascended' },
+    { id: 'ascended', min: 2000, max: Infinity, next: null },
   ];
 
   const currentTier = tiers.find(t => points >= t.min && points <= t.max);
