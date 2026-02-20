@@ -106,6 +106,8 @@ export const mapProfileFromDB = (dbProfile: any): User => ({
   name: dbProfile.name,
   avatar: dbProfile.avatar,
   points: dbProfile.points || dbProfile.mmr || 1000,
+  wins: dbProfile.wins || 0,
+  losses: dbProfile.losses || 0,
   rankFrame: dbProfile.rank_frame || 'none',
 });
 

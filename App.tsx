@@ -1,30 +1,32 @@
 
-import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, useTransition, lazy, Suspense } from 'react';
 import { Session, User, CreateSessionDTO, FinalBill, MatchResult } from './types';
 import { calculateMaxPlayers, mapSessionFromDB, mapProfileFromDB, getFrameByPoints, triggerHaptic, generateId, calculateQueue, getAvailablePlayers } from './utils';
 import Header from './components/Header';
 import SessionCard from './components/SessionCard';
-import CreateSessionModal from './components/CreateSessionModal';
-// OPTIMIZATION: Lazy load SessionDetailModal (78KB) to reduce initial bundle size
-const SessionDetailModal = lazy(() => import('./components/SessionDetailModal'));
-import PlayerProfileModal from './components/PlayerProfileModal';
 import BottomNav from './components/BottomNav';
-import Leaderboard from './components/Leaderboard';
-import Profile from './components/Profile';
 import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
-import RegisterScreen from './components/RegisterScreen';
-import SettingsScreen from './components/SettingsScreen';
-import ArenaTiersModal from './components/ArenaTiersModal';
-import InstallGuideModal from './components/InstallGuideModal';
 import InstallBanner from './components/InstallBanner';
 import PullToRefresh from './components/PullToRefresh';
 import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { Analytics } from '@vercel/analytics/react';
+
+// OPTIMIZATION: Lazy-load heavy components to reduce initial bundle size
+const SessionDetailModal = lazy(() => import('./components/SessionDetailModal'));
+const CreateSessionModal = lazy(() => import('./components/CreateSessionModal'));
+const PlayerProfileModal = lazy(() => import('./components/PlayerProfileModal'));
+const Leaderboard = lazy(() => import('./components/Leaderboard'));
+const Profile = lazy(() => import('./components/Profile'));
+const RegisterScreen = lazy(() => import('./components/RegisterScreen'));
+const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
+const ArenaTiersModal = lazy(() => import('./components/ArenaTiersModal'));
+const InstallGuideModal = lazy(() => import('./components/InstallGuideModal'));
+const ShareReportModal = lazy(() => import('./components/ShareReportModal'));
+const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })));
 
 const SESSIONS_PER_PAGE = 10;
+const PAST_SESSIONS_PER_PAGE = 10;
 const INITIAL_LOAD_TIMEOUT = 15000;
 const FETCH_TIMEOUT = 12000;
 const AUTO_END_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes grace period
@@ -47,8 +49,15 @@ const App: React.FC = () => {
     const [visibleCount, setVisibleCount] = useState(SESSIONS_PER_PAGE);
     const observerTarget = useRef<HTMLDivElement>(null);
 
+    // Past Sessions (on-demand)
+    const [pastSessions, setPastSessions] = useState<Session[]>([]);
+    const [isLoadingPast, setIsLoadingPast] = useState(false);
+    const [hasMorePast, setHasMorePast] = useState(true);
+    const [pastLoaded, setPastLoaded] = useState(false);
+
     // Navigation State
     const [activeTab, setActiveTab] = useState<'sessions' | 'leaderboard' | 'profile'>('sessions');
+    const [isTabTransitioning, startTabTransition] = useTransition();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSession, setEditingSession] = useState<Session | null>(null);
@@ -166,6 +175,39 @@ const App: React.FC = () => {
         }
     };
 
+    // --- Past Sessions: On-demand loading ---
+    const fetchPastSessions = useCallback(async () => {
+        setIsLoadingPast(true);
+        try {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            // Use offset-based pagination
+            const offset = pastSessions.length;
+
+            const { data, error } = await supabase
+                .from('sessions')
+                .select('*')
+                .lt('end_time', yesterday.toISOString()) // Only past sessions (older than 24h)
+                .order('start_time', { ascending: false })
+                .range(offset, offset + PAST_SESSIONS_PER_PAGE - 1);
+
+            if (error) throw error;
+
+            if (data) {
+                const mapped = data.map(mapSessionFromDB);
+                setPastSessions(prev => [...prev, ...mapped]);
+                setHasMorePast(data.length === PAST_SESSIONS_PER_PAGE);
+                setPastLoaded(true);
+            }
+        } catch (err: any) {
+            console.error("SX: Failed to load past sessions:", err.message);
+            showToast("Failed to load history", true);
+        } finally {
+            setIsLoadingPast(false);
+        }
+    }, [pastSessions.length, showToast]);
+
     // fetchHistoryData removed — points are now stored in profiles table.
     // No need to download historical sessions for points calculation.
 
@@ -190,13 +232,15 @@ const App: React.FC = () => {
                     name: userName,
                     avatar: userAvatar,
                     points: 1000,
+                    wins: 0,
+                    losses: 0,
                     rank_frame: 'unpolished'
                 }).select().maybeSingle();
 
                 if (newProfile) {
                     setCurrentUser(mapProfileFromDB(newProfile));
                 } else {
-                    setCurrentUser({ id: userId, name: userName, avatar: userAvatar, points: 1000, rankFrame: 'unpolished' });
+                    setCurrentUser({ id: userId, name: userName, avatar: userAvatar, points: 1000, wins: 0, losses: 0, rankFrame: 'unpolished' });
                 }
             }
         } catch (error: any) {
@@ -207,6 +251,8 @@ const App: React.FC = () => {
                     name: 'Arena Player',
                     avatar: `https://api.dicebear.com/9.x/adventurer/svg?seed=${userId}`,
                     points: 1000,
+                    wins: 0,
+                    losses: 0,
                     rankFrame: 'unpolished'
                 });
             }
@@ -280,7 +326,7 @@ const App: React.FC = () => {
         return users.find(u => u.id === currentUser.id) || currentUser;
     }, [currentUser, users]);
 
-    const handleUpdateUser = async (updatedUser: User) => {
+    const handleUpdateUser = useCallback(async (updatedUser: User) => {
         setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
         setCurrentUser(updatedUser);
         // Optimistic update done, now sync
@@ -289,15 +335,15 @@ const App: React.FC = () => {
             avatar: updatedUser.avatar,
             rank_frame: updatedUser.rankFrame
         }).eq('id', updatedUser.id);
-    };
+    }, []);
 
-    const handleLogin = async (name: string, password: string) => {
+    const handleLogin = useCallback(async (name: string, password: string) => {
         const email = `${name.replace(/\s/g, '').toLowerCase()}@example.com`;
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-    };
+    }, []);
 
-    const handleRegister = async (name: string, avatarUrl: string, password?: string) => {
+    const handleRegister = useCallback(async (name: string, avatarUrl: string, password?: string) => {
         if (!password || isProcessingAuth) return;
         setIsProcessingAuth(true);
         const email = `${name.replace(/\s/g, '').toLowerCase()}@example.com`;
@@ -308,15 +354,20 @@ const App: React.FC = () => {
         });
         if (error) { setIsProcessingAuth(false); throw error; }
         setIsProcessingAuth(false);
-    };
+    }, [isProcessingAuth]);
 
-    const handleLogout = async () => { await supabase.auth.signOut(); };
-    const handleDeleteAccount = async () => { if (currentUser) { await supabase.rpc('delete_user'); await handleLogout(); } };
-    const handleUserChange = (userId: string) => { const user = users.find(u => u.id === userId); if (user) setCurrentUser(user); };
+    const handleLogout = useCallback(async () => { await supabase.auth.signOut(); }, []);
+    const handleDeleteAccount = useCallback(async () => { if (currentUser) { await supabase.rpc('delete_user'); await handleLogout(); } }, [currentUser, handleLogout]);
+    const handleUserChange = useCallback((userId: string) => { const user = users.find(u => u.id === userId); if (user) setCurrentUser(user); }, [users]);
+
+    // Tab switching with useTransition for smoother UX
+    const handleTabChange = useCallback((tab: 'sessions' | 'leaderboard' | 'profile') => {
+        startTabTransition(() => { setActiveTab(tab); });
+    }, [startTabTransition]);
 
     // --- OPTIMIZED ACTION HANDLERS ---
 
-    const handleSaveSession = async (data: CreateSessionDTO): Promise<string | null> => {
+    const handleSaveSession = useCallback(async (data: CreateSessionDTO): Promise<string | null> => {
         if (!currentUser) return "Login required.";
 
         triggerHaptic('medium');
@@ -377,17 +428,17 @@ const App: React.FC = () => {
             }
         }
         return null;
-    };
+    }, [currentUser, sessions, editingSession, showToast]);
 
-    const handleEditSessionTrigger = (sessionId: string) => {
+    const handleEditSessionTrigger = useCallback((sessionId: string) => {
         const session = sessions.find(s => s.id === sessionId);
         if (session) {
             setEditingSession(session);
             setIsModalOpen(true);
         }
-    };
+    }, [sessions]);
 
-    const handleJoin = async (sessionId: string) => {
+    const handleJoin = useCallback(async (sessionId: string) => {
         if (!currentUser) return;
         const session = sessions.find(s => s.id === sessionId);
         if (!session || session.playerIds.includes(currentUser.id)) return;
@@ -407,9 +458,9 @@ const App: React.FC = () => {
             setSessions(previousSessions);
             showToast("Failed to join", true);
         }
-    };
+    }, [currentUser, sessions, showToast]);
 
-    const handleLeave = async (sessionId: string) => {
+    const handleLeave = useCallback(async (sessionId: string) => {
         if (!currentUser) return;
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
@@ -429,9 +480,9 @@ const App: React.FC = () => {
             setSessions(previousSessions);
             showToast("Failed to leave", true);
         }
-    };
+    }, [currentUser, sessions, showToast]);
 
-    const handleDelete = async (sessionId: string) => {
+    const handleDelete = useCallback(async (sessionId: string) => {
         const previousSessions = sessions;
 
         // Optimistic Delete
@@ -446,9 +497,9 @@ const App: React.FC = () => {
         } else {
             showToast("Session Deleted");
         }
-    };
+    }, [sessions, selectedSessionId, showToast]);
 
-    const handleCheckInToggle = async (sessionId: string, playerId: string) => {
+    const handleCheckInToggle = useCallback(async (sessionId: string, playerId: string) => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
 
@@ -481,11 +532,11 @@ const App: React.FC = () => {
             setSessions(previousSessions);
             showToast("Update failed", true);
         }
-    };
+    }, [sessions, showToast]);
 
     // Skip Turn: Reset player's check-in time to now (moves them to end of queue)
     // Skip Turn: Swap position with the next player in the queue
-    const handleSkipTurn = async (sessionId: string, playerId: string) => {
+    const handleSkipTurn = useCallback(async (sessionId: string, playerId: string) => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
 
@@ -544,9 +595,9 @@ const App: React.FC = () => {
             setSessions(previousSessions);
             showToast("Skip failed", true);
         }
-    };
+    }, [sessions, showToast]);
 
-    const handleStartSession = async (sessionId: string, initialCheckInIds: string[] = []) => {
+    const handleStartSession = useCallback(async (sessionId: string, initialCheckInIds: string[] = []) => {
         const previousSessions = sessions;
         const now = new Date().toISOString();
         const checkInTimes: Record<string, string> = {};
@@ -571,9 +622,9 @@ const App: React.FC = () => {
         } else {
             showToast("Session Started");
         }
-    };
+    }, [showToast]);
 
-    const handleEndSession = async (sessionId: string, costData: any) => {
+    const handleEndSession = useCallback(async (sessionId: string, costData: any) => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
 
@@ -630,9 +681,9 @@ const App: React.FC = () => {
         } else {
             showToast("Session Ended");
         }
-    };
+    }, [sessions, showToast]);
 
-    const handleCourtAssignment = async (sessionId: string, courtIndex: number, playerIds: string[]) => {
+    const handleCourtAssignment = useCallback(async (sessionId: string, courtIndex: number, playerIds: string[]) => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
 
@@ -664,9 +715,9 @@ const App: React.FC = () => {
             setSessions(previousSessions);
             showToast("Assignment failed", true);
         }
-    };
+    }, [sessions, showToast]);
 
-    const handleQueueMatch = async (sessionId: string, playerIds: string[]) => {
+    const handleQueueMatch = useCallback(async (sessionId: string, playerIds: string[]) => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
         const previousSessions = sessions;
@@ -684,9 +735,9 @@ const App: React.FC = () => {
         } else {
             showToast("Match Queued");
         }
-    };
+    }, [sessions, showToast]);
 
-    const handleDeleteQueuedMatch = async (sessionId: string, matchupId: string) => {
+    const handleDeleteQueuedMatch = useCallback(async (sessionId: string, matchupId: string) => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
         const previousSessions = sessions;
@@ -700,25 +751,25 @@ const App: React.FC = () => {
             setSessions(previousSessions);
             showToast("Delete failed", true);
         }
-    };
+    }, [sessions, showToast]);
 
-    const handlePromoteMatch = async (sessionId: string, matchupId: string, courtIndex: number) => {
+    const handlePromoteMatch = useCallback(async (sessionId: string, matchupId: string, courtIndex: number) => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
 
         const matchup = (session.nextMatchups || []).find(m => m.id === matchupId);
         if (!matchup) return;
 
-        // 1. Remove from Queue (Optimistic handled inside)
-        await handleDeleteQueuedMatch(sessionId, matchupId);
+        // OPTIMIZATION: Run queue removal and court assignment in parallel
+        await Promise.all([
+            handleDeleteQueuedMatch(sessionId, matchupId),
+            handleCourtAssignment(sessionId, courtIndex, matchup.playerIds)
+        ]);
+    }, [sessions, handleDeleteQueuedMatch, handleCourtAssignment]);
 
-        // 2. Assign to court (Optimistic handled inside)
-        await handleCourtAssignment(sessionId, courtIndex, matchup.playerIds);
-    };
 
 
-
-    const handleRecordMatchResult = async (sessionId: string, courtIndex: number, winningTeamIndex: 1 | 2) => {
+    const handleRecordMatchResult = useCallback(async (sessionId: string, courtIndex: number, winningTeamIndex: 1 | 2) => {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
 
@@ -787,48 +838,48 @@ const App: React.FC = () => {
                 finalCheckInTimes[playerId] = now;
             });
 
-            // 3. Write the safe, merged list back to DB
-            const { error: updateError } = await supabase.from('sessions').update({
-                matches: finalMatches,
-                court_assignments: newAssignments,
-                match_start_times: newStartTimes,
-                check_in_times: finalCheckInTimes
-            }).eq('id', sessionId);
-
-            if (updateError) throw updateError;
-
-            // 4. Update player points in profiles table (write-through)
+            // OPTIMIZATION: Fire session update AND profile fetch in parallel
             const change = newMatch.pointsChange || 25;
             const winners = winningTeamIndex === 1 ? team1Ids : team2Ids;
-            const losers = winningTeamIndex === 1 ? team2Ids : team1Ids;
 
-            // Fetch fresh points for all involved players to avoid race conditions
-            const { data: freshProfiles } = await supabase
-                .from('profiles')
-                .select('id, points')
-                .in('id', assignedPlayerIds);
+            const [sessionUpdateResult, profilesResult] = await Promise.all([
+                // 3. Write the safe, merged list back to DB
+                supabase.from('sessions').update({
+                    matches: finalMatches,
+                    court_assignments: newAssignments,
+                    match_start_times: newStartTimes,
+                    check_in_times: finalCheckInTimes
+                }).eq('id', sessionId),
+                // 4. Fetch fresh points in parallel with session update
+                supabase.from('profiles').select('id, points, wins, losses').in('id', assignedPlayerIds)
+            ]);
 
-            if (freshProfiles) {
-                const pointsMap = new Map(freshProfiles.map(p => [p.id, p.points || 1000]));
+            if (sessionUpdateResult.error) throw sessionUpdateResult.error;
+
+            if (profilesResult.data) {
+                const pointsMap = new Map(profilesResult.data.map((p: any) => [p.id, { points: p.points || 1000, wins: p.wins || 0, losses: p.losses || 0 }]));
 
                 const updates = assignedPlayerIds.map(pid => {
-                    const currentPts = pointsMap.get(pid) || 1000;
+                    const current = pointsMap.get(pid) || { points: 1000, wins: 0, losses: 0 };
                     const isWinner = winners.includes(pid);
-                    const newPts = isWinner ? currentPts + change : currentPts - change;
+                    const newPts = isWinner ? current.points + change : current.points - change;
                     return {
                         id: pid,
                         points: newPts,
+                        wins: isWinner ? current.wins + 1 : current.wins,
+                        losses: isWinner ? current.losses : current.losses + 1,
                         rank_frame: getFrameByPoints(newPts)
                     };
                 });
 
-                // Batch upsert all player points
+                // Batch upsert all player points + wins/losses
                 await supabase.from('profiles').upsert(updates);
 
-                // Update local users state with new points
+                // OPTIMIZATION: Use Map for O(1) lookups instead of .find()
+                const updatesMap = new Map(updates.map(u => [u.id, u]));
                 setUsers(prev => prev.map(u => {
-                    const update = updates.find(up => up.id === u.id);
-                    if (update) return { ...u, points: update.points, rankFrame: update.rank_frame };
+                    const update = updatesMap.get(u.id);
+                    if (update) return { ...u, points: update.points, wins: update.wins, losses: update.losses, rankFrame: update.rank_frame };
                     return u;
                 }));
             }
@@ -840,9 +891,22 @@ const App: React.FC = () => {
             setSessions(previousSessions); // Rollback on error
             showToast("Failed to save match. Please refresh.", true);
         }
-    };
+    }, [sessions, showToast]);
 
-    const selectedSession = sessions.find(s => s.id === selectedSessionId) || null;
+    // Merge active + past sessions for child components that need full history
+    const allSessions = useMemo(() => {
+        const ids = new Set(sessions.map(s => s.id));
+        const merged = [...sessions];
+        for (const ps of pastSessions) {
+            if (!ids.has(ps.id)) merged.push(ps);
+        }
+        return merged;
+    }, [sessions, pastSessions]);
+
+    // OPTIMIZATION: Memoize selectedSession to avoid .find() on every render
+    // Search allSessions (active + past) so past session details can be viewed
+    const selectedSession = useMemo(() => allSessions.find(s => s.id === selectedSessionId) || null, [allSessions, selectedSessionId]);
+
     const upcomingSessions = useMemo(() => {
         const now = new Date();
         // Keep session visible until 30 minutes after scheduled end time
@@ -875,8 +939,8 @@ const App: React.FC = () => {
 
     // Render logic ordered to prioritize Auth screens over Error screens
     if (authStage === 'splash') return <SplashScreen onLoginClick={() => setAuthStage('login')} onRegisterClick={() => setAuthStage('register')} />;
-    if (authStage === 'login') return <LoginScreen users={users} onLogin={handleLogin} onBack={() => setAuthStage('splash')} />;
-    if (authStage === 'register') return <RegisterScreen onRegister={handleRegister} onBack={() => setAuthStage('splash')} />;
+    if (authStage === 'login') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><LoginScreen users={users} onLogin={handleLogin} onBack={() => setAuthStage('splash')} /></Suspense>;
+    if (authStage === 'register') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><RegisterScreen onRegister={handleRegister} onBack={() => setAuthStage('splash')} /></Suspense>;
 
     if (fetchError && !sessions.length) {
         return (
@@ -907,10 +971,10 @@ const App: React.FC = () => {
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'leaderboard': return <Leaderboard users={users} sessions={sessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} />;
+            case 'leaderboard': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} /></Suspense>;
             case 'profile':
-                if (isSettingsOpen) return <SettingsScreen currentUser={activeUser} onUpdateUser={handleUpdateUser} onDeleteAccount={handleDeleteAccount} onBack={() => setIsSettingsOpen(false)} onLogout={handleLogout} />;
-                return <Profile user={activeUser} sessions={sessions} allUsers={users} onOpenSettings={() => setIsSettingsOpen(true)} onSessionClick={setSelectedSessionId} onOpenTiers={() => setShowTiers(true)} onOpenInstallGuide={() => setShowInstallGuide(true)} onLogout={handleLogout} />;
+                if (isSettingsOpen) return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><SettingsScreen currentUser={activeUser} onUpdateUser={handleUpdateUser} onDeleteAccount={handleDeleteAccount} onBack={() => setIsSettingsOpen(false)} onLogout={handleLogout} /></Suspense>;
+                return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Profile user={activeUser} sessions={allSessions} allUsers={users} onOpenSettings={() => setIsSettingsOpen(true)} onSessionClick={setSelectedSessionId} onOpenTiers={() => setShowTiers(true)} onOpenInstallGuide={() => setShowInstallGuide(true)} onLogout={handleLogout} onLoadPastSessions={fetchPastSessions} isLoadingPast={isLoadingPast} hasMorePast={hasMorePast} pastLoaded={pastLoaded} /></Suspense>;
             case 'sessions':
             default:
                 return (
@@ -981,15 +1045,17 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            {!isSettingsOpen && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} currentUser={activeUser} />}
+            {!isSettingsOpen ? <BottomNav activeTab={activeTab} onTabChange={handleTabChange} currentUser={activeUser} /> : null}
 
-            <CreateSessionModal
-                isOpen={isModalOpen}
-                onClose={() => { setIsModalOpen(false); setEditingSession(null); }}
-                onCreate={handleSaveSession}
-                initialData={editingSession}
-            />
-            {selectedSession && (
+            <Suspense fallback={null}>
+                <CreateSessionModal
+                    isOpen={isModalOpen}
+                    onClose={() => { setIsModalOpen(false); setEditingSession(null); }}
+                    onCreate={handleSaveSession}
+                    initialData={editingSession}
+                />
+            </Suspense>
+            {selectedSession !== null ? (
                 <Suspense fallback={
                     <div className="fixed inset-0 z-[150] bg-[#000B29] flex items-center justify-center">
                         <Loader2 className="animate-spin text-[#00FF41]" size={48} />
@@ -1017,11 +1083,19 @@ const App: React.FC = () => {
                         onDeleteQueuedMatch={handleDeleteQueuedMatch}
                     />
                 </Suspense>
-            )}
-            <PlayerProfileModal isOpen={!!viewingPlayerId} onClose={() => setViewingPlayerId(null)} userId={viewingPlayerId} allUsers={users} sessions={sessions} />
-            <ArenaTiersModal isOpen={showTiers} onClose={() => setShowTiers(false)} user={activeUser} />
-            <InstallGuideModal isOpen={showInstallGuide} onClose={() => setShowInstallGuide(false)} />
-            <Analytics />
+            ) : null}
+            <Suspense fallback={null}>
+                <PlayerProfileModal isOpen={!!viewingPlayerId} onClose={() => setViewingPlayerId(null)} userId={viewingPlayerId} allUsers={users} sessions={sessions} />
+            </Suspense>
+            <Suspense fallback={null}>
+                <ArenaTiersModal isOpen={showTiers} onClose={() => setShowTiers(false)} user={activeUser} />
+            </Suspense>
+            <Suspense fallback={null}>
+                <InstallGuideModal isOpen={showInstallGuide} onClose={() => setShowInstallGuide(false)} />
+            </Suspense>
+            <Suspense fallback={null}>
+                <Analytics />
+            </Suspense>
         </>
     );
 };

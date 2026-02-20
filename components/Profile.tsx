@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { User, Session } from '../types';
-import { Pencil, Clock, Smartphone, Target, Trophy, Swords, Zap, ChevronRight, LogOut } from 'lucide-react';
+import { Pencil, Clock, Smartphone, Target, Trophy, Swords, Zap, ChevronRight, LogOut, Loader2, ChevronDown } from 'lucide-react';
 import { getAvatarColor, formatTime, getRankFrameClass, getDateParts, getNextTierProgress, triggerHaptic } from '../utils';
 
 interface ProfileProps {
@@ -13,10 +13,15 @@ interface ProfileProps {
     onOpenTiers: () => void;
     onOpenInstallGuide: () => void;
     onLogout: () => void;
+    onLoadPastSessions: () => void;
+    isLoadingPast: boolean;
+    hasMorePast: boolean;
+    pastLoaded: boolean;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSettings, onSessionClick, onOpenTiers, onOpenInstallGuide, onLogout }) => {
+const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSettings, onSessionClick, onOpenTiers, onOpenInstallGuide, onLogout, onLoadPastSessions, isLoadingPast, hasMorePast, pastLoaded }) => {
     const [isStandalone, setIsStandalone] = useState(true);
+    const [visibleCount, setVisibleCount] = useState(3);
 
     useEffect(() => {
         const checkStandalone = () => {
@@ -28,20 +33,13 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
     }, []);
 
     const stats = useMemo(() => {
-        let played = 0;
-        let wins = 0;
-        let losses = 0;
+        // Wins/Losses are now materialized in profiles — always accurate
+        const wins = user.wins;
+        const losses = user.losses;
+        const played = wins + losses;
         let totalDurationMinutes = 0;
 
         sessions.forEach(session => {
-            if (session.matches) {
-                session.matches.forEach(match => {
-                    const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
-                    const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
-                    if (winners.includes(user.id)) { played++; wins++; }
-                    if (losers.includes(user.id)) { played++; losses++; }
-                });
-            }
             if (session.finalBill) {
                 const item = session.finalBill.items.find(i => i.userId === user.id);
                 if (item) totalDurationMinutes += item.durationMinutes;
@@ -92,6 +90,14 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
         triggerHaptic('medium');
         onLogout();
     }, [onLogout]);
+
+    const handleLoadMore = useCallback(() => {
+        setVisibleCount(prev => prev + 10);
+        // Fetch more from DB if we're running out of local history
+        if (sessionHistory.length - visibleCount <= 10 && (!pastLoaded || hasMorePast)) {
+            onLoadPastSessions();
+        }
+    }, [sessionHistory.length, visibleCount, pastLoaded, hasMorePast, onLoadPastSessions]);
 
     return (
         <div className="space-y-6 animate-fade-in-up pb-10">
@@ -178,7 +184,7 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
                     </div>
                 ) : (
                     <div className="space-y-2">
-                        {sessionHistory.map(session => {
+                        {sessionHistory.slice(0, visibleCount).map(session => {
                             const sStats = getSessionUserStats(session);
                             const isGain = sStats.pointsChange >= 0;
                             const { day, month } = getDateParts(session.startTime);
@@ -211,6 +217,27 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
                             );
                         })}
                     </div>
+                )}
+
+                {/* Unified Load More Button */}
+                {(visibleCount < sessionHistory.length || !pastLoaded || hasMorePast) && sessionHistory.length > 0 && (
+                    <button
+                        onClick={handleLoadMore}
+                        disabled={isLoadingPast}
+                        className="w-full mt-4 py-4 bg-[#001645] border border-[#002266] rounded-xl text-center hover:border-gray-500 transition-all active:scale-[0.99] group"
+                    >
+                        {isLoadingPast ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <Loader2 className="animate-spin text-[#00FF41]" size={16} />
+                                <span className="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Loading...</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center gap-2">
+                                <ChevronDown className="text-gray-500 group-hover:text-[#00FF41] transition-colors" size={16} />
+                                <span className="text-gray-400 group-hover:text-white font-bold text-[10px] uppercase tracking-widest transition-colors">Load More History</span>
+                            </div>
+                        )}
+                    </button>
                 )}
             </div>
         </div>

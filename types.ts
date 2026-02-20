@@ -4,6 +4,8 @@ export interface User {
   name: string;
   avatar: string;
   points: number; // Elo Rating, default 1000
+  wins: number; // Total career wins
+  losses: number; // Total career losses
   rankFrame?: string; // 'none' | 'bronze' | 'silver' | 'gold' | 'platinum' | 'ruby' | 'god'
   password?: string;
 }

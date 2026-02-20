@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { ArrowLeft, Save, User as UserIcon, Check, ChevronLeft, ChevronRight, Sparkles, Trash2, AlertTriangle, LogOut } from 'lucide-react';
-import { getAvatarColor, getRankFrameClass, triggerHaptic } from '../utils';
+import { ArrowLeft, Save, User as UserIcon, Sparkles, Trash2, AlertTriangle, LogOut } from 'lucide-react';
+import { getRankFrameClass, triggerHaptic } from '../utils';
 import ConfirmationModal from './ConfirmationModal';
+import AvatarBuilder, { AvatarOptions } from './AvatarBuilder';
 
 interface SettingsScreenProps {
     currentUser: User;
@@ -19,6 +20,8 @@ const PRESET_SEEDS = [
     'Aiden', 'Chloe', 'Daniel', 'Emma', 'Finn', 'Grace', 'Harper'
 ];
 
+
+
 const BG_COLORS = [
     { name: 'Cyber Green', hex: '00FF41' },
     { name: 'Electric Blue', hex: '3b82f6' },
@@ -32,36 +35,35 @@ const BG_COLORS = [
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUser, onDeleteAccount, onBack, onLogout }) => {
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
-    const parseCurrentSettings = () => {
+    const parseCurrentSettings = (): Partial<AvatarOptions> => {
         try {
             const url = new URL(currentUser.avatar);
-            const seed = url.searchParams.get('seed') || 'Alexander';
-            const bgColor = url.searchParams.get('backgroundColor') || '00FF41';
+            const params = url.searchParams;
 
-            const seedIndex = PRESET_SEEDS.indexOf(seed);
             return {
-                index: seedIndex !== -1 ? seedIndex : 0,
-                color: bgColor.startsWith('#') ? bgColor.slice(1) : bgColor
+                seed: params.get('seed') || 'Alexander',
+                backgroundColor: params.get('backgroundColor') || '00FF41',
+                hair: params.get('hair') || undefined,
+                eyes: params.get('eyes') || undefined,
+                mouth: params.get('mouth') || undefined,
+                eyebrows: params.get('eyebrows') || undefined,
+                features: params.get('features') ? params.get('features')!.split(',') : [],
+                glasses: params.get('glasses') ? params.get('glasses')!.split(',') : [],
+                earrings: params.get('earrings') ? params.get('earrings')!.split(',') : []
             };
         } catch (e) {
-            return { index: 0, color: '00FF41' };
+            return {};
         }
     };
 
-    const initialSettings = parseCurrentSettings();
-    const [avatarIndex, setAvatarIndex] = useState(initialSettings.index);
-    const [selectedBgColor, setSelectedBgColor] = useState(initialSettings.color);
-
-    const currentAvatarUrl = `https://api.dicebear.com/9.x/adventurer/svg?seed=${PRESET_SEEDS[avatarIndex]}&backgroundColor=${selectedBgColor.replace('#', '')}`;
-
-    const nextAvatar = () => setAvatarIndex(prev => (prev + 1) % PRESET_SEEDS.length);
-    const prevAvatar = () => setAvatarIndex(prev => (prev - 1 + PRESET_SEEDS.length) % PRESET_SEEDS.length);
+    const initialOptions = parseCurrentSettings();
+    const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar);
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
         onUpdateUser({
             ...currentUser,
-            avatar: currentAvatarUrl
+            avatar: avatarUrl
         });
         onBack();
     };
@@ -88,53 +90,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
                         <Sparkles size={100} className="text-[#00FF41]" />
                     </div>
 
-                    <div className="flex flex-col items-center justify-center mb-8 relative z-10">
-                        <div className="relative group">
-                            <div className="absolute -inset-8 bg-[#00FF41]/10 blur-3xl rounded-full opacity-30 group-hover:opacity-60 transition-opacity"></div>
-                            <div
-                                className={`relative w-40 h-40 rounded-full border-4 border-[#002266] shadow-[0_0_40px_rgba(0,0,0,0.4)] transition-all duration-500 preview-active ${getRankFrameClass(currentUser.rankFrame)}`}
-                                style={{ backgroundColor: `#${selectedBgColor}` }}
-                            >
-                                <img src={currentAvatarUrl} alt="Preview" className="w-full h-full rounded-full object-cover transition-transform duration-500 ease-out" />
-                            </div>
-
-                            <button type="button" onClick={prevAvatar} className="absolute left-[-40px] top-1/2 -translate-y-1/2 bg-[#001645] border border-[#002266] p-2.5 rounded-full text-white hover:border-[#00FF41] transition-all hover:scale-110 active:scale-95 shadow-xl z-20">
-                                <ChevronLeft size={24} />
-                            </button>
-                            <button type="button" onClick={nextAvatar} className="absolute right-[-40px] top-1/2 -translate-y-1/2 bg-[#001645] border border-[#002266] p-2.5 rounded-full text-white hover:border-[#00FF41] transition-all hover:scale-110 active:scale-95 shadow-xl z-20">
-                                <ChevronRight size={24} />
-                            </button>
-                        </div>
-                        <span className="mt-4 text-[11px] font-black uppercase tracking-[0.2em] text-[#00FF41] italic opacity-80">#{PRESET_SEEDS[avatarIndex]}</span>
-                    </div>
-
-                    {/* Color Selection Section */}
-                    <div className="space-y-4 relative z-10">
-                        <label className="block text-center text-[10px] font-bold text-gray-500 uppercase tracking-[0.4em] mb-4">Background Color</label>
-                        <div className="flex flex-col gap-3">
-                            {[BG_COLORS.slice(0, 4), BG_COLORS.slice(4)].map((row, rowIndex) => (
-                                <div key={rowIndex} className="flex justify-center gap-3">
-                                    {row.map((color) => (
-                                        <button
-                                            key={color.hex}
-                                            type="button"
-                                            onClick={() => setSelectedBgColor(color.hex)}
-                                            className={`w-9 h-9 rounded-full border-2 transition-all duration-300 relative group
-                                            ${selectedBgColor === color.hex ? 'border-white scale-110 shadow-[0_0_20px_rgba(255,255,255,0.3)] z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}
-                                        `}
-                                            style={{ backgroundColor: `#${color.hex}` }}
-                                        >
-                                            {selectedBgColor === color.hex && (
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <Check size={14} className={color.hex === 'ffffff' ? 'text-black' : 'text-white'} strokeWidth={4} />
-                                                </div>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    <AvatarBuilder initialOptions={initialOptions} onUrlChange={setAvatarUrl} />
                 </div>
 
                 {/* Fields */}

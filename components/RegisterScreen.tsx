@@ -8,33 +8,14 @@ interface RegisterScreenProps {
     onBack: () => void;
 }
 
-const PRESET_SEEDS = [
-    'Alexander', 'Jessica', 'Ryan', 'Sarah', 'Christian', 'Sofia',
-    'Brian', 'Amelia', 'Christopher', 'Felix', 'Maria', 'Lucas',
-    'Aiden', 'Chloe', 'Daniel', 'Emma', 'Finn', 'Grace', 'Harper'
-];
-
-const BG_COLORS = [
-    { name: 'Cyber Green', hex: '00FF41' },
-    { name: 'Electric Blue', hex: '3b82f6' },
-    { name: 'Neon Pink', hex: 'f472b6' },
-    { name: 'Voltage Yellow', hex: 'facc15' },
-    { name: 'Plasma Purple', hex: 'a855f7' },
-    { name: 'Arctic White', hex: 'ffffff' },
-    { name: 'Deep Space', hex: '1e293b' },
-];
+import AvatarBuilder from './AvatarBuilder';
 
 const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) => {
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [name, setName] = useState('');
     const [password, setPassword] = useState('');
 
-    // Avatar Selection State
-    const [avatarIndex, setAvatarIndex] = useState(0);
-    const [selectedBgColor, setSelectedBgColor] = useState(BG_COLORS[0].hex);
-
-    // Computed Avatar URL
-    const currentAvatarUrl = `https://api.dicebear.com/9.x/adventurer/svg?seed=${PRESET_SEEDS[avatarIndex]}&backgroundColor=${selectedBgColor.replace('#', '')}`;
+    const [avatarUrl, setAvatarUrl] = useState('');
 
     // Validation States
     const [isCheckingName, setIsCheckingName] = useState(false);
@@ -51,7 +32,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
         setRegistrationError('');
 
         try {
-            await onRegister(name.trim(), currentAvatarUrl, password);
+            await onRegister(name.trim(), avatarUrl, password);
             registrationSucceeded.current = true;
             // No need to set step, parent component will unmount this screen upon auth change
         } catch (error: any) {
@@ -114,8 +95,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
         else setStep(prev => (prev - 1) as 1 | 2);
     };
 
-    const nextAvatar = () => setAvatarIndex(prev => (prev + 1) % PRESET_SEEDS.length);
-    const prevAvatar = () => setAvatarIndex(prev => (prev - 1 + PRESET_SEEDS.length) % PRESET_SEEDS.length);
+
 
     return (
         <div className={`fixed inset-0 z-50 bg-[#000B29] flex flex-col p-6 animate-fade-in-up overflow-hidden`}>
@@ -157,62 +137,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
 
                     {step === 3 && (
                         <div className="flex-1 flex flex-col justify-start pt-4 animate-fade-in h-full overflow-hidden">
-                            <div className="mb-4 shrink-0 flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-[#00FF41]/10 flex items-center justify-center"><Sparkles className="text-[#00FF41]" size={20} /></div>
-                                <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Your <span className="text-[#00FF41]">Identity</span></h2>
-                            </div>
 
-                            {/* Carousel Avatar Picker */}
-                            <div className="flex flex-col items-center justify-center mb-8">
-                                <div className="relative group">
-                                    <div className="absolute -inset-6 bg-[#00FF41]/10 blur-3xl rounded-full opacity-30 group-hover:opacity-60 transition-opacity"></div>
-                                    <div
-                                        className="relative w-48 h-48 rounded-full border-4 border-[#002266] shadow-2xl overflow-hidden transition-all duration-500"
-                                        style={{ backgroundColor: `#${selectedBgColor}` }}
-                                    >
-                                        <img src={currentAvatarUrl} alt="Preview" className="w-full h-full object-cover transition-transform duration-500 ease-out" />
-                                    </div>
 
-                                    <button type="button" onClick={prevAvatar} className="absolute left-[-24px] top-1/2 -translate-y-1/2 bg-[#001645] border border-[#002266] p-2.5 rounded-full text-white hover:border-[#00FF41] transition-all hover:scale-110 active:scale-95 shadow-xl z-10">
-                                        <ChevronLeft size={24} />
-                                    </button>
-                                    <button type="button" onClick={nextAvatar} className="absolute right-[-24px] top-1/2 -translate-y-1/2 bg-[#001645] border border-[#002266] p-2.5 rounded-full text-white hover:border-[#00FF41] transition-all hover:scale-110 active:scale-95 shadow-xl z-10">
-                                        <ChevronRight size={24} />
-                                    </button>
-                                </div>
-                                <span className="mt-4 text-[11px] font-black uppercase tracking-[0.2em] text-[#00FF41] italic opacity-80">#{PRESET_SEEDS[avatarIndex]}</span>
-                            </div>
 
-                            {/* Color Selection Section */}
-                            <div className="space-y-4">
-                                <label className="block text-center text-[10px] font-bold text-gray-500 uppercase tracking-[0.4em] mb-4">Background Color</label>
-                                <div className="flex flex-col gap-3">
-                                    {[BG_COLORS.slice(0, 4), BG_COLORS.slice(4)].map((row, rowIndex) => (
-                                        <div key={rowIndex} className="flex justify-center gap-3">
-                                            {row.map((color) => (
-                                                <button
-                                                    key={color.hex}
-                                                    type="button"
-                                                    onClick={() => setSelectedBgColor(color.hex)}
-                                                    className={`w-11 h-11 rounded-full border-2 transition-all duration-300 relative group
-                                                    ${selectedBgColor === color.hex ? 'border-white scale-110 shadow-[0_0_25px_rgba(255,255,255,0.3)] z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}
-                                                `}
-                                                    style={{ backgroundColor: `#${color.hex}` }}
-                                                >
-                                                    {selectedBgColor === color.hex && (
-                                                        <div className="absolute inset-0 flex items-center justify-center">
-                                                            <Check size={16} className={color.hex === 'ffffff' ? 'text-black' : 'text-white'} strokeWidth={4} />
-                                                        </div>
-                                                    )}
-                                                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-black uppercase text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 bg-black/50 px-2 py-1 rounded">
-                                                        {color.name}
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+
+                            <AvatarBuilder onUrlChange={setAvatarUrl} />
 
                             {registrationError && (
                                 <div className="mt-4 bg-red-500/10 border border-red-500/30 p-3 rounded-lg flex flex-col items-center gap-2">

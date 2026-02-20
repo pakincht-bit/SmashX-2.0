@@ -17,31 +17,13 @@ const PlayerProfileModal: React.FC<PlayerProfileModalProps> = ({ isOpen, onClose
 
   const stats = useMemo(() => {
     if (!user) return { played: 0, wins: 0, losses: 0, winRate: 0 };
-    let played = 0;
-    let wins = 0;
-    let losses = 0;
-
-    sessions.forEach(session => {
-      if (session.matches) {
-        session.matches.forEach(match => {
-          const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
-          const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
-
-          if (winners.includes(user.id)) {
-            played++;
-            wins++;
-          }
-          if (losers.includes(user.id)) {
-            played++;
-            losses++;
-          }
-        });
-      }
-    });
-
+    const wins = user.wins;
+    const losses = user.losses;
+    const played = wins + losses;
     const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+
     return { played, wins, losses, winRate };
-  }, [user, sessions]);
+  }, [user]);
 
   const rank = useMemo(() => {
     if (!user) return 0;
@@ -103,7 +85,7 @@ const PlayerProfileModal: React.FC<PlayerProfileModalProps> = ({ isOpen, onClose
           </div>
 
           {/* Stats Grid */}
-          <div className="relative z-10 grid grid-cols-3 gap-2 mt-2 pt-6 border-t border-[#002266]">
+          <div className="relative z-10 grid grid-cols-4 gap-2 mt-2 pt-6 border-t border-[#002266]">
             <div className="flex flex-col items-center justify-center py-2">
               <span className="text-lg font-black text-white italic leading-none">#{rank}</span>
               <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Ranking</span>
@@ -114,13 +96,18 @@ const PlayerProfileModal: React.FC<PlayerProfileModalProps> = ({ isOpen, onClose
               <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Points</span>
             </div>
 
+            <div className="flex flex-col items-center justify-center py-2 border-r border-[#002266]">
+              <span className="text-lg font-black text-white font-mono leading-none">{stats.played}</span>
+              <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Played</span>
+            </div>
+
             <div className="flex flex-col items-center justify-center py-2">
               <div className="text-lg font-black italic leading-none flex items-center">
                 <span className="text-green-500">{stats.wins}</span>
                 <span className="text-gray-600 mx-0.5">/</span>
                 <span className="text-red-500">{stats.losses}</span>
               </div>
-              <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">W-L Record</span>
+              <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">W / L</span>
             </div>
           </div>
         </div>

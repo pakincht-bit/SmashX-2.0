@@ -112,23 +112,13 @@ const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, is
                         {isMe && <span className="text-[8px] bg-[#00FF41] text-[#000B29] px-1 rounded-sm font-black uppercase tracking-widest italic animate-pulse">YOU</span>}
                     </div>
                     <div className="text-[9px] text-gray-400 mt-1 flex items-center gap-2">
-                        <span className="font-bold uppercase tracking-wider">
-                            <span className="text-green-400">{s.wins}W</span> - <span className="text-red-400">{s.losses}L</span>
-                        </span>
-                        <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
-                        <span className="font-bold uppercase tracking-wider">{s.played} Played</span>
+                        <span className="font-bold uppercase tracking-wider">{s.played} Matches Played</span>
                     </div>
                 </div>
             </div>
             <div className="text-right">
-                <div className="text-[#00FF41] font-mono font-black text-sm group-hover:scale-110 transition-transform origin-right">
+                <div className="text-[#00FF41] font-mono font-black text-lg group-hover:scale-110 transition-transform origin-right">
                     <span key={user.points} className="animate-value-update">{user.points}</span>
-                </div>
-                <div className="flex items-center justify-end gap-1 mt-0.5">
-                    <div className="h-1 w-8 bg-gray-800 rounded-full overflow-hidden flex shrink-0">
-                        <div className="h-full transition-all duration-1000" style={{ width: `${s.winRate}%`, backgroundColor: getWinRateColor(s.winRate) }}></div>
-                    </div>
-                    <span key={s.winRate} className="text-[9px] text-gray-400 font-bold font-mono animate-value-update">{s.winRate}%</span>
                 </div>
             </div>
         </div>
@@ -140,16 +130,21 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
     const stats = useMemo(() => {
         const userStats: Record<string, UserStats> = {};
 
+        // Use materialized wins/losses from profiles (always accurate)
         users.forEach(u => {
+            const wins = u.wins;
+            const losses = u.losses;
+            const played = wins + losses;
             userStats[u.id] = {
-                played: 0,
-                wins: 0,
-                losses: 0,
-                winRate: 0,
+                played,
+                wins,
+                losses,
+                winRate: played > 0 ? Math.round((wins / played) * 100) : 0,
                 streak: { type: 'none', count: 0 }
             };
         });
 
+        // Still compute streaks from loaded sessions (streaks are inherently recent-only)
         const allMatches: { match: MatchResult; sessionTime: string }[] = [];
         sessions.forEach(session => {
             if (!session.matches) return;
@@ -159,25 +154,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
         });
 
         allMatches.sort((a, b) => new Date(a.sessionTime).getTime() - new Date(b.sessionTime).getTime());
-
-        allMatches.forEach(({ match }) => {
-            const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
-            const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
-
-            winners.forEach(id => {
-                if (userStats[id]) {
-                    userStats[id].played++;
-                    userStats[id].wins++;
-                }
-            });
-
-            losers.forEach(id => {
-                if (userStats[id]) {
-                    userStats[id].played++;
-                    userStats[id].losses++;
-                }
-            });
-        });
 
         users.forEach(user => {
             const userMatches = allMatches.filter(({ match }) =>
@@ -206,11 +182,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
             }
 
             userStats[user.id].streak = { type: currentStreakType, count };
-        });
-
-        Object.keys(userStats).forEach(id => {
-            const s = userStats[id];
-            s.winRate = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
         });
 
         return userStats;
@@ -295,7 +266,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
                     <div className="bg-[#000B29] p-3 border-b border-[#002266] grid grid-cols-[32px_1fr_100px] gap-4">
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">#</span>
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Player</span>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Points / Win%</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Points</span>
                     </div>
 
                     <div className="divide-y divide-[#002266]">

@@ -131,6 +131,9 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
         }
     }, [session, editingCourt, finishingGameCourt]);
 
+    // OPTIMIZATION: Build a Map for O(1) user lookups instead of repeated .find() calls
+    const usersMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
+
     const liveBillPreview = useMemo(() => {
         if (!session) return { totalCost: 0, playerCount: 0, avgCost: 0, minCost: 0, maxCost: 0 };
 
@@ -285,7 +288,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     const diffMinutes = (startTimeObj.getTime() - now.getTime()) / (1000 * 60);
     const isTooEarlyToStart = diffMinutes > START_THRESHOLD_MINUTES;
 
-    const players = session.playerIds.map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+    const players = session.playerIds.map(id => usersMap.get(id)).filter(Boolean) as User[];
 
     const checkedInIds = session.checkedInPlayerIds || [];
     const assignments: Record<number, string[]> = session.courtAssignments || {};
@@ -435,9 +438,9 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
     const getTempSelectionStats = () => {
         const t1Ids = [tempSelectedPlayers[0], tempSelectedPlayers[1]].filter(Boolean) as string[];
-        const t1Users = t1Ids.map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+        const t1Users = t1Ids.map(id => usersMap.get(id)).filter(Boolean) as User[];
         const t2Ids = [tempSelectedPlayers[2], tempSelectedPlayers[3]].filter(Boolean) as string[];
-        const t2Users = t2Ids.map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+        const t2Users = t2Ids.map(id => usersMap.get(id)).filter(Boolean) as User[];
         const t1Avg = t1Users.length ? Math.round(t1Users.reduce((sum, u) => sum + u.points, 0) / t1Users.length) : 0;
         const t2Avg = t2Users.length ? Math.round(t2Users.reduce((sum, u) => sum + u.points, 0) / t2Users.length) : 0;
         return { t1Avg, t2Avg, diff: Math.abs(t1Avg - t2Avg) };
@@ -475,8 +478,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     const getTeamsForCourt = (courtIndex: number) => {
         const pIds = assignments[courtIndex] || [];
         const mid = Math.ceil(pIds.length / 2);
-        const team1 = pIds.slice(0, mid).map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
-        const team2 = pIds.slice(mid).map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+        const team1 = pIds.slice(0, mid).map(id => usersMap.get(id)).filter(Boolean) as User[];
+        const team2 = pIds.slice(mid).map(id => usersMap.get(id)).filter(Boolean) as User[];
         return { team1, team2 };
     };
 
@@ -501,8 +504,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                 <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide pr-12">
                     {(session.nextMatchups || []).map((matchup, idx) => {
                         const mid = Math.ceil(matchup.playerIds.length / 2);
-                        const team1 = matchup.playerIds.slice(0, mid).map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
-                        const team2 = matchup.playerIds.slice(mid).map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+                        const team1 = matchup.playerIds.slice(0, mid).map(id => usersMap.get(id)).filter(Boolean) as User[];
+                        const team2 = matchup.playerIds.slice(mid).map(id => usersMap.get(id)).filter(Boolean) as User[];
 
                         return (
                             <div key={matchup.id} className="min-w-[280px] sm:min-w-[320px] bg-[#000B29] border border-[#002266] rounded-xl p-3 relative group snap-start shadow-lg">
@@ -591,7 +594,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Array.from({ length: session.courtCount }).map((_, index) => {
                     const assignedPlayerIds = assignments[index] || [];
-                    const assignedUsers = assignedPlayerIds.map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+                    const assignedUsers = assignedPlayerIds.map(id => usersMap.get(id)).filter(Boolean) as User[];
                     const hasPlayers = assignedUsers.length > 0;
                     const startTime = startTimes[index];
                     const team1 = assignedUsers.slice(0, Math.ceil(assignedUsers.length / 2));
@@ -615,7 +618,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                             team1.map(u => (
                                                 <div key={u.id} onClick={(e) => { e.stopPropagation(); triggerHaptic('light'); onPlayerClick?.(u.id); }} className="flex items-center gap-2 bg-[#000B29]/90 px-2 py-1 rounded-full border border-blue-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] cursor-pointer hover:bg-blue-900/40 pointer-events-auto">
                                                     <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(u.rankFrame).replace('ring-4', 'ring-2')}`}>
-                                                        <img src={u.avatar} className="w-6 h-6 rounded-full border border-blue-500 object-cover" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
+                                                        <img src={u.avatar} className="w-8 h-8 rounded-full border border-blue-500 object-cover" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
                                                     </div>
                                                     <span className="text-[10px] font-bold text-white truncate">{u.name.split(' ')[0]}</span>
                                                 </div>
@@ -633,7 +636,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                                 <div key={u.id} onClick={(e) => { e.stopPropagation(); triggerHaptic('light'); onPlayerClick?.(u.id); }} className="flex items-center flex-row-reverse gap-2 bg-[#000B29]/90 px-2 py-1 rounded-full border border-red-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] cursor-pointer hover:bg-red-900/40 pointer-events-auto">
                                                     <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(u.rankFrame).replace('ring-4', 'ring-2')}`}>
                                                         {/* Fix: Changed user.avatar to u.avatar to fix ReferenceError */}
-                                                        <img src={u.avatar} className="w-8 h-8 rounded-full border-red-500 object-cover" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
+                                                        <img src={u.avatar} className="w-8 h-8 rounded-full border border-red-500 object-cover" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
                                                     </div>
                                                     <span className="text-[10px] font-bold text-white truncate">{u.name.split(' ')[0]}</span>
                                                 </div>
@@ -779,7 +782,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{isMatchedSplit ? 'Games / Cost' : 'Time / Cost'}</span>
                         </div>
                         {session.finalBill.items.map(item => {
-                            const user = allUsers.find(u => u.id === item.userId);
+                            const user = usersMap.get(item.userId);
                             if (!user) return null;
                             const isHighest = item.amount === Math.max(...session.finalBill!.items.map(i => i.amount));
                             const pStats = playerStats[item.userId] || { played: 0 };
@@ -835,7 +838,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                     {sortedPlayerIds.length === 0 ? (<div className="text-center py-10 text-gray-500 font-bold text-sm">No matches played this session.</div>) : (
                         <div className="space-y-2">
                             {sortedPlayerIds.map((pid, index) => {
-                                const user = allUsers.find(u => u.id === pid);
+                                const user = usersMap.get(pid);
                                 if (!user) return null;
                                 const s = stats[pid];
                                 let rankStyle = "bg-[#000B29] border-[#002266] text-white";
@@ -883,7 +886,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                     <div className="px-4 h-16 shrink-0 flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <button onClick={() => { triggerHaptic('light'); onClose(); }} className="p-2 -ml-2 text-gray-400 hover:text-[#00FF41] hover:bg-[#001645] rounded-full transition-all"><ArrowLeft size={24} /></button>
-                            <h1 className="text-sm font-bold uppercase tracking-widest text-gray-400"> {status === 'PLAYING' ? 'Live Session' : (status === 'END' ? 'Session Report' : 'Session Details')} </h1>
+                            <h1 className="text-sm font-bold uppercase tracking-widest text-gray-400"> {status === 'PLAYING' ? 'Live' : (status === 'END' ? 'Session Report' : 'Session Details')} </h1>
                         </div>
                         <div className="flex items-center gap-2">
                             <button onClick={handleManualRefresh} className={`p-2 rounded-full transition-all flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest ${isRefreshingManual ? 'text-[#00FF41] bg-[#001645]' : 'text-gray-400 hover:text-[#00FF41] hover:bg-[#001645]'}`}>
