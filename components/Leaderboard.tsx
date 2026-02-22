@@ -112,7 +112,7 @@ const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, is
                         {isMe && <span className="text-[8px] bg-[#00FF41] text-[#000B29] px-1 rounded-sm font-black uppercase tracking-widest italic animate-pulse">YOU</span>}
                     </div>
                     <div className="text-[9px] text-gray-400 mt-1 flex items-center gap-2">
-                        <span className="font-bold uppercase tracking-wider">{s.played} Matches Played</span>
+                        <span className="font-bold uppercase tracking-wider">{s.played} Matches</span>
                     </div>
                 </div>
             </div>

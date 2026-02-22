@@ -42,6 +42,7 @@ const App: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [sessions, setSessions] = useState<Session[]>([]);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const isInitializing = useRef(false);
 
@@ -77,7 +78,7 @@ const App: React.FC = () => {
     }, []);
 
     // --- Helper: Fetch with Timeout ---
-    const withTimeout = (promise: Promise<any>, ms: number = FETCH_TIMEOUT) => {
+    const withTimeout = (promise: Promise<any> | PromiseLike<any>, ms: number = FETCH_TIMEOUT) => {
         return Promise.race([
             promise,
             new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), ms))
@@ -635,7 +636,7 @@ const App: React.FC = () => {
 
         const checkedInIds = session.checkedInPlayerIds || [];
 
-        let items = [];
+        let items: any[] = [];
         if (splitMode === 'EQUAL' && checkedInIds.length > 0) {
             const amount = Math.round(totalCost / checkedInIds.length);
             items = checkedInIds.map(userId => ({ userId, durationMinutes: 0, amount }));
@@ -781,25 +782,26 @@ const App: React.FC = () => {
         const team1Ids = assignedPlayerIds.slice(0, mid);
         const team2Ids = assignedPlayerIds.slice(mid);
 
+        const newMatchId = generateId();
+        const now = new Date().toISOString();
+        const pointsChange = 25;
+
+        // 1. Optimistic Update (Immediate UI Feedback)
         const newMatch: MatchResult = {
-            id: generateId(), // Local ID generation for optimism
-            timestamp: new Date().toISOString(),
+            id: newMatchId,
+            timestamp: now,
             team1Ids,
             team2Ids,
             winningTeamIndex,
-            pointsChange: 25
+            pointsChange
         };
 
-        // 1. Optimistic Update (Immediate Feedback)
         const optimisticMatches = [...(session.matches || []), newMatch];
         const newAssignments = { ...(session.courtAssignments || {}) };
         const newStartTimes = { ...(session.matchStartTimes || {}) };
         delete newAssignments[courtIndex];
         delete newStartTimes[courtIndex];
 
-        // Reset check-in times for players who just finished playing
-        // This moves them to the end of the queue, ensuring fairness
-        const now = new Date().toISOString();
         const newCheckInTimes = { ...(session.checkInTimes || {}) };
         assignedPlayerIds.forEach(playerId => {
             newCheckInTimes[playerId] = now;
@@ -814,74 +816,33 @@ const App: React.FC = () => {
         } : s));
 
         try {
-            // 2. SAFETY FETCH: Fetch the absolute latest matches from DB before writing
-            // This prevents overwriting the entire history if the local state was stale (e.g. user had 0 games locally but 5 in DB)
-            const { data: freshSessionData, error: fetchError } = await supabase
-                .from('sessions')
-                .select('matches, check_in_times')
-                .eq('id', sessionId)
-                .single();
-
-            if (fetchError) throw fetchError;
-
-            // Merge DB matches with new match, avoiding duplicates
-            const currentDbMatches: MatchResult[] = freshSessionData?.matches || [];
-            // Check if ID collision (rare but possible in race conditions)
-            const isDuplicate = currentDbMatches.some(m => m.id === newMatch.id);
-
-            const finalMatches = isDuplicate ? currentDbMatches : [...currentDbMatches, newMatch];
-
-            // Safely merge check-in times (reset for players who finished)
-            const dbCheckInTimes = freshSessionData?.check_in_times || {};
-            const finalCheckInTimes = { ...dbCheckInTimes };
-            assignedPlayerIds.forEach(playerId => {
-                finalCheckInTimes[playerId] = now;
+            // 2. Database Update via RPC
+            // This handles sessions update and profiles stats update atomically
+            const { data, error } = await supabase.rpc('record_match_result', {
+                p_session_id: sessionId,
+                p_match_id: newMatchId,
+                p_court_index: courtIndex,
+                p_team1_ids: team1Ids,
+                p_team2_ids: team2Ids,
+                p_winning_team_index: winningTeamIndex,
+                p_points_change: pointsChange,
+                p_now: now
             });
 
-            // OPTIMIZATION: Fire session update AND profile fetch in parallel
-            const change = newMatch.pointsChange || 25;
-            const winners = winningTeamIndex === 1 ? team1Ids : team2Ids;
+            if (error) throw error;
 
-            const [sessionUpdateResult, profilesResult] = await Promise.all([
-                // 3. Write the safe, merged list back to DB
-                supabase.from('sessions').update({
-                    matches: finalMatches,
-                    court_assignments: newAssignments,
-                    match_start_times: newStartTimes,
-                    check_in_times: finalCheckInTimes
-                }).eq('id', sessionId),
-                // 4. Fetch fresh points in parallel with session update
-                supabase.from('profiles').select('id, points, wins, losses').in('id', assignedPlayerIds)
-            ]);
+            setIsSyncing(true); // Start full stat sync overlay
 
-            if (sessionUpdateResult.error) throw sessionUpdateResult.error;
+            // 3. Refresh profile data for all players to ensure local points are accurate
+            // We fetch everyone because points changes affect the leaderboard/rankings
+            const { data: updatedProfiles, error: profileError } = await supabase
+                .from('profiles')
+                .select('*');
 
-            if (profilesResult.data) {
-                const pointsMap = new Map(profilesResult.data.map((p: any) => [p.id, { points: p.points || 1000, wins: p.wins || 0, losses: p.losses || 0 }]));
-
-                const updates = assignedPlayerIds.map(pid => {
-                    const current = pointsMap.get(pid) || { points: 1000, wins: 0, losses: 0 };
-                    const isWinner = winners.includes(pid);
-                    const newPts = isWinner ? current.points + change : current.points - change;
-                    return {
-                        id: pid,
-                        points: newPts,
-                        wins: isWinner ? current.wins + 1 : current.wins,
-                        losses: isWinner ? current.losses : current.losses + 1,
-                        rank_frame: getFrameByPoints(newPts)
-                    };
-                });
-
-                // Batch upsert all player points + wins/losses
-                await supabase.from('profiles').upsert(updates);
-
-                // OPTIMIZATION: Use Map for O(1) lookups instead of .find()
-                const updatesMap = new Map(updates.map(u => [u.id, u]));
-                setUsers(prev => prev.map(u => {
-                    const update = updatesMap.get(u.id);
-                    if (update) return { ...u, points: update.points, wins: update.wins, losses: update.losses, rankFrame: update.rank_frame };
-                    return u;
-                }));
+            if (!profileError && updatedProfiles) {
+                const mappedUsers = updatedProfiles.map(mapProfileFromDB);
+                mappedUsers.forEach((u: User) => { u.rankFrame = getFrameByPoints(u.points); });
+                setUsers(mappedUsers);
             }
 
             showToast("Match Recorded");
@@ -890,6 +851,8 @@ const App: React.FC = () => {
             console.error("Failed to record match safely:", err);
             setSessions(previousSessions); // Rollback on error
             showToast("Failed to save match. Please refresh.", true);
+        } finally {
+            setIsSyncing(false);
         }
     }, [sessions, showToast]);
 
@@ -1096,6 +1059,29 @@ const App: React.FC = () => {
             <Suspense fallback={null}>
                 <Analytics />
             </Suspense>
+
+            {/* Global Syncing Overlay */}
+            {isSyncing && (
+                <div className="fixed inset-0 z-[1000] bg-[#000B29]/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-500">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-[#00FF41] blur-[60px] opacity-20 animate-pulse"></div>
+                        <div className="relative bg-[#001645] border border-[#00FF41]/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(0,255,65,0.15)] flex flex-col items-center">
+                            <div className="w-16 h-16 relative mb-6">
+                                <Loader2 className="animate-spin text-[#00FF41] absolute inset-0" size={64} strokeWidth={1.5} />
+                                <Zap className="text-[#00FF41] absolute inset-1/2 -translate-x-1/2 -translate-y-1/2" size={24} fill="currentColor" />
+                            </div>
+                            <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter mb-2">Syncing <span className="text-[#00FF41]">Arena Stats</span></h2>
+                            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] animate-pulse">Updating Ranks & Points</p>
+
+                            <div className="mt-8 flex gap-1">
+                                {[0, 1, 2].map(i => (
+                                    <div key={i} className="w-1 h-1 bg-[#00FF41] rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }}></div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

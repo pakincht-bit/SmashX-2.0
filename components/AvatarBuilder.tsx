@@ -5,6 +5,8 @@ export interface AvatarOptions {
     seed: string;
     backgroundColor: string;
     hair: string;
+    hairColor: string;
+    skinColor: string;
     eyes: string;
     mouth: string;
     eyebrows: string;
@@ -27,6 +29,25 @@ const PRESET_SEEDS = [
     'Alexander', 'Jessica', 'Ryan', 'Sarah', 'Christian', 'Sofia',
     'Brian', 'Amelia', 'Christopher', 'Felix', 'Maria', 'Lucas',
     'Aiden', 'Chloe', 'Daniel', 'Emma', 'Finn', 'Grace', 'Harper'
+];
+
+export const HAIR_COLORS = [
+    { name: 'Midnight', hex: '000000' },
+    { name: 'Espresso', hex: '3b2f2f' },
+    { name: 'Chestnut', hex: '7a4b3a' },
+    { name: 'Caramel', hex: 'a67c52' },
+    { name: 'Gold', hex: 'd4af37' },
+    { name: 'Platinum', hex: 'e5e5e5' },
+    { name: 'Toxic Green', hex: '00FF41' },
+    { name: 'Neon Pink', hex: 'f472b6' },
+];
+
+export const SKIN_COLORS = [
+    { name: 'Pale', hex: 'f2d3b1' },
+    { name: 'Fair', hex: 'ecad80' },
+    { name: 'Tan', hex: '9e5622' },
+    { name: 'Dark', hex: '763900' },
+    { name: 'Ethereal', hex: 'dee1f5' },
 ];
 
 interface AvatarBuilderProps {
@@ -56,7 +77,10 @@ const GLASSES_OPTIONS = ['none', "variant01", "variant02", "variant03", "variant
 const EARRINGS_OPTIONS = ['none', "variant06", "variant01", "variant02", "variant03", "variant04", "variant05"];
 
 const CATEGORIES = [
+    { id: 'backgroundColor', label: 'BG', options: BG_COLORS.map(c => c.hex) },
     { id: 'hair', label: 'Hair', options: HAIR_OPTIONS },
+    { id: 'hairColor', label: 'Hair Color', options: HAIR_COLORS.map(c => c.hex) },
+    { id: 'skinColor', label: 'Skin', options: SKIN_COLORS.map(c => c.hex) },
     { id: 'eyes', label: 'Eyes', options: EYE_OPTIONS },
     { id: 'mouth', label: 'Mouth', options: MOUTH_OPTIONS },
     { id: 'eyebrows', label: 'Brows', options: EYEBROW_OPTIONS },
@@ -73,6 +97,8 @@ export const buildAvatarUrl = (options: AvatarOptions): string => {
 
     // Set specific part choices. Overrides probability.
     params.set('hair', options.hair);
+    params.set('hairColor', options.hairColor);
+    params.set('skinColor', options.skinColor);
     params.set('eyes', options.eyes);
     params.set('mouth', options.mouth);
     params.set('eyebrows', options.eyebrows);
@@ -103,6 +129,8 @@ export const generateRandomOptions = (): AvatarOptions => {
         seed: getRandomArrayElement(PRESET_SEEDS),
         backgroundColor: getRandomArrayElement(BG_COLORS).hex,
         hair: getRandomArrayElement(HAIR_OPTIONS),
+        hairColor: getRandomArrayElement(HAIR_COLORS).hex,
+        skinColor: getRandomArrayElement(SKIN_COLORS).hex,
         eyes: getRandomArrayElement(EYE_OPTIONS),
         mouth: getRandomArrayElement(MOUTH_OPTIONS),
         eyebrows: getRandomArrayElement(EYEBROW_OPTIONS),
@@ -119,6 +147,8 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
                 seed: initialOptions.seed || PRESET_SEEDS[0],
                 backgroundColor: initialOptions.backgroundColor || BG_COLORS[0].hex,
                 hair: initialOptions.hair || HAIR_OPTIONS[0],
+                hairColor: initialOptions.hairColor || HAIR_COLORS[0].hex,
+                skinColor: initialOptions.skinColor || SKIN_COLORS[0].hex,
                 eyes: initialOptions.eyes || EYE_OPTIONS[0],
                 mouth: initialOptions.mouth || MOUTH_OPTIONS[0],
                 eyebrows: initialOptions.eyebrows || EYEBROW_OPTIONS[0],
@@ -186,18 +216,22 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
                 <div className="flex overflow-x-auto gap-3 pb-2 pt-1 px-1 no-scrollbar items-center" style={{ scrollbarWidth: 'none' }}>
                     {CATEGORIES.find(c => c.id === activeTab)?.options.map((optionLabel) => {
                         const isNullOption = optionLabel === 'none';
+                        const isColorTab = activeTab === 'hairColor' || activeTab === 'skinColor' || activeTab === 'backgroundColor';
                         const currentVal = Array.isArray(options[activeTab]) ? (options[activeTab] as string[])[0] || 'none' : options[activeTab] as string;
                         const isActive = currentVal === optionLabel;
 
-                        // Construct preview URL for THIS option by cloning options
-                        const previewOptions = { ...options };
-                        if (activeTab === 'features' || activeTab === 'glasses' || activeTab === 'earrings') {
-                            previewOptions[activeTab] = isNullOption ? [] : [optionLabel];
-                        } else {
-                            (previewOptions as any)[activeTab] = optionLabel;
+                        // Construct preview URL for THIS option by cloning options (for shape thumbnails)
+                        let thumbUrl = '';
+                        if (!isColorTab && !isNullOption) {
+                            const previewOptions = { ...options };
+                            if (activeTab === 'features' || activeTab === 'glasses' || activeTab === 'earrings') {
+                                previewOptions[activeTab] = isNullOption ? [] : [optionLabel];
+                            } else {
+                                (previewOptions as any)[activeTab] = optionLabel;
+                            }
+                            previewOptions.backgroundColor = 'transparent';
+                            thumbUrl = buildAvatarUrl(previewOptions);
                         }
-                        previewOptions.backgroundColor = 'transparent'; // Transparent bg for thumbnails
-                        const thumbUrl = buildAvatarUrl(previewOptions);
 
                         return (
                             <button
@@ -215,6 +249,10 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
                             >
                                 {isNullOption ? (
                                     <div className="w-full h-full flex items-center justify-center text-gray-500 text-[10px] font-bold uppercase tracking-widest">None</div>
+                                ) : isColorTab ? (
+                                    <div className="w-full h-full flex items-center justify-center p-3">
+                                        <div className="w-full h-full rounded-full border border-white/10 shadow-inner" style={{ backgroundColor: `#${optionLabel}` }}></div>
+                                    </div>
                                 ) : (
                                     <img src={thumbUrl} alt={optionLabel} loading="lazy" className="w-full h-full object-cover scale-[1.3] translate-y-1 transition-transform group-hover:scale-[1.4]" />
                                 )}
@@ -226,29 +264,6 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
                             </button>
                         );
                     })}
-                </div>
-
-                {/* Background Colors Grid */}
-                <div className="pt-2 border-t border-[#002266]">
-                    <div className="flex justify-center flex-wrap gap-2.5">
-                        {BG_COLORS.map((color) => (
-                            <button
-                                key={color.hex}
-                                type="button"
-                                onClick={() => setOptions(prev => ({ ...prev, backgroundColor: color.hex }))}
-                                className={`w-8 h-8 rounded-full border-2 transition-all duration-300 relative group shrink-0
-                                    ${options.backgroundColor === color.hex ? 'border-white scale-110 shadow-[0_0_20px_rgba(255,255,255,0.3)] z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}
-                                `}
-                                style={{ backgroundColor: `#${color.hex}` }}
-                            >
-                                {options.backgroundColor === color.hex && (
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <Check size={14} className={color.hex === 'ffffff' ? 'text-black' : 'text-white'} strokeWidth={4} />
-                                    </div>
-                                )}
-                            </button>
-                        ))}
-                    </div>
                 </div>
             </div>
         </div>
