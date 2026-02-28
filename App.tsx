@@ -85,11 +85,11 @@ const App: React.FC = () => {
         ]);
     };
 
-    // --- Realtime Subscription ---
+    // --- Realtime Subscription + Auto-Refresh on Resume ---
     useEffect(() => {
         if (!isAuthenticated) return;
 
-        const channel = supabase.channel('public:sessions')
+        const channel = supabase.channel('public:all-changes')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'sessions' },
@@ -116,10 +116,33 @@ const App: React.FC = () => {
                     }
                 }
             )
-            .subscribe();
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'profiles' },
+                (payload) => {
+                    // Live-update user profiles (points, rankFrame, etc.) when match results are recorded
+                    const updated = mapProfileFromDB(payload.new);
+                    updated.rankFrame = getFrameByPoints(updated.points);
+                    setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+                }
+            )
+            .subscribe((status) => {
+                console.log('SX: Realtime channel status:', status);
+            });
+
+        // Auto-refresh when app returns from background (phone was locked/switched apps)
+        // Mobile browsers disconnect WebSocket when backgrounded, so we need to catch up
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log('SX: App resumed from background — syncing data...');
+                fetchData();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             supabase.removeChannel(channel);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [isAuthenticated]);
 
