@@ -235,128 +235,40 @@
       animation: valueUpdate 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
-    @keyframes electricRotate {
-      0% {
-        --angle: 0deg;
-      }
-
-      100% {
-        --angle: 360deg;
-      }
-    }
-
-    @property --angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
-    }
+    /* === STATIC RANK FRAMES (Battery-Optimized) === */
+    /* No animations, no SVG filters, no pseudo-element rotation */
+    /* Just colored borders with a subtle box-shadow glow */
 
     .rank-base {
       position: relative;
-      isolation: isolate;
-      will-change: transform;
-    }
-
-    .rank-base::after {
-      content: '';
-      position: absolute;
-      inset: -5px;
-      background: conic-gradient(from var(--angle), transparent 50%, var(--glow-color), transparent 90%);
-      border-radius: 50%;
-      z-index: -1;
-      animation: electricRotate var(--speed, 3s) linear infinite;
-      opacity: var(--intensity, 1);
-      filter: url(#electric-filter) drop-shadow(0 0 2px var(--glow-color));
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      padding: 3px;
-      will-change: transform, filter;
-    }
-
-    .rank-base::before {
-      content: '';
-      position: absolute;
-      inset: -2px;
-      border-radius: 50%;
-      border: 1.5px solid var(--glow-color);
-      opacity: 0.6;
-      z-index: -1;
-      box-shadow: 0 0 8px var(--glow-color);
     }
 
     .rank-unpolished {
       border: 2px solid #52525b;
-      background: #27272a;
     }
 
+    /* Spark: Cyan glow */
     .rank-spark {
-      --glow-color: #22d3ee;
-      --speed: 4s;
-      --intensity: 0.7;
+      border: 2px solid #22d3ee;
+      box-shadow: 0 0 8px rgba(34, 211, 238, 0.5), 0 0 2px rgba(34, 211, 238, 0.3);
     }
 
-    .rank-spark.rank-base::after {
-      background: conic-gradient(from var(--angle),
-          transparent 0%,
-          rgba(34, 211, 238, 0.4) 10%,
-          transparent 20%,
-          rgba(255, 255, 255, 0.6) 25%,
-          transparent 30%,
-          rgba(59, 130, 246, 0.3) 50%,
-          transparent 80%,
-          rgba(34, 211, 238, 0.4) 90%,
-          transparent 100%);
-      filter: url(#spark-filter) opacity(0.6);
-      padding: 2px;
-    }
-
+    /* Combustion: Amber/Fire glow */
     .rank-combustion {
-      --glow-color: #f59e0b;
-      --speed: 2s;
-      --intensity: 1;
+      border: 2px solid #f59e0b;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.5), 0 0 3px rgba(249, 115, 22, 0.4);
     }
 
-    .rank-combustion.rank-base::after {
-      background: conic-gradient(from var(--angle),
-          transparent 0%,
-          #dc2626 15%,
-          #f97316 30%,
-          #facc15 45%,
-          #ffffff 50%,
-          #facc15 55%,
-          #f97316 70%,
-          #dc2626 85%,
-          transparent 100%);
-      filter: url(#fire-filter) drop-shadow(0 0 4px #facc15);
-      padding: 4px;
-    }
-
+    /* Void: Rainbow/Purple glow */
     .rank-void {
-      --glow-color: #a855f7;
-      --speed: 3s;
-      --intensity: 0.9;
+      border: 2px solid #a855f7;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.5), 0 0 4px rgba(236, 72, 153, 0.3);
     }
 
-    .rank-void.rank-base::after {
-      background: conic-gradient(from var(--angle),
-          #ec4899, #a855f7, #3b82f6, #06b6d4, #10b981, #eab308, #f97316, #ef4444, #ec4899);
-      filter: blur(4px) brightness(1.1);
-      padding: 5px;
-    }
-
+    /* Ascended: White/Bright glow */
     .rank-ascended {
-      --glow-color: #ffffff;
-      --speed: 1s;
-      --intensity: 1;
-    }
-
-    .rank-ascended.rank-base::after {
-      background: conic-gradient(from var(--angle),
-          #ffffff, #e2e8f0, #ffffff, #f8fafc, #ffffff);
-      filter: url(#ascended-filter) drop-shadow(0 0 8px #ffffff);
-      padding: 6px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.6), 0 0 4px rgba(255, 255, 255, 0.3);
     }
   </style>
   <script type="importmap">
@@ -380,39 +292,7 @@
 <body class="bg-[#000B29] text-white antialiased">
   <div id="root"></div>
 
-  <!-- SVG Filters (Optimized: Removed expensive continuous animations) -->
-  <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
-    <defs>
-      <filter id="electric-filter" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
-        <feTurbulence type="turbulence" baseFrequency="0.04" numOctaves="1" result="noise1" seed="1" />
-        <feDisplacementMap in="SourceGraphic" in2="noise1" scale="3" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
-
-      <filter id="fire-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feTurbulence type="turbulence" baseFrequency="0.08" numOctaves="2" result="noise" seed="0" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
-
-      <filter id="ascended-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="2" result="noise" seed="0" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
-        <feGaussianBlur stdDeviation="0.3" result="blurred" />
-        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
-      </filter>
-
-      <filter id="void-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feTurbulence type="fractalNoise" baseFrequency="0.01 0.03" numOctaves="2" result="noise" seed="0" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="G" />
-        <feGaussianBlur stdDeviation="0.8" result="blurred" />
-        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
-      </filter>
-
-      <filter id="spark-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feTurbulence type="turbulence" baseFrequency="0.12" numOctaves="1" result="noise" seed="0" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
-    </defs>
-  </svg>
+  <!-- SVG filters removed for battery optimization -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
