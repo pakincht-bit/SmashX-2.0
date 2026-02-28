@@ -254,29 +254,27 @@
     .rank-base {
       position: relative;
       isolation: isolate;
-      /* Ensure no overflow hidden here, handled by components if needed */
+      will-change: transform;
     }
 
     .rank-base::after {
       content: '';
       position: absolute;
       inset: -5px;
-      /* Slightly larger */
       background: conic-gradient(from var(--angle), transparent 50%, var(--glow-color), transparent 90%);
       border-radius: 50%;
       z-index: -1;
       animation: electricRotate var(--speed, 3s) linear infinite;
       opacity: var(--intensity, 1);
-      /* Mix of SVG distortion + CSS glow layers */
-      filter: url(#electric-filter) drop-shadow(0 0 2px var(--glow-color)) drop-shadow(0 0 5px var(--glow-color));
+      filter: url(#electric-filter) drop-shadow(0 0 2px var(--glow-color));
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite: xor;
       mask-composite: exclude;
       padding: 3px;
+      will-change: transform, filter;
     }
 
-    /* Inner sharp line for definition */
     .rank-base::before {
       content: '';
       position: absolute;
@@ -285,149 +283,80 @@
       border: 1.5px solid var(--glow-color);
       opacity: 0.6;
       z-index: -1;
-      box-shadow: 0 0 10px var(--glow-color), inset 0 0 5px var(--glow-color);
+      box-shadow: 0 0 8px var(--glow-color);
     }
 
     .rank-unpolished {
-      /* Standard border for unranked */
       border: 2px solid #52525b;
       background: #27272a;
     }
 
-    /* Rank Configurations */
     .rank-spark {
       --glow-color: #22d3ee;
-      --speed: 2s;
-      /* Slower, calmer movement */
-      --intensity: 0.8;
-      /* Reduced intensity */
+      --speed: 4s;
+      --intensity: 0.7;
     }
 
-    /* Spark "Subtle Energy" Style */
     .rank-spark.rank-base::after {
-      /* Thinner, more transparent bolts */
       background: conic-gradient(from var(--angle),
           transparent 0%,
-          rgba(34, 211, 238, 0.6) 10%,
-          /* Lower opacity cyan */
+          rgba(34, 211, 238, 0.4) 10%,
           transparent 20%,
-          rgba(255, 255, 255, 0.8) 25%,
+          rgba(255, 255, 255, 0.6) 25%,
           transparent 30%,
-          rgba(59, 130, 246, 0.5) 50%,
-          transparent 60%,
-          rgba(34, 211, 238, 0.6) 90%,
+          rgba(59, 130, 246, 0.3) 50%,
+          transparent 80%,
+          rgba(34, 211, 238, 0.4) 90%,
           transparent 100%);
-
-      /* Apply subtle spark filter */
-      filter: url(#spark-filter) drop-shadow(0 0 2px rgba(34, 211, 238, 0.6));
-
-      opacity: 0.7;
-      /* Overall less visible */
+      filter: url(#spark-filter) opacity(0.6);
       padding: 2px;
-      /* Thinner border */
-      -webkit-mask: none !important;
-      mask: none !important;
-      mix-blend-mode: screen;
     }
 
     .rank-combustion {
       --glow-color: #f59e0b;
-      /* Amber/Gold base */
-      --speed: 1s;
-      /* Faster, energetic */
-      --intensity: 1.2;
+      --speed: 2s;
+      --intensity: 1;
     }
 
-    /* Intense Fire Ring Style with Sparks */
     .rank-combustion.rank-base::after {
-      /* Hotter Gradient: More White/Yellow, less transparent, highly saturated */
       background: conic-gradient(from var(--angle),
           transparent 0%,
-          #dc2626 10%,
-          /* Red */
-          #f97316 20%,
-          /* Orange */
-          #facc15 30%,
-          /* Yellow */
-          #ffffff 40%,
-          /* White Hot Core */
-          #facc15 50%,
-          /* Yellow */
-          #f97316 60%,
-          /* Orange */
-          #dc2626 70%,
-          /* Red */
-          transparent 90%);
-
-      /* Apply fire filter + intense heat bloom */
-      filter: url(#fire-filter) drop-shadow(0 0 5px #facc15)
-        /* Inner Yellow Glow */
-        drop-shadow(0 0 10px #f97316)
-        /* Mid Orange Glow */
-        drop-shadow(0 0 20px #dc2626);
-      /* Outer Red Glow */
-
-      opacity: 1;
-      padding: 5px;
-      mix-blend-mode: screen;
-      /* Blends nicely with dark background */
+          #dc2626 15%,
+          #f97316 30%,
+          #facc15 45%,
+          #ffffff 50%,
+          #facc15 55%,
+          #f97316 70%,
+          #dc2626 85%,
+          transparent 100%);
+      filter: url(#fire-filter) drop-shadow(0 0 4px #facc15);
+      padding: 4px;
     }
 
     .rank-void {
       --glow-color: #a855f7;
-      /* Default fallback */
-      --speed: 1.5s;
-      --intensity: 1;
+      --speed: 3s;
+      --intensity: 0.9;
     }
 
-    /* Void Eclipse Style: Smooth, Ethereal Rainbow Ring */
     .rank-void.rank-base::after {
       background: conic-gradient(from var(--angle),
           #ec4899, #a855f7, #3b82f6, #06b6d4, #10b981, #eab308, #f97316, #ef4444, #ec4899);
-      /* Smooth, intense glow - NO electric filter */
-      filter: blur(6px) brightness(1.2);
-      /* Override the generic filter */
-      -webkit-mask: none !important;
-      mask: none !important;
-      padding: 6px;
-      mix-blend-mode: normal;
-    }
-
-    /* Sharp inner ring for Void */
-    .rank-void.rank-base::before {
-      border: 1.5px solid rgba(255, 255, 255, 0.9);
-      box-shadow: 0 0 15px rgba(236, 72, 153, 0.6), 0 0 30px rgba(59, 130, 246, 0.6);
-      mix-blend-mode: normal;
-      z-index: 1;
+      filter: blur(4px) brightness(1.1);
+      padding: 5px;
     }
 
     .rank-ascended {
       --glow-color: #ffffff;
-      --speed: 0.3s;
-      /* Super fast vibration */
+      --speed: 1s;
       --intensity: 1;
     }
 
-    /* Ascended "Static Shock" Style */
     .rank-ascended.rank-base::after {
       background: conic-gradient(from var(--angle),
           #ffffff, #e2e8f0, #ffffff, #f8fafc, #ffffff);
-      /* High frequency static spikes */
-      filter: url(#ascended-filter) drop-shadow(0 0 5px #ffffff) drop-shadow(0 0 15px #e2e8f0);
-
-      -webkit-mask: none !important;
-      mask: none !important;
-      opacity: 1;
-      padding: 8px;
-      /* Large spike runoff */
-      mix-blend-mode: screen;
-    }
-
-    /* Intense Core for Ascended */
-    .rank-ascended.rank-base::before {
-      border: 2px solid #ffffff;
-      box-shadow: 0 0 20px #ffffff, inset 0 0 10px #ffffff;
-      z-index: 1;
+      filter: url(#ascended-filter) drop-shadow(0 0 8px #ffffff);
+      padding: 6px;
     }
   </style>
   <script type="importmap">
@@ -451,68 +380,40 @@
 <body class="bg-[#000B29] text-white antialiased">
   <div id="root"></div>
 
-  <!-- SVG Filter for Electric Border (Adapted from CodePen) -->
+  <!-- SVG Filters (Optimized: Removed expensive continuous animations) -->
   <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
     <defs>
       <filter id="electric-filter" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
-        <feTurbulence type="turbulence" baseFrequency="0.04" numOctaves="2" result="noise1" seed="1" />
-        <feOffset in="noise1" dx="0" dy="0" result="offsetNoise1">
-          <animate attributeName="dy" values="100; 0" dur="2s" repeatCount="indefinite" calcMode="linear" />
-        </feOffset>
-
-        <feTurbulence type="turbulence" baseFrequency="0.04" numOctaves="2" result="noise2" seed="2" />
-        <feOffset in="noise2" dx="0" dy="0" result="offsetNoise2">
-          <animate attributeName="dx" values="100; 0" dur="2s" repeatCount="indefinite" calcMode="linear" />
-        </feOffset>
-
-        <feBlend in="offsetNoise1" in2="offsetNoise2" mode="color-dodge" result="combinedNoise" />
-        <feDisplacementMap in="SourceGraphic" in2="combinedNoise" scale="5" xChannelSelector="R" yChannelSelector="G" />
+        <feTurbulence type="turbulence" baseFrequency="0.04" numOctaves="1" result="noise1" seed="1" />
+        <feDisplacementMap in="SourceGraphic" in2="noise1" scale="3" xChannelSelector="R" yChannelSelector="G" />
       </filter>
 
-      <!-- Fire Filter: Spark-like fire texture -->
       <filter id="fire-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feTurbulence type="turbulence" baseFrequency="0.08" numOctaves="3" result="noise" seed="0">
-          <animate attributeName="seed" values="0;10;0" dur="0.8s" repeatCount="indefinite" />
-        </feTurbulence>
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" />
-        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
-      </filter>
-
-      <!-- Ascended Filter: High frequency "Static Shock" / Spikes -->
-      <filter id="ascended-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="4" result="noise" seed="0">
-          <animate attributeName="seed" from="0" to="100" dur="0.5s" repeatCount="indefinite" />
-        </feTurbulence>
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" />
-        <feGaussianBlur stdDeviation="0.5" result="blurred" />
-        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
-      </filter>
-
-      <!-- Void Filter: Wispy, ethereal threads -->
-      <filter id="void-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feTurbulence type="fractalNoise" baseFrequency="0.005 0.03" numOctaves="3" result="noise" seed="0">
-          <animate attributeName="baseFrequency" values="0.005 0.03;0.008 0.03;0.005 0.03" dur="5s"
-            repeatCount="indefinite" />
-        </feTurbulence>
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="15" xChannelSelector="R" yChannelSelector="G" />
-        <feGaussianBlur stdDeviation="1" result="blurred" />
-        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
-      </filter>
-
-      <!-- Spark Filter: subtle electric crackle -->
-      <filter id="spark-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feTurbulence type="turbulence" baseFrequency="0.08" numOctaves="3" result="noise" seed="0">
-          <animate attributeName="seed" values="0;10;0" dur="0.5s" repeatCount="indefinite" />
-        </feTurbulence>
+        <feTurbulence type="turbulence" baseFrequency="0.08" numOctaves="2" result="noise" seed="0" />
         <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+
+      <filter id="ascended-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="2" result="noise" seed="0" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
+        <feGaussianBlur stdDeviation="0.3" result="blurred" />
         <feComposite in="SourceGraphic" in2="blurred" operator="over" />
+      </filter>
+
+      <filter id="void-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.01 0.03" numOctaves="2" result="noise" seed="0" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="G" />
+        <feGaussianBlur stdDeviation="0.8" result="blurred" />
+        <feComposite in="SourceGraphic" in2="blurred" operator="over" />
+      </filter>
+
+      <filter id="spark-filter" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+        <feTurbulence type="turbulence" baseFrequency="0.12" numOctaves="1" result="noise" seed="0" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" xChannelSelector="R" yChannelSelector="G" />
       </filter>
     </defs>
   </svg>
-  </defs>
-  </svg>
   <script>
-    // Register Service Worker for offline caching & faster return visits
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')

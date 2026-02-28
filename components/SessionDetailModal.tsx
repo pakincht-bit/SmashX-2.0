@@ -913,7 +913,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                         <div className="bg-[#001645] border-b border-[#002266] h-12 overflow-hidden relative flex items-center shadow-lg z-10">
                             <style>{` @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } } .animate-marquee { animation: marquee 20s linear infinite; will-change: transform; } `}</style>
                             <div className="animate-marquee whitespace-nowrap font-black uppercase tracking-widest text-sm flex items-center min-w-full">
-                                <span className="mx-4 text-[#00FF41] flex items-center"><span className="w-2 h-2 bg-[#00FF41] rounded-full mr-2 animate-pulse shadow-[0_0_10px_#00FF41]"></span>Playing Now</span>
+                                <span className="mx-4 text-[#00FF41] flex items-center"><span className="w-2 h-2 bg-[#00FF41] rounded-full mr-2 shadow-[0_0_10px_#00FF41]"></span>Playing Now</span>
                                 <span className="text-gray-600 mx-2 text-[10px]">•</span>
                                 <span className="mx-4 text-white flex items-center"><MapPin size={14} className="mr-2 text-gray-400" />{session.location}</span>
                                 <span className="text-gray-600 mx-2 text-[10px]">•</span>

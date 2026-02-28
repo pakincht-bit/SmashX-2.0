@@ -74,7 +74,7 @@ const BottomNav: React.FC<BottomNavProps> = React.memo(({ activeTab, onTabChange
                         strokeWidth={isActive ? 3 : 2}
                         className={`transition-all duration-300 ${isActive ? 'drop-shadow-[0_0_10px_rgba(0,255,65,0.6)]' : ''}`}
                       />
-                      {isActive && <div className="absolute inset-0 bg-[#00FF41]/20 blur-md rounded-full -z-10 animate-pulse"></div>}
+                      {isActive && <div className="absolute inset-0 bg-[#00FF41]/20 blur-md rounded-full -z-10"></div>}
                     </div>
                   )}
                 </div>
