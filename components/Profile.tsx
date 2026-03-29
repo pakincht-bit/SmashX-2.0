@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { User, Session } from '../types';
 import { Pencil, Clock, Smartphone, Target, Trophy, Swords, Zap, ChevronRight, LogOut, Loader2, ChevronDown } from 'lucide-react';
-import { getAvatarColor, formatTime, getRankFrameClass, getDateParts, getNextTierProgress, triggerHaptic } from '../utils';
+import { getAvatarColor, formatTime, getRankFrameClass, getDateParts, getNextTierProgress, triggerHaptic, getWinRateColor } from '../utils';
 
 interface ProfileProps {
     user: User;
@@ -32,11 +32,13 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
         checkStandalone();
     }, []);
 
+
     const stats = useMemo(() => {
         // Wins/Losses are now materialized in profiles — always accurate
         const wins = user.wins;
         const losses = user.losses;
         const played = wins + losses;
+        const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
         let totalDurationMinutes = 0;
 
         sessions.forEach(session => {
@@ -45,7 +47,7 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
                 if (item) totalDurationMinutes += item.durationMinutes;
             }
         });
-        return { played, wins, losses, hoursPlayed: Math.round(totalDurationMinutes / 60) };
+        return { played, wins, losses, winRate, hoursPlayed: Math.round(totalDurationMinutes / 60) };
     }, [user, sessions]);
 
     const rankProgression = useMemo(() => getNextTierProgress(user.points), [user.points]);
@@ -71,6 +73,13 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
             .filter(s => !!s.finalBill || new Date(s.endTime) < now)
             .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
     }, [sessions, user.id]);
+
+    // Auto-fetch past sessions if not enough history to display (e.g. after 24h window)
+    useEffect(() => {
+        if (!pastLoaded && !isLoadingPast && sessionHistory.length < 3) {
+            onLoadPastSessions();
+        }
+    }, [pastLoaded, isLoadingPast, sessionHistory.length, onLoadPastSessions]);
 
     const getSessionUserStats = useCallback((session: Session) => {
         let wins = 0; let losses = 0; let pointsChange = 0;
@@ -107,44 +116,54 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
 
                 <div className="p-4 sm:p-5">
                     {/* Header Row: Avatar + Name/Rank + Actions */}
-                    <div className="flex items-center gap-4 mb-5">
-                        <div className="relative shrink-0">
-                            <div className={`w-16 h-16 rounded-full p-0.5 shadow-lg transition-all duration-500 ${getRankFrameClass(user.rankFrame)}`}>
-                                <img src={user.avatar} className="w-full h-full rounded-full border-2 border-[#000B29] object-cover relative z-10" style={{ backgroundColor: getAvatarColor(user.avatar) }} alt={user.name} />
+                    <div className="flex items-start justify-between gap-4 mb-6">
+                        <div className="flex items-center gap-6">
+                            <div className="relative shrink-0">
+                                <div className={`w-24 h-24 rounded-full p-1 shadow-lg transition-all duration-500 ${getRankFrameClass(user.rankFrame)}`}>
+                                    <img src={user.avatar} className="w-full h-full rounded-full border-4 border-[#000B29] object-cover relative z-10" style={{ backgroundColor: getAvatarColor(user.avatar) }} alt={user.name} />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col items-start min-w-0 flex-1">
+                                <span className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] italic mb-1 leading-none">Rank #{rank}</span>
+                                <h2 className="text-3xl font-black text-white italic tracking-tighter mb-0.5 truncate w-full">{user.name}</h2>
+                                <div className={`flex items-center gap-2 px-1 mb-2 ${rankInfo.color}`}>
+                                    <span className="text-[10px] font-black uppercase tracking-[0.25em] italic">{rankInfo.name}</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex-1 min-w-0">
-                            <h2 className="text-xl font-black text-white italic tracking-tighter truncate leading-none mb-1">{user.name}</h2>
-                            <div className={`flex items-center gap-1.5 ${rankInfo.color}`}>
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em] italic truncate">{rankInfo.name}</span>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <button onClick={onOpenSettings} className="p-2 bg-[#000B29] border border-[#002266] rounded-lg text-gray-400 hover:text-white transition-all active:scale-90">
-                                <Pencil size={14} />
+                        <div className="flex flex-col gap-2 shrink-0">
+                            <button onClick={onOpenSettings} className="p-2 bg-[#000B29] border border-[#002266] rounded-xl text-gray-400 hover:text-white transition-all active:scale-90">
+                                <Pencil size={18} />
                             </button>
                         </div>
                     </div>
 
-                    {/* Quick Stats Row */}
-                    <div className="grid grid-cols-3 mb-5">
-                        <div className=" border-r border-[#002266] flex flex-col items-center">
-                            <span className="text-sm font-black text-white italic">#{rank}</span>
-                            <span className="text-[7px] font-bold text-gray-400 uppercase tracking-widest mt-1">Arena Rank</span>
+                    {/* Stats Grid */}
+                    <div className="relative z-10 grid grid-cols-4 gap-2 mb-6 pt-6 border-t border-[#002266]">
+                        <div className="flex flex-col items-center justify-center py-2">
+                            <span className="text-lg font-black text-[#00FF41] font-mono leading-none">{user.points}</span>
+                            <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Points</span>
                         </div>
-                        <div className=" border-r border-[#002266] flex flex-col items-center">
-                            <span className="text-sm font-black text-[#00FF41] font-mono">{user.points}</span>
-                            <span className="text-[7px] font-bold text-gray-400 uppercase tracking-widest mt-1">Points</span>
+
+                        <div className="flex flex-col items-center justify-center py-2 border-l border-[#002266]">
+                            <span className="text-lg font-black text-white font-mono leading-none">{stats.played}</span>
+                            <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Played</span>
                         </div>
-                        <div className=" flex flex-col items-center">
-                            <div className="text-sm font-black italic flex">
-                                <span className="text-green-400">{stats.wins}</span>
-                                <span className="text-gray-500 mx-0.5">/</span>
-                                <span className="text-red-400">{stats.losses}</span>
+
+                        <div className="flex flex-col items-center justify-center py-2 border-l border-[#002266]">
+                            <div className="text-lg font-black italic leading-none flex items-center">
+                                <span className="text-green-500">{stats.wins}</span>
+                                <span className="text-gray-600 mx-[2px]">-</span>
+                                <span className="text-red-500">{stats.losses}</span>
                             </div>
-                            <span className="text-[7px] font-bold text-gray-400 uppercase tracking-widest mt-1">W/L Record</span>
+                            <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">W-L</span>
+                        </div>
+
+                        <div className="flex flex-col items-center justify-center py-2 border-l border-[#002266]">
+                            <span className={`text-lg font-black font-mono leading-none ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
+                            <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">WR</span>
                         </div>
                     </div>
 
@@ -179,9 +198,16 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
                     </span>
                 </h3>
                 {sessionHistory.length === 0 ? (
-                    <div className="text-center py-10 bg-[#001645]/50 border border-[#002266] border-dashed rounded-xl">
-                        <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No sessions logged yet.</p>
-                    </div>
+                    isLoadingPast ? (
+                        <div className="flex items-center justify-center gap-2 py-10 bg-[#001645]/50 border border-[#002266] rounded-xl">
+                            <Loader2 className="animate-spin text-[#00FF41]" size={16} />
+                            <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">Loading history...</span>
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 bg-[#001645]/50 border border-[#002266] border-dashed rounded-xl">
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No sessions logged yet.</p>
+                        </div>
+                    )
                 ) : (
                     <div className="space-y-2">
                         {sessionHistory.slice(0, visibleCount).map(session => {
@@ -220,7 +246,7 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
                 )}
 
                 {/* Unified Load More Button */}
-                {(visibleCount < sessionHistory.length || !pastLoaded || hasMorePast) && sessionHistory.length > 0 && (
+                {sessionHistory.length > 0 && (visibleCount < sessionHistory.length || hasMorePast) && (
                     <button
                         onClick={handleLoadMore}
                         disabled={isLoadingPast}

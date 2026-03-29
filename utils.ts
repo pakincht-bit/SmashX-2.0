@@ -59,10 +59,10 @@ export const getRankFrameClass = (frame: string | undefined): string => {
 };
 
 export const getWinRateColor = (winRate: number): string => {
-  if (winRate >= 70) return '#00FF41'; // Elite (Green)
-  if (winRate >= 55) return '#facc15'; // Strong (Yellow)
-  if (winRate >= 45) return '#22d3ee'; // Average (Cyan)
-  return '#ef4444'; // Struggling (Red)
+  if (winRate >= 70) return 'text-[#00FF41]'; // Elite (Green)
+  if (winRate >= 55) return 'text-[#facc15]'; // Strong (Yellow)
+  if (winRate >= 45) return 'text-[#22d3ee]'; // Average (Cyan)
+  return 'text-[#ef4444]'; // Struggling (Red)
 };
 
 export const getPerformanceGrade = (points: number, winRate: number): { grade: string; color: string } => {

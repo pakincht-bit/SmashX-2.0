@@ -44,6 +44,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
                 seed: params.get('seed') || 'Alexander',
                 backgroundColor: params.get('backgroundColor') || '00FF41',
                 hair: params.get('hair') || undefined,
+                hairColor: params.get('hairColor') || undefined,
+                skinColor: params.get('skinColor') || undefined,
                 eyes: params.get('eyes') || undefined,
                 mouth: params.get('mouth') || undefined,
                 eyebrows: params.get('eyebrows') || undefined,

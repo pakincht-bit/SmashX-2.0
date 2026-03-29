@@ -967,7 +967,6 @@ const App: React.FC = () => {
                     <div className="space-y-6 animate-fade-in-up">
                         <section className="mb-12">
                             <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-6 flex items-center gap-3">
-                                <Calendar className="text-[#00FF41]" size={28} />
                                 <span>Upcoming <span className="text-[#00FF41]">Sessions</span></span>
                             </h3>
                             {upcomingSessions.length === 0 ? (

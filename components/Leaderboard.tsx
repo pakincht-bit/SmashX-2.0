@@ -1,8 +1,10 @@
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { User, Session, MatchResult } from '../types';
-import { Trophy, Flame, Frown, Crown } from 'lucide-react';
-import { getAvatarColor, getRankFrameClass, getWinRateColor } from '../utils';
+import { Trophy, Flame, Frown, Crown, Swords, Target, Zap } from 'lucide-react';
+import { getAvatarColor, getRankFrameClass, getWinRateColor, triggerHaptic } from '../utils';
+
+type SortMode = 'points' | 'matches' | 'winrate';
 
 interface LeaderboardProps {
     users: User[];
@@ -76,16 +78,52 @@ interface LeaderboardRowProps {
     index: number;
     stats: UserStats;
     isMe: boolean;
+    sortMode: SortMode;
     onPlayerClick?: (userId: string) => void;
 }
 
 // OPTIMIZATION: Extracted LeaderboardRow as memoized component to prevent re-renders of unchanged rows
-const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, isMe, onPlayerClick }) => {
+const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, isMe, sortMode, onPlayerClick }) => {
     const s = stats;
     let rankColor = "text-gray-400";
     if (index === 0) rankColor = "text-yellow-500";
     if (index === 1) rankColor = "text-gray-300";
     if (index === 2) rankColor = "text-orange-700";
+
+    const renderValue = () => {
+        switch (sortMode) {
+            case 'points':
+                return (
+                    <div className="text-[#00FF41] font-mono font-black text-lg group-hover:scale-110 transition-transform origin-right">
+                        <span key={user.points} className="animate-value-update">{user.points}</span>
+                    </div>
+                );
+            case 'matches':
+                return (
+                    <div className="flex flex-col items-end">
+                        <div className="font-mono font-black text-lg text-white leading-none group-hover:scale-110 transition-transform origin-right">
+                            <span key={s.played} className="animate-value-update">{s.played}</span>
+                        </div>
+                        <div className="text-[9px] font-bold mt-0.5">
+                            <span className="text-green-500">{s.wins}W</span>
+                            <span className="text-gray-600 mx-0.5">-</span>
+                            <span className="text-red-500">{s.losses}L</span>
+                        </div>
+                    </div>
+                );
+            case 'winrate':
+                return (
+                    <div className="flex flex-col items-end">
+                        <div className={`font-mono font-black text-lg leading-none group-hover:scale-110 transition-transform origin-right ${getWinRateColor(s.winRate)}`}>
+                            <span key={s.winRate} className="animate-value-update">{s.winRate}%</span>
+                        </div>
+                        <div className="text-[9px] text-gray-500 font-bold mt-0.5">
+                            {s.played} played
+                        </div>
+                    </div>
+                );
+        }
+    };
 
     return (
         <div
@@ -111,21 +149,44 @@ const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, is
                         <span className="truncate">{user.name}</span>
                         {isMe && <span className="text-[8px] bg-[#00FF41] text-[#000B29] px-1 rounded-sm font-black uppercase tracking-widest italic animate-pulse">YOU</span>}
                     </div>
-                    <div className="text-[9px] text-gray-400 mt-1 flex items-center gap-2">
-                        <span className="font-bold uppercase tracking-wider">{s.played} Matches</span>
+                    <div className="text-[9px] mt-1 flex items-center gap-2">
+                        {sortMode === 'points' ? (
+                            <>
+                                <span className="font-bold uppercase tracking-wider text-gray-400">{s.played} Matches</span>
+                                <span className="text-[#002266] font-bold">•</span>
+                                <span className={`font-black uppercase tracking-wider ${getWinRateColor(s.winRate)}`}>{s.winRate}% WR</span>
+                            </>
+                        ) : sortMode === 'matches' ? (
+                            <>
+                                <span className="font-bold uppercase tracking-wider text-[#00FF41]">{user.points} Pts</span>
+                                <span className="text-[#002266] font-bold">•</span>
+                                <span className={`font-black uppercase tracking-wider ${getWinRateColor(s.winRate)}`}>{s.winRate}% WR</span>
+                            </>
+                        ) : (
+                            <>
+                                <span className="font-bold uppercase tracking-wider text-[#00FF41]">{user.points} Pts</span>
+                                <span className="text-[#002266] font-bold">•</span>
+                                <span className="font-bold uppercase tracking-wider text-gray-400">{s.wins}W - {s.losses}L</span>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
             <div className="text-right">
-                <div className="text-[#00FF41] font-mono font-black text-lg group-hover:scale-110 transition-transform origin-right">
-                    <span key={user.points} className="animate-value-update">{user.points}</span>
-                </div>
+                {renderValue()}
             </div>
         </div>
     );
 });
 
+const SORT_TABS: { key: SortMode; label: string; headerLabel: string }[] = [
+    { key: 'points', label: 'Points', headerLabel: 'Points' },
+    { key: 'matches', label: 'Matches', headerLabel: 'W-L' },
+    { key: 'winrate', label: 'Win Rate', headerLabel: 'Win Rate' },
+];
+
 const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClick, currentUser }) => {
+    const [sortMode, setSortMode] = useState<SortMode>('points');
 
     const stats = useMemo(() => {
         const userStats: Record<string, UserStats> = {};
@@ -205,20 +266,34 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
         return { mostPlayed: played, mostWins: wins, mostLosses: losses };
     }, [users, stats]);
 
-    // OPTIMIZATION: Memoized sortedByPoints to prevent recreation on every render
-    const sortedByPoints = useMemo(() =>
-        [...users].sort((a, b) => b.points - a.points)
-        , [users]);
+    // Sort users based on the selected sort mode
+    const sortedUsers = useMemo(() => {
+        switch (sortMode) {
+            case 'points':
+                return [...users].sort((a, b) => b.points - a.points);
+            case 'matches':
+                return [...users].sort((a, b) => {
+                    const diff = stats[b.id].played - stats[a.id].played;
+                    return diff !== 0 ? diff : stats[b.id].wins - stats[a.id].wins;
+                });
+            case 'winrate':
+                return [...users].sort((a, b) => {
+                    const diff = stats[b.id].winRate - stats[a.id].winRate;
+                    return diff !== 0 ? diff : stats[b.id].played - stats[a.id].played;
+                });
+        }
+    }, [users, stats, sortMode]);
 
     // OPTIMIZATION: Stable callback reference for onPlayerClick
     const handlePlayerClick = useCallback((userId: string) => {
         onPlayerClick?.(userId);
     }, [onPlayerClick]);
 
+    const activeTab = SORT_TABS.find(t => t.key === sortMode)!;
+
     return (
         <div className="space-y-6 animate-fade-in-up">
             <div className="flex items-center gap-3 mb-2">
-                <Trophy className="text-[#00FF41]" size={28} />
                 <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
                     Leader<span className="text-[#00FF41]">board</span>
                 </h2>
@@ -263,20 +338,39 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
                 </h3>
 
                 <div className="bg-[#001645] border border-[#002266] rounded-xl overflow-hidden shadow-2xl">
-                    <div className="bg-[#000B29] p-3 border-b border-[#002266] grid grid-cols-[32px_1fr_100px] gap-4">
+                    {/* Sort Tabs */}
+                    <div className="bg-[#000B29] p-1.5 border-b border-[#002266] flex gap-1">
+                        {SORT_TABS.map(tab => (
+                            <button
+                                key={tab.key}
+                                onClick={() => { triggerHaptic('light'); setSortMode(tab.key); }}
+                                className={`flex-1 flex items-center justify-center py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
+                                    ${sortMode === tab.key
+                                        ? 'bg-[#00FF41] text-[#000B29] shadow-[0_0_12px_rgba(0,255,65,0.2)]'
+                                        : 'text-gray-500 hover:text-gray-300 hover:bg-[#001645]'
+                                    }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Table Header */}
+                    <div className="bg-[#000B29]/50 px-3 py-2 border-b border-[#002266] grid grid-cols-[32px_1fr_100px] gap-4">
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">#</span>
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Player</span>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Points</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">{activeTab.headerLabel}</span>
                     </div>
 
                     <div className="divide-y divide-[#002266]">
-                        {sortedByPoints.map((user, index) => (
+                        {sortedUsers.map((user, index) => (
                             <LeaderboardRow
                                 key={user.id}
                                 user={user}
                                 index={index}
                                 stats={stats[user.id]}
                                 isMe={user.id === currentUser?.id}
+                                sortMode={sortMode}
                                 onPlayerClick={handlePlayerClick}
                             />
                         ))}
