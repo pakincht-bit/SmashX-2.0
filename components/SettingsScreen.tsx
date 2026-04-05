@@ -71,11 +71,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
 
     return (
         <div className="space-y-6 animate-fade-in-up pb-32">
-            <div className="flex items-center gap-3 mb-6 sticky top-0 bg-[#000B29]/90 backdrop-blur z-20 py-3 -mt-4 px-1 border-b border-[#002266]">
-                <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors">
-                    <ArrowLeft size={20} />
-                </button>
-                <h2 className="text-lg font-black italic uppercase text-white tracking-wider flex-1">Profile <span className="text-[#00FF41]">Settings</span></h2>
+            {/* Sticky Navigation Header */}
+            <div className="sticky top-0 z-20 w-full mb-6 -mt-4 bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)]">
+                <div className="flex items-center gap-3 py-3 px-1">
+                    <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors">
+                        <ArrowLeft size={20} />
+                    </button>
+                    <h2 className="text-lg font-black italic uppercase text-white tracking-wider flex-1">Profile <span className="text-[#00FF41]">Settings</span></h2>
+                </div>
             </div>
 
             <form onSubmit={handleSave} className="space-y-10">

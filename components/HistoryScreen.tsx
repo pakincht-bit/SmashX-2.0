@@ -11,6 +11,7 @@ interface HistoryScreenProps {
     hasMorePast: boolean;
     onLoadMore: () => void;
     onBack: () => void;
+    onSessionClick: (sessionId: string) => void;
 }
 
 const HistoryScreen: React.FC<HistoryScreenProps> = ({
@@ -20,7 +21,8 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({
     isLoadingPast,
     hasMorePast,
     onLoadMore,
-    onBack
+    onBack,
+    onSessionClick
 }) => {
     const playerSessions = useMemo(() => {
         if (!currentUser) return [];
@@ -52,12 +54,14 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({
     return (
         <div className="relative w-full min-h-screen bg-[#000B29] text-white overflow-y-auto pb-20 font-sans">
             {/* Sticky Navigation Header */}
-            <div className="flex items-center gap-3 sticky top-0 bg-[#000B29]/90 backdrop-blur z-50 py-3 px-4 sm:px-6 border-b border-[#002266] w-full">
-                <button onClick={() => { triggerHaptic('light'); onBack(); }} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors active:scale-95">
-                    <ArrowLeft size={20} />
-                </button>
-                <div className="flex items-center flex-1">
-                    <h2 className="text-lg font-black italic uppercase text-white tracking-wider">Battle <span className="text-[#00FF41]">History</span></h2>
+            <div className="sticky top-0 z-50 w-full bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)]">
+                <div className="flex items-center gap-3 py-3 px-4 sm:px-6">
+                    <button onClick={() => { triggerHaptic('light'); onBack(); }} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors active:scale-95">
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div className="flex items-center flex-1">
+                        <h2 className="text-lg font-black italic uppercase text-white tracking-wider">Battle <span className="text-[#00FF41]">History</span></h2>
+                    </div>
                 </div>
             </div>
 
@@ -108,7 +112,7 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({
                                         }
                                         
                                         return (
-                                            <div key={session.id} className="bg-[#001645] p-3 rounded-none flex items-center justify-between gap-4 group transition-colors hover:bg-[#002266] shadow-sm">
+                                            <div key={session.id} onClick={() => { triggerHaptic('light'); onSessionClick(session.id); }} className="bg-[#001645] p-3 rounded-none flex items-center justify-between gap-4 group transition-colors hover:bg-[#002266] shadow-sm cursor-pointer">
                                                 <div className="flex items-center gap-4 min-w-0 flex-1">
                                                     <div className="bg-[#000B29] rounded-none w-12 h-12 flex flex-col justify-center items-center shrink-0">
                                                         <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 leading-none mb-0.5">{month}</span>

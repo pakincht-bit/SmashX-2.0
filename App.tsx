@@ -1232,6 +1232,7 @@ const App: React.FC = () => {
                             hasMorePast={hasMorePast}
                             onLoadMore={fetchPastSessions}
                             onBack={() => setIsHistoryOpen(false)}
+                            onSessionClick={(id) => setSelectedSessionId(id)}
                         />
                     </div>
                 )}

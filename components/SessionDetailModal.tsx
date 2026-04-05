@@ -944,7 +944,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[150] bg-[#000B29] text-white overflow-hidden animate-fade-in">
+        <div className="fixed inset-0 z-[210] bg-[#000B29] text-white overflow-hidden animate-fade-in">
             <div className="h-[100dvh] flex flex-col max-w-2xl mx-auto bg-[#000B29] shadow-2xl shadow-black relative overflow-hidden">
                 {/* Sticky Header with Safe Area Support */}
                 <div className="sticky top-0 z-30 bg-[#000B29]/95 backdrop-blur-md pt-[env(safe-area-inset-top)]">

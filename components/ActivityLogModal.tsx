@@ -147,12 +147,14 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ currentUser, sessio
     return (
         <div className="fixed inset-0 z-50 bg-[#000B29] flex flex-col font-sans overflow-hidden">
             {/* Sticky Navigation Header */}
-            <div className="flex items-center gap-3 sticky top-0 bg-[#000B29]/90 backdrop-blur z-50 py-3 px-4 sm:px-6 border-b border-[#002266] w-full shrink-0">
-                <button onClick={() => { triggerHaptic('light'); onClose(); }} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors active:scale-95">
-                    <ArrowLeft size={20} />
-                </button>
-                <div className="flex items-center flex-1">
-                    <h2 className="text-lg font-black italic uppercase text-white tracking-wider">Activity <span className="text-[#00FF41]">Log</span></h2>
+            <div className="sticky top-0 z-50 w-full bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)] shrink-0">
+                <div className="flex items-center gap-3 py-3 px-4 sm:px-6">
+                    <button onClick={() => { triggerHaptic('light'); onClose(); }} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors active:scale-95">
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div className="flex items-center flex-1">
+                        <h2 className="text-lg font-black italic uppercase text-white tracking-wider">Activity <span className="text-[#00FF41]">Log</span></h2>
+                    </div>
                 </div>
             </div>
 
