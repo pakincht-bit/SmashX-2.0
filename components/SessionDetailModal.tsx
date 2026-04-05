@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Session, User, MatchResult, NextMatchup } from '../types';
-import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic, wereRecentTeammates } from '../utils';
-import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, CheckCircle, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, ListPlus } from 'lucide-react';
+import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic } from '../utils';
+import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, ListPlus, BarChart3 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import PullToRefresh from './PullToRefresh';
 import ShareReportModal from './ShareReportModal';
@@ -96,18 +96,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     const [isRefreshingManual, setIsRefreshingManual] = useState(false);
     const [isShareReportOpen, setIsShareReportOpen] = useState(false);
 
-    const [isStartModalOpen, setIsStartModalOpen] = useState(false);
-    const [startCheckInIds, setStartCheckInIds] = useState<string[]>([]);
 
-    const [showEndSessionForm, setShowEndSessionForm] = useState(false);
-    const [costForm, setCostForm] = useState({
-        shuttlesUsed: 0,
-        pricePerShuttle: 0,
-        totalCourtPrice: 0
-    });
-    const [splitMode, setSplitMode] = useState<'EQUAL' | 'MATCHES'>('EQUAL');
 
-    const [activeTab, setActiveTab] = useState<'scoreboard' | 'bill'>('scoreboard');
+
+    const [activeTab, setActiveTab] = useState<'scoreboard' | 'analytics'>('scoreboard');
 
     // Watch for session updates from other users to ensure local modals are consistent with live state
     useEffect(() => {
@@ -134,64 +126,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     // OPTIMIZATION: Build a Map for O(1) user lookups instead of repeated .find() calls
     const usersMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
 
-    const liveBillPreview = useMemo(() => {
-        if (!session) return { totalCost: 0, playerCount: 0, avgCost: 0, minCost: 0, maxCost: 0 };
 
-        const { shuttlesUsed, pricePerShuttle, totalCourtPrice } = costForm;
-        const totalShuttlePrice = shuttlesUsed * pricePerShuttle;
-        const totalCost = totalCourtPrice + totalShuttlePrice;
-
-        const checkedInIds = session.checkedInPlayerIds || [];
-        const playerCount = checkedInIds.length;
-        if (playerCount === 0) return { totalCost, playerCount: 0, avgCost: 0, minCost: 0, maxCost: 0 };
-
-        if (splitMode === 'EQUAL') {
-            const cost = Math.round(totalCost / playerCount);
-            return {
-                totalCost,
-                playerCount,
-                avgCost: cost,
-                minCost: cost,
-                maxCost: cost
-            };
-        } else {
-            // MATCHES
-            const playerMatchCounts: Record<string, number> = {};
-            checkedInIds.forEach(id => playerMatchCounts[id] = 0);
-            (session.matches || []).forEach(m => {
-                [...m.team1Ids, ...m.team2Ids].forEach(id => {
-                    if (playerMatchCounts[id] !== undefined) playerMatchCounts[id]++;
-                });
-            });
-
-            const totalParticipations = Object.values(playerMatchCounts).reduce((a, b) => a + b, 0);
-
-            if (totalParticipations === 0) {
-                // Fallback to equal
-                const cost = Math.round(totalCost / playerCount);
-                return {
-                    totalCost,
-                    playerCount,
-                    avgCost: cost,
-                    minCost: cost,
-                    maxCost: cost
-                };
-            }
-
-            const costs = checkedInIds.map(id => {
-                const count = playerMatchCounts[id] || 0;
-                return Math.round((count / totalParticipations) * totalCost);
-            });
-
-            return {
-                totalCost,
-                playerCount,
-                avgCost: Math.round(totalCost / playerCount),
-                minCost: Math.min(...costs),
-                maxCost: Math.max(...costs)
-            };
-        }
-    }, [costForm, session, splitMode]);
 
     const playerStats = useMemo(() => {
         const stats: Record<string, { played: number; wins: number; losses: number }> = {};
@@ -301,31 +236,9 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
         return null;
     };
 
-    const handleOpenStartModal = () => {
-        setStartCheckInIds([currentUser.id]);
-        setIsStartModalOpen(true);
-        triggerHaptic('light');
-    };
-
-    const handleToggleStartCheckIn = (playerId: string) => {
-        setStartCheckInIds(prev => {
-            const isRemoving = prev.includes(playerId);
-            triggerHaptic(isRemoving ? 'light' : 'medium');
-            if (isRemoving) return prev.filter(id => id !== playerId);
-            return [...prev, playerId];
-        });
-    };
-
-    const handleSelectAllStartCheckIn = () => {
-        triggerHaptic('medium');
-        if (startCheckInIds.length === players.length) { setStartCheckInIds([]); }
-        else { setStartCheckInIds(players.map(p => p.id)); }
-    };
-
-    const confirmStartSession = () => {
-        onStart(session.id, startCheckInIds);
-        setIsStartModalOpen(false);
+    const handleStartSession = () => {
         triggerHaptic('success');
+        onStart(session.id, players.map(p => p.id));
     };
 
     const handleStartQueueing = () => {
@@ -452,28 +365,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     const team2Count = [tempSelectedPlayers[2], tempSelectedPlayers[3]].filter(Boolean).length;
     const canStartMatch = team1Count > 0 && team2Count > 0;
 
-    // Warning: Check if pair has played together recently
-    const getVarietyWarning = () => {
-        const pIds = tempSelectedPlayers.filter(Boolean) as string[];
-        if (pIds.length < 2) return null;
 
-        let warning = null;
-        // Check T1 pair
-        if (tempSelectedPlayers[0] && tempSelectedPlayers[1]) {
-            if (wereRecentTeammates(tempSelectedPlayers[0], tempSelectedPlayers[1], session.matches || [])) {
-                warning = "Team 1 pair has played together recently.";
-            }
-        }
-        // Check T2 pair
-        if (tempSelectedPlayers[2] && tempSelectedPlayers[3]) {
-            if (wereRecentTeammates(tempSelectedPlayers[2], tempSelectedPlayers[3], session.matches || [])) {
-                warning = "Team 2 pair has played together recently.";
-            }
-        }
-        return warning;
-    };
-
-    const varietyWarning = getVarietyWarning();
 
     const getTeamsForCourt = (courtIndex: number) => {
         const pIds = assignments[courtIndex] || [];
@@ -487,7 +379,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
         <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-black italic text-white uppercase tracking-wider flex items-center">
-                    <ListPlus size={20} className="mr-2 text-[#00FF41]" />
                     Next Match Up
                 </h3>
                 {/* REMOVED isHost CHECK for Add Match */}
@@ -497,7 +388,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
             </div>
 
             {(session.nextMatchups || []).length === 0 ? (
-                <div className="bg-[#001645]/50 border border-[#002266] border-dashed rounded-xl p-6 text-center">
+                <div className="bg-[#001645]/50 border border-[#002266] border-dashed rounded-none p-6 text-center">
                     <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">No Matches Queued</p>
                 </div>
             ) : (
@@ -508,7 +399,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                         const team2 = matchup.playerIds.slice(mid).map(id => usersMap.get(id)).filter(Boolean) as User[];
 
                         return (
-                            <div key={matchup.id} className="min-w-[280px] sm:min-w-[320px] bg-[#000B29] border border-[#002266] rounded-xl p-3 relative group snap-start shadow-lg">
+                            <div key={matchup.id} className="min-w-[280px] sm:min-w-[320px] bg-[#000B29] border border-[#002266] rounded-none p-3 relative group snap-start shadow-lg">
                                 {/* Header: Match Number + Delete */}
                                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-[#001645]">
                                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Match {idx + 1}</span>
@@ -533,7 +424,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                     {/* Team 1 (Blue) */}
                                     <div className="flex-1 space-y-2">
                                         {team1.map(u => (
-                                            <div key={u.id} className="flex items-center gap-2 bg-[#001645]/50 rounded-lg p-1 pr-2 border border-[#002266]">
+                                            <div key={u.id} className="flex items-center gap-2 bg-[#001645]/50 rounded-none p-1 pr-2 border border-[#002266]">
                                                 <img src={u.avatar} className="w-6 h-6 rounded-full object-cover border border-[#000B29]" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
                                                 <span className="text-[10px] font-bold text-white truncate max-w-[70px]">{u.name.split(' ')[0]}</span>
                                             </div>
@@ -549,7 +440,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                     {/* Team 2 (Red) */}
                                     <div className="flex-1 space-y-2 text-right">
                                         {team2.map(u => (
-                                            <div key={u.id} className="flex items-center justify-end gap-2 bg-[#001645]/50 rounded-lg p-1 pl-2 border border-[#002266]">
+                                            <div key={u.id} className="flex items-center justify-end gap-2 bg-[#001645]/50 rounded-none p-1 pl-2 border border-[#002266]">
                                                 <span className="text-[10px] font-bold text-white truncate max-w-[70px]">{u.name.split(' ')[0]}</span>
                                                 <img src={u.avatar} className="w-6 h-6 rounded-full object-cover border border-[#000B29]" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
                                             </div>
@@ -588,7 +479,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     const renderLiveCourts = () => (
         <div className="mb-8">
             <h3 className="text-lg font-black italic text-white uppercase tracking-wider flex items-center mb-4">
-                <Hash size={20} className="mr-2 text-[#00FF41]" />
                 Courts
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -600,7 +490,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                     const team1 = assignedUsers.slice(0, Math.ceil(assignedUsers.length / 2));
                     const team2 = assignedUsers.slice(Math.ceil(assignedUsers.length / 2));
                     return (
-                        <div key={index} className={`rounded-xl overflow-hidden group relative flex flex-col transition-colors shadow-lg ${hasPlayers ? 'border border-[#00FF41]/50' : 'border border-[#003399]'}`} >
+                        <div key={index} className={`rounded-none overflow-hidden group relative flex flex-col transition-colors shadow-lg ${hasPlayers ? 'border border-[#00FF41]/50' : 'border border-[#003399]'}`} >
                             <div className={`aspect-[16/9] relative flex overflow-hidden bg-[#000B29] ${isCurrentUserCheckedIn ? 'cursor-pointer' : 'cursor-not-allowed opacity-90'}`} onClick={() => { if (!isCurrentUserCheckedIn) return; if (hasPlayers) { setFinishingGameCourt(index); setPendingWinner(null); triggerHaptic('medium'); } else { handleOpenCourtEdit(index); } }} >
                                 <div className="absolute inset-0 flex">
                                     <div className={`w-1/2 h-full relative transition-opacity ${hasPlayers ? 'bg-gradient-to-br from-blue-900/60 to-blue-900/20' : 'bg-gradient-to-br from-blue-900/20 to-blue-900/5'}`}>
@@ -616,7 +506,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                     <div className="w-1/2 p-2 flex flex-col justify-center gap-2 items-center">
                                         {hasPlayers ? (
                                             team1.map(u => (
-                                                <div key={u.id} onClick={(e) => { e.stopPropagation(); triggerHaptic('light'); onPlayerClick?.(u.id); }} className="flex items-center gap-2 bg-[#000B29]/90 px-2 py-1 rounded-full border border-blue-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] cursor-pointer hover:bg-blue-900/40 pointer-events-auto">
+                                                <div key={u.id} className="flex items-center gap-2 bg-[#000B29]/90 px-2 py-1 rounded-full border border-blue-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
                                                     <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(u.rankFrame).replace('ring-4', 'ring-2')}`}>
                                                         <img src={u.avatar} className="w-8 h-8 rounded-full border border-blue-500 object-cover" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
                                                     </div>
@@ -633,7 +523,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                     <div className="w-1/2 p-2 flex flex-col justify-center gap-2 items-center">
                                         {hasPlayers ? (
                                             team2.map(u => (
-                                                <div key={u.id} onClick={(e) => { e.stopPropagation(); triggerHaptic('light'); onPlayerClick?.(u.id); }} className="flex items-center flex-row-reverse gap-2 bg-[#000B29]/90 px-2 py-1 rounded-full border border-red-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] cursor-pointer hover:bg-red-900/40 pointer-events-auto">
+                                                <div key={u.id} className="flex items-center flex-row-reverse gap-2 bg-[#000B29]/90 px-2 py-1 rounded-full border border-red-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
                                                     <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(u.rankFrame).replace('ring-4', 'ring-2')}`}>
                                                         {/* Fix: Changed user.avatar to u.avatar to fix ReferenceError */}
                                                         <img src={u.avatar} className="w-8 h-8 rounded-full border border-red-500 object-cover" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
@@ -658,157 +548,336 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
     const renderCheckInList = () => (
         <div>
-            <div className="flex justify-between items-end mb-4 border-b border-[#002266] pb-2">
-                <h3 className="text-lg font-black italic text-white uppercase tracking-wider flex items-center">
-                    <Users size={20} className="mr-2 text-[#00FF41]" /> Check In
-                </h3>
-                <span className="text-[#00FF41] font-bold text-sm">{checkedInIds.length} <span className="text-gray-500">Checked In</span></span>
-            </div>
-            <div className="space-y-2">
-                {players.map(player => {
-                    const isCheckedIn = checkedInIds.includes(player.id);
-                    const currentCourt = getPlayerCourtIndex(player.id);
-                    const isPlaying = currentCourt !== null;
-                    const s = playerStats[player.id] || { played: 0, wins: 0, losses: 0 };
-                    return (
-                        <div key={player.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${isCheckedIn ? 'bg-[#001645] border-[#00FF41]/30' : 'bg-[#000B29] border-[#002266] opacity-60'}`}>
-                            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { triggerHaptic('light'); onPlayerClick?.(player.id); }}>
-                                <div className="relative">
-                                    <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
-                                        <img src={player.avatar} alt={player.name} className={`w-10 h-10 rounded-full border-2 object-cover ${isCheckedIn ? 'border-[#00FF41]' : 'border-gray-700'}`} style={{ backgroundColor: getAvatarColor(player.avatar) }} />
+
+            <div className="-mx-4 sm:-mx-6 flex flex-col">
+                <div className="divide-y divide-[#002266]">
+                    {players.map(player => {
+                        const isCheckedIn = checkedInIds.includes(player.id);
+                        const currentCourt = getPlayerCourtIndex(player.id);
+                        const isPlaying = currentCourt !== null;
+                        const s = playerStats[player.id] || { played: 0, wins: 0, losses: 0 };
+                        return (
+                            <div key={player.id} className={`flex items-center justify-between py-3 px-4 sm:px-6 transition-all ${isCheckedIn ? 'hover:bg-[#001c55]' : 'hover:bg-[#001c55] opacity-60'}`}>
+                                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { triggerHaptic('light'); onPlayerClick?.(player.id); }}>
+                                    <div className="relative">
+                                        <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
+                                            <img src={player.avatar} alt={player.name} className={`w-10 h-10 rounded-full border border-[#000B29] object-cover`} style={{ backgroundColor: getAvatarColor(player.avatar) }} />
+                                        </div>
+                                        {isCheckedIn && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#00FF41] rounded-full border-2 border-[#000B29] flex items-center justify-center"><Check size={8} className="text-[#000B29] stroke-[4]" /></div>}
                                     </div>
-                                    {isCheckedIn && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#00FF41] rounded-full border-2 border-[#000B29] flex items-center justify-center"><Check size={8} className="text-[#000B29] stroke-[4]" /></div>}
-                                </div>
-                                <div>
-                                    <div className="text-sm font-bold text-white flex items-center group-hover:text-[#00FF41] transition-colors">{player.name} <span className="ml-2 text-[10px] font-mono text-yellow-500 font-bold">{player.points} Points</span> {isPlaying && (<span className="ml-2 text-[10px] text-[#000B29] bg-[#00FF41] font-black px-1.5 rounded uppercase tracking-wider animate-pulse"> Court {currentCourt + 1} </span>)} </div>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        {isCheckedIn ? (<div className="flex items-center gap-2 bg-[#000B29]/50 px-1.5 py-0.5 rounded border border-[#002266]"><span className="text-[10px] font-bold text-gray-300">{s.played} Played</span><span className="w-px h-3 bg-gray-600"></span><span className="text-[10px] font-bold"><span className="text-green-400">{s.wins}W</span> - <span className="text-red-400">{s.losses}L</span></span></div>) : (<span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Not Checked In</span>)}
+                                    <div>
+                                        <div className="text-sm font-bold text-white flex items-center group-hover:text-[#00FF41] transition-colors">{player.name} <span className="ml-2 text-[10px] font-mono text-yellow-500 font-bold">{player.points} Points</span> {isPlaying && (<span className="ml-2 text-[10px] text-[#000B29] bg-[#00FF41] font-black px-1.5 rounded uppercase tracking-wider animate-pulse"> Court {currentCourt + 1} </span>)} </div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            {isCheckedIn ? (<div className="flex items-center gap-2 py-0.5"><span className="text-[10px] font-bold text-gray-300">{s.played} Played</span><span className="text-[10px] text-gray-500">•</span><span className="text-[10px] font-bold"><span className="text-green-400">{s.wins}W</span> / <span className="text-red-400">{s.losses}L</span></span></div>) : (<span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Not Checked In</span>)}
+                                        </div>
                                     </div>
                                 </div>
+                                {isHost && (<button onClick={() => { triggerHaptic(isCheckedIn ? 'light' : 'success'); onCheckInToggle(session.id, player.id); }} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border transition-colors ${isCheckedIn ? 'bg-transparent border-transparent text-gray-500 hover:text-red-500' : 'bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41] hover:bg-[#00FF41] hover:text-[#000B29]'}`} > {isCheckedIn ? 'Undo' : 'Check In'} </button>)}
                             </div>
-                            {isHost && (<button onClick={() => { triggerHaptic(isCheckedIn ? 'light' : 'success'); onCheckInToggle(session.id, player.id); }} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border transition-colors ${isCheckedIn ? 'bg-transparent border-red-500/50 text-red-500 hover:bg-red-500/10' : 'bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41] hover:bg-[#00FF41] hover:text-[#000B29]'}`} > {isCheckedIn ? 'Undo' : 'Check In'} </button>)}
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );
 
     const renderNormalPlayerList = () => (
         <div>
-            <div className="flex justify-between items-end mb-4 border-b border-[#002266] pb-2">
-                <h3 className="text-lg font-black italic text-white uppercase tracking-wider flex items-center">
-                    <Users size={20} className="mr-2 text-[#00FF41]" /> Players
-                </h3>
-                <span className="text-[#00FF41] font-bold text-sm">{players.length} <span className="text-gray-500">/ {session.maxPlayers}</span></span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {players.map((player) => (
-                    <div key={player.id} onClick={() => { triggerHaptic('light'); onPlayerClick?.(player.id); }} className="flex items-center justify-between bg-[#001645] border border-[#002266] p-3 rounded-xl hover:border-[#00FF41]/30 transition-colors cursor-pointer group">
-                        <div className="flex items-center gap-3">
-                            <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
-                                <img src={player.avatar} alt={player.name} className="w-10 h-10 rounded-full border-2 border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(player.avatar) }} />
+
+            <div className="-mx-4 sm:-mx-6 flex flex-col">
+                <div className="divide-y divide-[#002266]">
+                    {players.map((player) => (
+                        <div key={player.id} onClick={() => { triggerHaptic('light'); onPlayerClick?.(player.id); }} className="flex items-center justify-between py-3 px-4 sm:px-6 hover:bg-[#001c55] transition-colors cursor-pointer group">
+                            <div className="flex items-center gap-3">
+                                <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
+                                    <img src={player.avatar} alt={player.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(player.avatar) }} />
+                                </div>
+                                <div>
+                                    <div className="text-sm font-bold text-white flex items-center group-hover:text-[#00FF41] transition-colors">{player.name} {player.id === currentUser.id && <span className="ml-2 text-[10px] text-[#00FF41] bg-[#00FF41]/10 px-1.5 rounded uppercase tracking-wider">You</span>}</div>
+                                    <div className="flex items-center gap-2 mt-0.5"><span className="text-[10px] font-mono text-yellow-500 font-bold">{player.points} Points</span></div>
+                                </div>
                             </div>
-                            <div>
-                                <div className="text-sm font-bold text-white flex items-center group-hover:text-[#00FF41] transition-colors">{player.name} {player.id === currentUser.id && <span className="ml-2 text-[10px] text-[#00FF41] bg-[#00FF41]/10 px-1.5 rounded uppercase tracking-wider">You</span>}</div>
-                                <div className="flex items-center gap-2 mt-0.5"><span className="text-[10px] font-mono text-yellow-500 font-bold">{player.points} Points</span><span className="text-[10px] text-gray-500 font-medium uppercase tracking-wide border-l border-gray-700 pl-2">{player.id === session.hostId ? 'Organizer' : 'Player'}</span></div>
-                            </div>
+                            {player.id === session.hostId && (<div className="bg-[#00FF41] text-[#000B29] text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider -skew-x-12"> <span className="skew-x-12 inline-block">Host</span> </div>)}
                         </div>
-                        {player.id === session.hostId && (<div className="bg-[#00FF41] text-[#000B29] text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider -skew-x-12"> <span className="skew-x-12 inline-block">Host</span> </div>)}
-                    </div>
-                ))}
-                {Array.from({ length: Math.max(0, session.maxPlayers - players.length) }).map((_, i) => (<div key={`empty-${i}`} className="flex items-center justify-center p-3 rounded-xl border border-dashed border-[#002266] bg-[#000B29]/30 text-gray-600 text-xs font-bold uppercase tracking-wider">Available Spot</div>))}
+                    ))}
+
+                </div>
             </div>
         </div>
     );
 
-    const renderBillSummary = () => {
-        if (!session.finalBill) {
+    const renderAnalytics = () => {
+        const matches = session.matches || [];
+        if (matches.length === 0) {
             return (
                 <div className="flex flex-col items-center justify-center py-16 animate-in slide-in-from-bottom-4 duration-500">
                     <div className="relative mb-6">
                         <div className="absolute inset-0 bg-[#00FF41] blur-2xl opacity-10 rounded-full"></div>
-                        <div className="w-20 h-20 bg-[#001645] border border-[#002266] rounded-2xl flex items-center justify-center relative shadow-xl transform -rotate-6">
-                            <Receipt size={40} className="text-gray-500" />
-                            <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#000B29] border border-[#002266] rounded-full flex items-center justify-center">
-                                <span className="text-[#00FF41] font-black text-xs">?</span>
-                            </div>
+                        <div className="w-20 h-20 bg-[#001645] border border-[#002266] rounded-none flex items-center justify-center relative shadow-xl transform -rotate-6">
+                            <BarChart3 size={40} className="text-gray-500" />
                         </div>
                     </div>
-
                     <h3 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">
-                        No <span className="text-gray-600">Bill</span> Yet
+                        No <span className="text-gray-600">Data</span> Yet
                     </h3>
-
-                    <p className="text-xs font-bold text-gray-400 text-center max-w-[200px] uppercase tracking-wide mb-8">
-                        Session expenses haven't been calculated.
+                    <p className="text-xs font-bold text-gray-400 text-center max-w-[200px] uppercase tracking-wide">
+                        Play some matches to see session analytics.
                     </p>
-
-                    {isHost ? (
-                        <button
-                            onClick={() => { triggerHaptic('medium'); setShowEndSessionForm(true); }}
-                            className="group relative px-8 py-4 bg-[#00FF41] hover:bg-white text-[#000B29] font-black uppercase tracking-widest text-sm rounded-none -skew-x-12 shadow-[0_0_30px_rgba(0,255,65,0.2)] transition-all hover:shadow-[0_0_40px_rgba(255,255,255,0.4)] hover:-translate-y-1 active:translate-y-0 active:scale-95"
-                        >
-                            <span className="skew-x-12 flex items-center gap-2">
-                                <Calculator size={16} strokeWidth={3} />
-                                <span>Calculate Bill</span>
-                            </span>
-                        </button>
-                    ) : (
-                        <div className="px-4 py-2 bg-[#000B29] border border-[#002266] rounded text-[10px] text-gray-400 font-mono uppercase">
-                            Waiting for Host
-                        </div>
-                    )}
                 </div>
             );
         }
 
-        // Determine what to show based on split mode
-        const isMatchedSplit = session.finalBill.splitMode === 'MATCHES';
+        // --- Compute analytics data ---
+        const playerIds = session.checkedInPlayerIds || [];
+        const pStats: Record<string, { wins: number; losses: number; played: number }> = {};
+        playerIds.forEach(pid => { pStats[pid] = { wins: 0, losses: 0, played: 0 }; });
+
+        // Track per-player match sequence for streaks
+        const playerMatchSeq: Record<string, ('W' | 'L')[]> = {};
+
+        // Track teammate/rival pairs
+        const teammateCounts: Record<string, number> = {};
+        const rivalCounts: Record<string, number> = {};
+
+        matches.forEach(match => {
+            const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
+            const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
+
+            winners.forEach(pid => {
+                if (!pStats[pid]) pStats[pid] = { wins: 0, losses: 0, played: 0 };
+                pStats[pid].wins += 1;
+                pStats[pid].played += 1;
+                if (!playerMatchSeq[pid]) playerMatchSeq[pid] = [];
+                playerMatchSeq[pid].push('W');
+            });
+            losers.forEach(pid => {
+                if (!pStats[pid]) pStats[pid] = { wins: 0, losses: 0, played: 0 };
+                pStats[pid].losses += 1;
+                pStats[pid].played += 1;
+                if (!playerMatchSeq[pid]) playerMatchSeq[pid] = [];
+                playerMatchSeq[pid].push('L');
+            });
+
+            // Teammates (same team)
+            const countPairs = (ids: string[], map: Record<string, number>) => {
+                for (let i = 0; i < ids.length; i++) {
+                    for (let j = i + 1; j < ids.length; j++) {
+                        const key = [ids[i], ids[j]].sort().join('|');
+                        map[key] = (map[key] || 0) + 1;
+                    }
+                }
+            };
+            countPairs(match.team1Ids, teammateCounts);
+            countPairs(match.team2Ids, teammateCounts);
+
+            // Rivals (opposite teams)
+            const t1 = match.team1Ids;
+            const t2 = match.team2Ids;
+            t1.forEach(a => t2.forEach(b => {
+                const key = [a, b].sort().join('|');
+                rivalCounts[key] = (rivalCounts[key] || 0) + 1;
+            }));
+        });
+
+        // --- Hot Streak ---
+        let hotStreakPlayer = '';
+        let hotStreakCount = 0;
+        Object.entries(playerMatchSeq).forEach(([pid, seq]) => {
+            let maxStreak = 0;
+            let current = 0;
+            seq.forEach(r => {
+                if (r === 'W') { current++; maxStreak = Math.max(maxStreak, current); }
+                else { current = 0; }
+            });
+            if (maxStreak > hotStreakCount) {
+                hotStreakCount = maxStreak;
+                hotStreakPlayer = pid;
+            }
+        });
+        const hotUser = usersMap.get(hotStreakPlayer);
+
+        // --- Cold Streak (Lose Streak) ---
+        let coldStreakPlayer = '';
+        let coldStreakCount = 0;
+        Object.entries(playerMatchSeq).forEach(([pid, seq]) => {
+            let maxStreak = 0;
+            let current = 0;
+            seq.forEach(r => {
+                if (r === 'L') { current++; maxStreak = Math.max(maxStreak, current); }
+                else { current = 0; }
+            });
+            if (maxStreak > coldStreakCount) {
+                coldStreakCount = maxStreak;
+                coldStreakPlayer = pid;
+            }
+        });
+        const coldUser = usersMap.get(coldStreakPlayer);
+
+        // --- Win Rate Distribution ---
+        const allPlayerIds = Object.keys(pStats).filter(pid => pStats[pid].played > 0);
+        const sortedByWinRate = [...allPlayerIds].sort((a, b) => {
+            const wrA = pStats[a].played > 0 ? pStats[a].wins / pStats[a].played : 0;
+            const wrB = pStats[b].played > 0 ? pStats[b].wins / pStats[b].played : 0;
+            return wrB - wrA;
+        });
+        const maxPlayed = Math.max(...allPlayerIds.map(pid => pStats[pid].played), 1);
+
+        // --- Top Teammates & Rivals ---
+        const topTeammates = Object.entries(teammateCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        const topRivals = Object.entries(rivalCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
         return (
-            <div className="space-y-6 animate-in slide-in-from-right duration-300">
-                <div className="bg-[#001645] border border-[#002266] rounded-xl p-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10"><Receipt size={100} className="text-[#00FF41]" /></div>
-                    <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-6 relative z-10">Session <span className="text-[#00FF41]">Bill</span></h3>
-                    <div className="grid grid-cols-3 gap-4 mb-6 relative z-10">
-                        <div className="bg-[#000B29] p-3 rounded-lg border border-[#002266] flex flex-col items-center"><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Court</span><span className="text-lg font-mono font-bold text-white">${session.finalBill.totalCourtPrice}</span></div>
-                        <div className="bg-[#000B29] p-3 rounded-lg border border-[#002266] flex flex-col items-center"><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Shuttles</span><span className="text-lg font-mono font-bold text-white">${session.finalBill.totalShuttlePrice}</span><span className="text-[9px] text-gray-600 font-bold">({session.finalBill.shuttlesUsed} x ${session.finalBill.pricePerShuttle})</span></div>
-                        <div className="bg-[#000B29] p-3 rounded-lg border border-[#00FF41]/30 flex flex-col items-center shadow-[0_0_15px_rgba(0,255,65,0.1)]"><span className="text-[10px] font-bold text-[#00FF41] uppercase tracking-widest">Total</span><span className="text-xl font-mono font-black text-[#00FF41]">${session.finalBill.totalCost}</span></div>
-                    </div>
-                    <div className="space-y-2 relative z-10">
-                        <div className="flex justify-between px-2 mb-2">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Player</span>
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{isMatchedSplit ? 'Games / Cost' : 'Time / Cost'}</span>
-                        </div>
-                        {session.finalBill.items.map(item => {
-                            const user = usersMap.get(item.userId);
-                            if (!user) return null;
-                            const isHighest = item.amount === Math.max(...session.finalBill!.items.map(i => i.amount));
-                            const pStats = playerStats[item.userId] || { played: 0 };
+            <div className="space-y-8 animate-in slide-in-from-right duration-300 pb-12">
 
-                            return (
-                                <div key={item.userId} onClick={() => { triggerHaptic('light'); onPlayerClick?.(item.userId); }} className="flex items-center justify-between bg-[#000B29] border border-[#002266] p-3 rounded-lg cursor-pointer hover:border-[#00FF41]/30 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
-                                            <img src={user.avatar} className="w-8 h-8 rounded-full border border-gray-700 object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
-                                        </div>
-                                        <div><span className="text-sm font-bold text-white block">{user.name}</span>{user.id === currentUser.id && <span className="text-[9px] text-[#00FF41] font-bold uppercase tracking-wider">You</span>}</div>
+                {/* Streaks */}
+                {(hotUser && hotStreakCount >= 2) || (coldUser && coldStreakCount >= 2) ? (
+                    <div className="-mx-4 sm:-mx-6">
+                        <div className="px-4 sm:px-6 pt-3 pb-1">
+                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Streaks</h4>
+                        </div>
+                        {hotUser && hotStreakCount >= 2 && (
+                            <div className="flex items-center gap-4 py-4 px-4 sm:px-6 bg-gradient-to-r from-orange-500/10 to-transparent">
+                                <div className="relative shrink-0">
+                                    <div className={`rounded-full ${getRankFrameClass(hotUser.rankFrame).replace('ring-4', 'ring-2')}`}>
+                                        <img src={hotUser.avatar} className="w-12 h-12 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(hotUser.avatar) }} />
                                     </div>
-                                    <div className="text-right">
-                                        <span className={`block font-mono font-bold ${isHighest ? 'text-yellow-500' : 'text-white'}`}>${item.amount}</span>
-                                        <span className="text-[10px] text-gray-500 font-medium">
-                                            {isMatchedSplit
-                                                ? `${pStats.played} Matches`
-                                                : `${Math.floor(item.durationMinutes / 60)}h ${item.durationMinutes % 60}m`
-                                            }
-                                        </span>
+                                    <div className="absolute -top-1 -right-1 text-sm">🔥</div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-bold text-white">{hotUser.name}</div>
+                                    <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">
+                                        {hotStreakCount} Win Streak
                                     </div>
                                 </div>
-                            );
-                        })}
+                                <div className="flex gap-0.5 items-end">
+                                    {Array.from({ length: hotStreakCount }).map((_, i) => (
+                                        <div key={i} className="w-1.5 bg-gradient-to-t from-orange-500 to-yellow-400 rounded-full opacity-80" style={{ height: `${12 + i * 3}px` }}></div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {coldUser && coldStreakCount >= 2 && (
+                            <div className="flex items-center gap-4 py-4 px-4 sm:px-6 bg-gradient-to-r from-blue-500/10 to-transparent">
+                                <div className="relative shrink-0">
+                                    <div className={`rounded-full ${getRankFrameClass(coldUser.rankFrame).replace('ring-4', 'ring-2')}`}>
+                                        <img src={coldUser.avatar} className="w-12 h-12 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(coldUser.avatar) }} />
+                                    </div>
+                                    <div className="absolute -top-1 -right-1 text-sm">🥶</div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-bold text-white">{coldUser.name}</div>
+                                    <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">
+                                        {coldStreakCount} Lose Streak
+                                    </div>
+                                </div>
+                                <div className="flex gap-0.5 items-end">
+                                    {Array.from({ length: coldStreakCount }).map((_, i) => (
+                                        <div key={i} className="w-1.5 bg-gradient-to-t from-blue-600 to-blue-400 rounded-full opacity-80" style={{ height: `${12 + i * 3}px` }}></div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : null}
+
+                {/* Teammates & Rivals */}
+                {(topTeammates.length > 0 || topRivals.length > 0) && (
+                    <div className="-mx-4 sm:-mx-6 space-y-6">
+                        {/* Top Duos */}
+                        {topTeammates.length > 0 && (
+                            <div>
+                                <div className="px-4 sm:px-6 pt-3 pb-1">
+                                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Top Duos</h4>
+                                </div>
+                                {topTeammates.map(([key, count]) => {
+                                    const [id1, id2] = key.split('|');
+                                    const u1 = usersMap.get(id1);
+                                    const u2 = usersMap.get(id2);
+                                    if (!u1 || !u2) return null;
+                                    return (
+                                        <div key={key} className="flex items-center gap-4 py-3 px-4 sm:px-6 bg-gradient-to-r from-green-500/10 to-transparent">
+                                            <div className="flex -space-x-2 shrink-0">
+                                                <img src={u1.avatar} className="w-10 h-10 rounded-full border-2 border-[#000B29] object-cover z-10" style={{ backgroundColor: getAvatarColor(u1.avatar) }} />
+                                                <img src={u2.avatar} className="w-10 h-10 rounded-full border-2 border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(u2.avatar) }} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-bold text-white">{u1.name.split(' ')[0]} & {u2.name.split(' ')[0]}</div>
+                                                <div className="text-[10px] font-bold text-green-400 uppercase tracking-widest">{count} games together</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Top Rivals */}
+                        {topRivals.length > 0 && (
+                            <div>
+                                <div className="px-4 sm:px-6 pt-3 pb-1">
+                                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Top Rivals</h4>
+                                </div>
+                                {topRivals.map(([key, count]) => {
+                                    const [id1, id2] = key.split('|');
+                                    const u1 = usersMap.get(id1);
+                                    const u2 = usersMap.get(id2);
+                                    if (!u1 || !u2) return null;
+                                    return (
+                                        <div key={key} className="flex items-center gap-4 py-3 px-4 sm:px-6 bg-gradient-to-r from-red-500/10 to-transparent">
+                                            <div className="flex -space-x-2 shrink-0">
+                                                <img src={u1.avatar} className="w-10 h-10 rounded-full border-2 border-[#000B29] object-cover z-10" style={{ backgroundColor: getAvatarColor(u1.avatar) }} />
+                                                <img src={u2.avatar} className="w-10 h-10 rounded-full border-2 border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(u2.avatar) }} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-bold text-white">{u1.name.split(' ')[0]} vs {u2.name.split(' ')[0]}</div>
+                                                <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest">{count} matchups</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Win Rate Distribution */}
+                <div>
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-4">Win Rate</h4>
+                    <div className="-mx-4 sm:-mx-6 flex flex-col">
+                        <div className="divide-y divide-[#002266]">
+                            {sortedByWinRate.map(pid => {
+                                const user = usersMap.get(pid);
+                                if (!user) return null;
+                                const s = pStats[pid];
+                                const wr = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
+                                const barWidth = s.played > 0 ? (s.played / maxPlayed) * 100 : 0;
+                                const winPortion = s.played > 0 ? (s.wins / s.played) * barWidth : 0;
+                                const lossPortion = barWidth - winPortion;
+
+                                return (
+                                    <div key={pid} onClick={() => { triggerHaptic('light'); onPlayerClick?.(pid); }} className="py-3 px-4 sm:px-6 cursor-pointer hover:bg-[#001c55] transition-colors">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`rounded-full ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
+                                                    <img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
+                                                </div>
+                                                <span className="text-sm font-bold text-white">{user.name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[10px] font-bold text-gray-400">{s.wins}W - {s.losses}L</span>
+                                                <span className={`text-sm font-mono font-black ${wr >= 60 ? 'text-[#00FF41]' : wr >= 40 ? 'text-yellow-500' : 'text-red-500'}`}>{wr}%</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex h-1.5 rounded-full overflow-hidden bg-[#000B29]">
+                                            <div className="bg-green-500 rounded-l-full transition-all duration-700" style={{ width: `${winPortion}%` }}></div>
+                                            <div className="bg-red-500/60 rounded-r-full transition-all duration-700" style={{ width: `${lossPortion}%` }}></div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
+
             </div>
         );
     };
@@ -829,48 +898,44 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
             <div className="space-y-8 animate-in slide-in-from-left duration-300 pb-12">
                 {/* Session Rankings */}
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#002266] pb-2">
-                        <h4 className="text-xs font-black uppercase tracking-widest text-[#00FF41] flex items-center">
-                            <Trophy size={14} className="mr-2" /> Session Rankings
-                        </h4>
-                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{sortedPlayerIds.length} Players</span>
-                    </div>
                     {sortedPlayerIds.length === 0 ? (<div className="text-center py-10 text-gray-500 font-bold text-sm">No matches played this session.</div>) : (
-                        <div className="space-y-2">
-                            {sortedPlayerIds.map((pid, index) => {
-                                const user = usersMap.get(pid);
-                                if (!user) return null;
-                                const s = stats[pid];
-                                let rankStyle = "bg-[#000B29] border-[#002266] text-white";
-                                let rankBadge = <span className="text-gray-500 font-mono text-xs w-6 text-center">{index + 1}</span>;
-                                if (index === 0) { rankStyle = "bg-gradient-to-r from-[#000B29] to-[#001645] border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.1)]"; rankBadge = <Trophy size={16} className="text-yellow-500 w-6" />; }
-                                else if (index === 1) { rankStyle = "bg-[#000B29] border-gray-400/50"; rankBadge = <span className="text-gray-300 font-black text-xs w-6 text-center">2</span>; }
-                                else if (index === 2) { rankStyle = "bg-[#000B29] border-orange-700/50"; rankBadge = <span className="text-orange-700 font-black text-xs w-6 text-center">3</span>; }
-                                return (
-                                    <div key={pid} onClick={() => { triggerHaptic('light'); onPlayerClick?.(pid); }} className={`flex items-center justify-between p-3 rounded-xl border ${rankStyle} transition-all cursor-pointer hover:scale-[1.01]`}>
-                                        <div className="flex items-center gap-3">
-                                            {rankBadge}
-                                            <div className="relative">
-                                                <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
-                                                    <img src={user.avatar} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
+                        <div className="-mx-4 sm:-mx-6 flex flex-col">
+                            <div className="divide-y divide-[#002266]">
+                                {sortedPlayerIds.map((pid, index) => {
+                                    const user = usersMap.get(pid);
+                                    if (!user) return null;
+                                    const s = stats[pid];
+                                    let rankStyle = "";
+                                    let rankBadge = <span className="text-gray-500 font-mono text-xs w-6 text-center">{index + 1}</span>;
+                                    if (index === 0) { rankStyle = "bg-[#000B29]"; rankBadge = <span className="text-yellow-500 font-black text-xs w-6 text-center">1</span>; }
+                                    else if (index === 1) { rankStyle = "bg-[#000B29]"; rankBadge = <span className="text-gray-300 font-black text-xs w-6 text-center">2</span>; }
+                                    else if (index === 2) { rankStyle = "bg-[#000B29]"; rankBadge = <span className="text-orange-700 font-black text-xs w-6 text-center">3</span>; }
+                                    return (
+                                        <div key={pid} onClick={() => { triggerHaptic('light'); onPlayerClick?.(pid); }} className={`flex items-center justify-between py-3 px-4 sm:px-6 ${rankStyle} transition-all cursor-pointer hover:bg-[#001c55]`}>
+                                            <div className="flex items-center gap-3">
+                                                {rankBadge}
+                                                <div className="relative">
+                                                    <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
+                                                        <img src={user.avatar} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
+                                                    </div>
+                                                    {index === 0 && <div className="absolute -top-1 -right-1 text-[8px] bg-yellow-500 text-black px-1 rounded-full font-black">MVP</div>}
                                                 </div>
-                                                {index === 0 && <div className="absolute -top-1 -right-1 text-[8px] bg-yellow-500 text-black px-1 rounded-full font-black">MVP</div>}
+                                                <div>
+                                                    <div className="text-sm font-bold flex items-center">{user.name}{user.id === currentUser.id && <span className="ml-2 text-[8px] text-[#00FF41] bg-[#00FF41]/10 px-1 rounded uppercase tracking-wider">You</span>}</div>
+                                                    <div className="flex items-center gap-3 mt-1"><span className="text-[10px] font-bold text-green-400 flex items-center bg-green-900/20 px-1.5 rounded"><Plus size={8} className="mr-0.5" />{s.wins} W</span><span className="text-[10px] font-bold text-red-400 flex items-center bg-red-900/20 px-1.5 rounded"><Minus size={8} className="mr-0.5" />{s.losses} L</span></div>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <div className="text-sm font-bold flex items-center">{user.name}{user.id === currentUser.id && <span className="ml-2 text-[8px] text-[#00FF41] bg-[#00FF41]/10 px-1 rounded uppercase tracking-wider">You</span>}</div>
-                                                <div className="flex items-center gap-3 mt-1"><span className="text-[10px] font-bold text-green-400 flex items-center bg-green-900/20 px-1.5 rounded"><Plus size={8} className="mr-0.5" />{s.wins} W</span><span className="text-[10px] font-bold text-red-400 flex items-center bg-red-900/20 px-1.5 rounded"><Minus size={8} className="mr-0.5" />{s.losses} L</span></div>
+                                            <div className="text-right">
+                                                <div className={`text-xs font-mono font-black flex items-center justify-end ${s.pointsChange >= 0 ? 'text-[#00FF41]' : 'text-red-500'}`}>
+                                                    {s.pointsChange > 0 ? <TrendingUp size={12} className="mr-1" /> : (s.pointsChange < 0 ? <TrendingDown size={12} className="mr-1" /> : null)}
+                                                    {s.pointsChange > 0 ? '+' : ''}{s.pointsChange}
+                                                </div>
+                                                <div className="text-[9px] text-gray-400 uppercase font-bold tracking-wider">Points Change</div>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className={`text-xs font-mono font-black flex items-center justify-end ${s.pointsChange >= 0 ? 'text-[#00FF41]' : 'text-red-500'}`}>
-                                                {s.pointsChange > 0 ? <TrendingUp size={12} className="mr-1" /> : (s.pointsChange < 0 ? <TrendingDown size={12} className="mr-1" /> : null)}
-                                                {s.pointsChange > 0 ? '+' : ''}{s.pointsChange}
-                                            </div>
-                                            <div className="text-[9px] text-gray-400 uppercase font-bold tracking-wider">Points Change</div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -882,7 +947,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
         <div className="fixed inset-0 z-[150] bg-[#000B29] text-white overflow-hidden animate-fade-in">
             <div className="h-[100dvh] flex flex-col max-w-2xl mx-auto bg-[#000B29] shadow-2xl shadow-black relative overflow-hidden">
                 {/* Sticky Header with Safe Area Support */}
-                <div className="sticky top-0 z-30 bg-[#000B29]/95 backdrop-blur-md border-b border-[#002266] pt-[env(safe-area-inset-top)]">
+                <div className="sticky top-0 z-30 bg-[#000B29]/95 backdrop-blur-md pt-[env(safe-area-inset-top)]">
                     <div className="px-4 h-16 shrink-0 flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <button onClick={() => { triggerHaptic('light'); onClose(); }} className="p-2 -ml-2 text-gray-400 hover:text-[#00FF41] hover:bg-[#001645] rounded-full transition-all"><ArrowLeft size={24} /></button>
@@ -897,7 +962,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                 <Share2 size={18} />
                                 {isCopied && <span>Copied!</span>}
                             </button>
-                            {isHost && status === 'PLAYING' && (<button onClick={() => { triggerHaptic('medium'); setShowEndSessionForm(true); }} className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/50 px-3 py-1.5 rounded-sm text-xs font-black uppercase tracking-wider transition-all"><Square size={14} fill="currentColor" /><span>End Session</span></button>)}
+                            {isHost && status === 'PLAYING' && (<button onClick={() => { triggerHaptic('medium'); setConfirmConfig({ isOpen: true, title: 'End Session', message: 'Are you sure you want to end this session? All active courts will be finalized.', confirmLabel: 'End Session', isDestructive: true, action: () => onEnd(session.id, { shuttlesUsed: 0, pricePerShuttle: 0, totalCourtPrice: 0, splitMode: 'EQUAL' }) }); }} className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/50 px-3 py-1.5 rounded-none text-xs font-black uppercase tracking-wider transition-all"><Square size={14} fill="currentColor" /><span>End Session</span></button>)}
                             {isHost && status === 'OPEN' && onEdit && (
                                 <button onClick={() => { triggerHaptic('medium'); onEdit(session.id); }} className="p-2 text-gray-400 hover:text-white hover:bg-[#001645] rounded-full transition-all">
                                     <Pencil size={18} />
@@ -923,36 +988,45 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#001645] to-transparent z-20 pointer-events-none"></div>
                         </div>
                     ) : (
-                        <div className="bg-[#001645] border-b border-[#002266] p-6 pb-8 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#00FF41] opacity-5 transform rotate-45 translate-x-10 -translate-y-10 blur-3xl pointer-events-none"></div>
-                            <div className="flex items-start gap-5 relative z-10">
-                                <div className="bg-[#000B29] border border-[#002266] p-2 w-20 h-24 rounded-lg flex flex-col items-center justify-center shrink-0 shadow-xl group">
-                                    <span className="text-[10px] font-bold text-[#00FF41] uppercase tracking-widest mb-1">{weekday}</span>
-                                    <span className="text-4xl font-black text-white leading-none tracking-tighter group-hover:scale-110 transition-transform">{day}</span>
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase mt-1">{month}</span>
+                        <div className="bg-[#001645] p-4">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-[#000B29] w-12 h-14 rounded-none flex flex-col items-center justify-center shrink-0 shadow-lg">
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-tight">{month}</span>
+                                    <span className="text-xl font-black text-white italic leading-none tracking-tighter mt-0.5">{day}</span>
                                 </div>
-                                <div className="flex-1 pt-1 min-w-0">
-                                    <h2 className="text-2xl sm:text-3xl font-black italic tracking-tighter text-white leading-tight mb-1 break-words">{session.title || session.location}</h2>
-
-                                    {session.title && (
-                                        <div className="flex items-center text-xs text-gray-400 font-bold uppercase tracking-widest mb-2 ml-0.5">
-                                            <MapPin size={12} className="mr-1.5 text-[#00FF41]" />
-                                            {session.location}
-                                        </div>
-                                    )}
-
-                                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                                        {status === 'END' && <span className="inline-flex items-center px-2.5 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider bg-[#002266] text-gray-400 border border-[#003399]">Done</span>}
-                                        <div className="flex items-center text-xs text-gray-300 font-bold bg-[#000B29]/50 px-2.5 py-1.5 rounded-sm border border-[#002266]"><Clock size={12} className="mr-1.5 text-[#00FF41]" />{formatTime(session.startTime)} - {formatTime(session.endTime)}</div>
-                                        <div className="flex items-center text-xs text-gray-300 font-bold bg-[#000B29]/50 px-2.5 py-1.5 rounded-sm border border-[#002266]"><Timer size={12} className="mr-1.5 text-[#00FF41]" />{durationString}</div>
+                                <div className="flex-1 min-w-0">
+                                    <h2 className="text-xl sm:text-2xl font-black italic tracking-tighter text-white leading-tight mb-1 break-words">{session.title || session.location}</h2>
+                                    <div className="text-xs font-mono font-medium text-gray-400 flex items-center gap-2">
+                                        <span>{formatTime(session.startTime)} - {formatTime(session.endTime)}</span>
+                                        {session.title && (
+                                            <>
+                                                <span className="text-gray-600">•</span>
+                                                <span className="truncate max-w-[150px]">{session.location}</span>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {status === 'END' && (<div className="px-4 pt-4 -mb-2"> <div className="flex p-1 bg-[#000F33] border border-[#002266] rounded-lg"> <button onClick={() => { triggerHaptic('light'); setActiveTab('scoreboard'); }} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-md transition-all ${activeTab === 'scoreboard' ? 'bg-[#00FF41] text-[#000B29] shadow-md' : 'text-gray-500 hover:text-white'}`}>Scoreboard</button> <button onClick={() => { triggerHaptic('light'); setActiveTab('bill'); }} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-md transition-all ${activeTab === 'bill' ? 'bg-[#00FF41] text-[#000B29] shadow-md' : 'text-gray-500 hover:text-white'}`}>Session Bill</button> </div> </div>)}
-                    <div className="p-4 sm:p-6 space-y-6"> {status === 'PLAYING' ? <>{renderNextMatchups()}{renderLiveCourts()}{renderCheckInList()}</> : status === 'END' ? (activeTab === 'scoreboard' ? renderScoreboard() : renderBillSummary()) : renderNormalPlayerList()} </div>
+                    {status === 'END' && (
+                        <div className="flex border-b border-[#002266] w-full px-4 mt-2">
+                            <button
+                                onClick={() => { triggerHaptic('light'); setActiveTab('scoreboard'); }}
+                                className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'scoreboard' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                            >
+                                Scoreboard
+                            </button>
+                            <button
+                                onClick={() => { triggerHaptic('light'); setActiveTab('analytics'); }}
+                                className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'analytics' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                            >
+                                Analytics
+                            </button>
+                        </div>
+                    )}
+                    <div className="p-4 sm:p-6 space-y-6"> {status === 'PLAYING' ? <>{renderNextMatchups()}{renderLiveCourts()}{renderCheckInList()}</> : status === 'END' ? (activeTab === 'scoreboard' ? renderScoreboard() : renderAnalytics()) : renderNormalPlayerList()} </div>
                 </PullToRefresh>
 
                 {/* Fixed Action Bar at Bottom */}
@@ -960,7 +1034,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                     {isHost ? (
                         <div className={`grid gap-4 ${status === 'OPEN' ? 'grid-cols-[1fr_2fr]' : 'grid-cols-1'}`}>
                             {status === 'OPEN' && <button onClick={() => setConfirmConfig({ isOpen: true, title: 'Delete Session', message: 'This action is permanent and will remove the session from the arena. Proceed?', action: () => { triggerHaptic('heavy'); onDelete(session.id); }, isDestructive: true, confirmLabel: 'Delete Session' })} className="flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] bg-red-900/20 border border-red-900/50 text-red-500 hover:bg-red-900/40 transition-colors font-black uppercase tracking-wider text-sm"><span className="skew-x-[6deg] flex items-center"><Trash2 size={16} className="mr-2" />Delete</span></button>}
-                            {status === 'OPEN' && <button onClick={handleOpenStartModal} disabled={isTooEarlyToStart} className={`flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${isTooEarlyToStart ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] hover:bg-white hover:shadow-[0_0_20px_rgba(0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{isTooEarlyToStart ? <><Lock size={16} className="mr-2" />Wait until {formatTime(new Date(startTimeObj.getTime() - START_THRESHOLD_MINUTES * 60000).toISOString())}</> : <><Play size={18} className="mr-2 fill-current" />Start Session</>}</div></button>}
+                            {status === 'OPEN' && <button onClick={handleStartSession} disabled={isTooEarlyToStart} className={`flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${isTooEarlyToStart ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] hover:bg-white hover:shadow-[0_0_20px_rgba(0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{isTooEarlyToStart ? <><Lock size={16} className="mr-2" />Wait until {formatTime(new Date(startTimeObj.getTime() - START_THRESHOLD_MINUTES * 60000).toISOString())}</> : <><Play size={18} className="mr-2 fill-current" />Start Session</>}</div></button>}
                             {status === 'END' && (
                                 <div className="flex flex-col gap-3">
                                     <button onClick={() => setIsShareReportOpen(true)} className="w-full flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] bg-[#00FF41] text-[#000B29] hover:bg-white transition-colors font-black uppercase tracking-widest text-sm shadow-[0_0_20px_rgba(0,255,65,0.3)]"><span className="skew-x-[6deg] flex items-center gap-2"><Share2 size={18} />Share Results</span></button>
@@ -992,23 +1066,15 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                     stats={personalReportStats}
                 />
 
-                {isStartModalOpen && (<div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200"> <div className="bg-[#001645] border border-[#002266] w-full max-sm:max-w-xs max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"> <div className="bg-[#000B29] p-4 border-b border-[#002266] flex justify-between items-center"><h3 className="text-white font-bold uppercase tracking-wider flex items-center gap-2"><CheckCircle size={18} className="text-[#00FF41]" />Check-in Players</h3><button onClick={() => { triggerHaptic('light'); setIsStartModalOpen(false); }} className="p-1 text-gray-400 hover:text-white"><X size={20} /></button></div> <div className="p-2 border-b border-[#002266] bg-[#000F33]"><button onClick={handleSelectAllStartCheckIn} className="w-full py-2 text-xs font-bold uppercase tracking-wider text-[#00FF41] hover:bg-[#001645] rounded transition-colors">{startCheckInIds.length === players.length ? 'Deselect All' : 'Select All'}</button></div> <div className="p-4 overflow-y-auto flex-1 space-y-2">{players.map(player => { const isChecked = startCheckInIds.includes(player.id); return (<div key={player.id} onClick={() => handleToggleStartCheckIn(player.id)} className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all ${isChecked ? 'bg-[#002266] border-[#00FF41]' : 'bg-[#000B29] border-[#002266] hover:border-gray-500'}`}><div className={`w-5 h-5 rounded border flex items-center justify-center mr-3 transition-colors ${isChecked ? 'bg-[#00FF41]' : 'bg-transparent border-gray-500'}`}>{isChecked && <Check size={14} className="text-[#000B29] stroke-[4]" />}</div><div className={`rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={player.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(player.avatar) }} /> </div> <span className={`text-sm font-bold ml-3 ${isChecked ? 'text-white' : 'text-gray-400'}`}>{player.name}</span></div>) })}</div> <div className="p-4 border-t border-[#002266] bg-[#000B29]">
-                    <button
-                        onClick={confirmStartSession}
-                        disabled={startCheckInIds.length === 0}
-                        className={`w-full py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg transition-all ${startCheckInIds.length === 0 ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-[#00FF41] text-[#000B29] hover:bg-white hover:shadow-[0_0_20px_rgba(0,255,65,0.4)]'}`}
-                    >
-                        <span className="skew-x-12">{startCheckInIds.length === 0 ? 'Select Players' : 'Confirm & Start'}</span>
-                    </button>
-                </div> </div> </div>)}
+
 
                 {editingCourt !== null && (
                     <div className="fixed inset-0 z-[160] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                        <div className="bg-[#001645] border border-[#002266] w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+                        <div className="bg-[#001645] w-full max-w-md rounded-none overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
                             <div className="p-4 border-b border-[#002266] flex justify-between items-center bg-[#000B29]"> <h3 className="text-white font-bold uppercase tracking-wider flex items-center gap-2"> {isQueueingMatch ? 'Queue Next Match' : `Assign Court ${editingCourt + 1}`} </h3> </div>
                             <div className="bg-[#00123a] p-4 border-b border-[#002266]">
-                                <div className="bg-[#000B29] border border-[#002266] rounded-xl p-3 relative overflow-hidden">
-                                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"><div className="bg-[#000B29] border border-[#002266] text-gray-500 text-[10px] font-black w-8 h-8 flex items-center justify-center rounded-full shadow-lg">VS</div></div>
+                                <div className="bg-[#000B29] rounded-none p-3 relative overflow-hidden">
+                                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"><div className="bg-[#000B29] text-gray-500 text-[10px] font-black w-8 h-8 flex items-center justify-center rounded-full shadow-lg">VS</div></div>
                                     <div className="grid grid-cols-2 gap-8">
                                         <div className="text-center">
                                             <div className="mb-2 flex flex-col items-center"> <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Blue Team</span> <span className="text-[9px] font-mono text-gray-500">{tempStats.t1Avg > 0 ? `${tempStats.t1Avg} RP` : '0 RP'}</span> </div>
@@ -1021,16 +1087,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                     </div>
                                     {tempStats && selectedCount === 4 && <div className="absolute bottom-1 left-0 right-0 text-center pointer-events-none"><span className={`text-[9px] font-black px-1.5 py-0.5 rounded backdrop-blur ${tempStats.diff < 50 ? 'bg-[#00FF41]/20 text-[#00FF41]' : 'bg-yellow-500/20 text-yellow-500'}`}>RP Diff: {tempStats.diff}</span></div>}
                                 </div>
-                                {varietyWarning && (
-                                    <div className="mt-3 flex items-start gap-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-500 text-[10px] font-bold">
-                                        <AlertTriangle size={14} className="shrink-0 animate-bounce" />
-                                        <span>{varietyWarning} Consider swapping players for variety.</span>
-                                    </div>
-                                )}
+
                             </div>
                             <div className="p-4 overflow-y-auto flex-1">
-                                <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-3 flex items-center"><Users size={12} className="mr-2" /> Available Players</h4>
-                                <div className="space-y-2">{checkedInIds.filter(pid => { if (tempSelectedPlayers.includes(pid)) return false; const currentCourt = getPlayerCourtIndex(pid); if (currentCourt !== null && currentCourt !== editingCourt && !isQueueingMatch) return false; return true; }).map(playerId => { const user = allUsers.find(u => u.id === playerId); if (!user) return null; const pStats = playerStats[playerId] || { played: 0 }; return (<button key={playerId} onClick={() => handleSelectAvailablePlayer(playerId)} className="w-full flex items-center justify-between p-3 rounded-lg border bg-[#000B29] border-[#002266] hover:border-gray-500 transition-all group"><div className="flex items-center gap-3"><div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}><img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} /></div><div className="text-left"><span className="text-sm font-bold text-white block">{user.name}</span><div className="flex items-center gap-2"><span className="text-[10px] text-yellow-500 font-mono font-bold">{user.points} RP</span><span className="text-[10px] text-gray-500 font-bold">•</span><span className="text-[10px] text-blue-400 font-bold">{pStats.played} Played</span></div></div></div><div className="w-6 h-6 rounded-full bg-[#00FF41]/10 flex items-center justify-center group-hover:bg-[#00FF41] transition-colors"><Plus size={14} className="text-[#00FF41] group-hover:text-[#000B29]" /></div></button>); })}</div>
+                                <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-3 flex items-center">Available Players</h4>
+                                <div className="space-y-2">{checkedInIds.filter(pid => { if (tempSelectedPlayers.includes(pid)) return false; const currentCourt = getPlayerCourtIndex(pid); if (currentCourt !== null && currentCourt !== editingCourt && !isQueueingMatch) return false; return true; }).sort((a, b) => { const aPlayed = (playerStats[a] || { played: 0 }).played; const bPlayed = (playerStats[b] || { played: 0 }).played; return aPlayed - bPlayed; }).map(playerId => { const user = allUsers.find(u => u.id === playerId); if (!user) return null; const pStats = playerStats[playerId] || { played: 0 }; return (<button key={playerId} onClick={() => handleSelectAvailablePlayer(playerId)} className="w-full flex items-center justify-between p-3 rounded-none border bg-[#000B29] border-[#002266] hover:border-gray-500 transition-all group"><div className="flex items-center gap-3"><div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}><img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} /></div><div className="text-left"><span className="text-sm font-bold text-white block">{user.name}</span><div className="flex items-center gap-2"><span className="text-[10px] text-yellow-500 font-mono font-bold">{user.points} RP</span><span className="text-[10px] text-gray-500 font-bold">•</span><span className="text-[10px] text-blue-400 font-bold">{pStats.played} Played</span></div></div></div><div className="w-6 h-6 rounded-full bg-[#00FF41]/10 flex items-center justify-center group-hover:bg-[#00FF41] transition-colors"><Plus size={14} className="text-[#00FF41] group-hover:text-[#000B29]" /></div></button>); })}</div>
                             </div>
                             <div className="p-4 bg-[#000B29] border-t border-[#002266] flex gap-3">
                                 <button onClick={() => { triggerHaptic('light'); setEditingCourt(null); setIsQueueingMatch(false); }} className="py-3.5 px-3 border border-[#002266] hover:bg-[#001645] text-gray-400 hover:text-white transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg]"><span className="skew-x-[6deg] inline-block">Cancel</span></button>
@@ -1041,60 +1102,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                     </div>
                 )}
 
-                {showEndSessionForm && (
-                    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200">
-                        <div className="bg-[#001645] border border-[#002266] w-full max-sm:max-w-xs max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
-                            <div className="bg-[#000B29] p-6 border-b border-[#002266]">
-                                <h3 className="text-xl font-black italic uppercase text-white tracking-wider flex items-center"><Calculator size={20} className="mr-2 text-[#00FF41]" />Expenses</h3>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-[#00FF41] uppercase tracking-wider mb-1">Total Court Price</label>
-                                    <input type="number" className="w-full bg-[#000B29] border border-[#002266] text-white p-3 rounded focus:border-[#00FF41] outline-none font-mono font-bold" value={costForm.totalCourtPrice || ''} onChange={e => setCostForm({ ...costForm, totalCourtPrice: parseFloat(e.target.value) || 0 })} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-[#00FF41] uppercase tracking-wider mb-1">Shuttles Used</label>
-                                        <input type="number" className="w-full bg-[#000B29] border border-[#002266] text-white p-3 rounded focus:border-[#00FF41] outline-none font-mono font-bold" value={costForm.shuttlesUsed || ''} onChange={e => setCostForm({ ...costForm, shuttlesUsed: parseFloat(e.target.value) || 0 })} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-[#00FF41] uppercase tracking-wider mb-1">Price / Shuttle</label>
-                                        <input type="number" className="w-full bg-[#000B29] border border-[#002266] text-white p-3 rounded focus:border-[#00FF41] outline-none font-mono font-bold" value={costForm.pricePerShuttle || ''} onChange={e => setCostForm({ ...costForm, pricePerShuttle: parseFloat(e.target.value) || 0 })} />
-                                    </div>
-                                </div>
 
-                                {/* Split Mode Toggle */}
-                                <div className="bg-[#000B29] p-1 rounded-lg border border-[#002266] flex">
-                                    <button
-                                        onClick={() => { triggerHaptic('light'); setSplitMode('EQUAL'); }}
-                                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-1.5 ${splitMode === 'EQUAL' ? 'bg-[#001645] text-white shadow-md border border-[#002266]' : 'text-gray-500 hover:text-gray-300'}`}
-                                    >
-                                        <Users size={12} /> Equal Split
-                                    </button>
-                                    <button
-                                        onClick={() => { triggerHaptic('light'); setSplitMode('MATCHES'); }}
-                                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-1.5 ${splitMode === 'MATCHES' ? 'bg-[#001645] text-white shadow-md border border-[#002266]' : 'text-gray-500 hover:text-gray-300'}`}
-                                    >
-                                        <Swords size={12} /> By Matches
-                                    </button>
-                                </div>
-
-                                <div className="bg-[#000B29] p-4 rounded border border-dashed border-[#00FF41]/30 mt-4">
-                                    <div className="flex justify-between items-end mb-1">
-                                        <span className="text-xs text-gray-400 uppercase font-bold">Total Cost</span>
-                                        <span className="text-xl text-[#00FF41] font-mono font-black">${liveBillPreview.totalCost}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex border-t border-[#002266]">
-                                <button onClick={() => { triggerHaptic('light'); setShowEndSessionForm(false); }} className="flex-1 py-4 bg-[#000F33] hover:bg-[#001645] text-gray-400 hover:text-white font-bold uppercase tracking-wider text-xs transition-colors border-r border-[#002266]">Cancel</button>
-                                <button onClick={() => { triggerHaptic('heavy'); onEnd(session.id, { ...costForm, splitMode }); setShowEndSessionForm(false); }} className="flex-1 py-4 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black uppercase tracking-wider text-xs transition-all">Calculate & End</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {finishingGameCourt !== null && (<div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200"> <div className="bg-[#001645] border border-[#002266] w-full max-sm:max-w-xs max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col"> <div className="bg-[#000B29] p-4 border-b border-[#002266] flex justify-between items-center"><h3 className="text-white font-bold uppercase tracking-wider">Match Result</h3><button onClick={() => { triggerHaptic('light'); setFinishingGameCourt(null); }} className="p-1 text-gray-400 hover:text-white"><X size={20} /></button></div>
+                {finishingGameCourt !== null && (<div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200"> <div className="bg-[#001645] w-full max-sm:max-w-xs max-w-sm rounded-none overflow-hidden shadow-2xl flex flex-col"> <div className="bg-[#000B29] p-4 border-b border-[#002266] flex justify-between items-center"><h3 className="text-white font-bold uppercase tracking-wider">Match Result</h3><button onClick={() => { triggerHaptic('light'); setFinishingGameCourt(null); }} className="p-1 text-gray-400 hover:text-white"><X size={20} /></button></div>
                     <div className="p-6">
                         <p className="text-center text-gray-400 text-xs font-bold uppercase tracking-wider mb-6">Who won the match?</p>
 
@@ -1102,7 +1111,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                             {/* Blue Team Selection */}
                             <button
                                 onClick={() => { triggerHaptic('light'); setPendingWinner(1); }}
-                                className={`relative p-4 rounded-xl flex flex-col items-center gap-3 transition-all overflow-hidden group
+                                className={`relative p-4 rounded-none flex flex-col items-center gap-3 transition-all overflow-hidden group
                         ${pendingWinner === 1
                                         ? 'bg-blue-600 border border-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.5)] scale-[1.02]'
                                         : 'bg-[#000B29] border border-blue-500/30 hover:border-blue-500 hover:bg-blue-900/20'
@@ -1122,15 +1131,17 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                         </div>
                                     ))}
                                 </div>
-                                <span className={`text-xs font-bold mt-1 text-center truncate w-full px-1 ${pendingWinner === 1 ? 'text-white' : 'text-white'}`}>
-                                    {getTeamsForCourt(finishingGameCourt).team1.map(p => p.name.split(' ')[0]).join(' & ')}
-                                </span>
+                                <div className={`flex flex-col items-center text-xs font-bold mt-1 w-full px-1 ${pendingWinner === 1 ? 'text-white' : 'text-white'}`}>
+                                    {getTeamsForCourt(finishingGameCourt).team1.map(p => (
+                                        <div key={p.id} className="truncate w-full text-center">{p.name.split(' ')[0]}</div>
+                                    ))}
+                                </div>
                             </button>
 
                             {/* Red Team Selection */}
                             <button
                                 onClick={() => { triggerHaptic('light'); setPendingWinner(2); }}
-                                className={`relative p-4 rounded-xl flex flex-col items-center gap-3 transition-all overflow-hidden group
+                                className={`relative p-4 rounded-none flex flex-col items-center gap-3 transition-all overflow-hidden group
                         ${pendingWinner === 2
                                         ? 'bg-red-600 border border-red-400 shadow-[0_0_20px_rgba(220,38,38,0.5)] scale-[1.02]'
                                         : 'bg-[#001645] border border-red-500/30 hover:border-red-500 hover:bg-red-900/20'
@@ -1150,9 +1161,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                         </div>
                                     ))}
                                 </div>
-                                <span className={`text-xs font-bold mt-1 text-center truncate w-full px-1 ${pendingWinner === 2 ? 'text-white' : 'text-white'}`}>
-                                    {getTeamsForCourt(finishingGameCourt).team2.map(p => p.name.split(' ')[0]).join(' & ')}
-                                </span>
+                                <div className={`flex flex-col items-center text-xs font-bold mt-1 w-full px-1 ${pendingWinner === 2 ? 'text-white' : 'text-white'}`}>
+                                    {getTeamsForCourt(finishingGameCourt).team2.map(p => (
+                                        <div key={p.id} className="truncate w-full text-center">{p.name.split(' ')[0]}</div>
+                                    ))}
+                                </div>
                             </button>
                         </div>
 

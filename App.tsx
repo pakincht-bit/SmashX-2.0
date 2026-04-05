@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, useTransition, lazy, Suspense } from 'react';
 import { Session, User, CreateSessionDTO, FinalBill, MatchResult } from './types';
-import { calculateMaxPlayers, mapSessionFromDB, mapProfileFromDB, getFrameByPoints, triggerHaptic, generateId, calculateQueue, getAvailablePlayers } from './utils';
+import { calculateMaxPlayers, mapSessionFromDB, mapProfileFromDB, getFrameByPoints, triggerHaptic, generateId, calculateQueue, getAvailablePlayers, getDateParts, formatTime, getAvatarColor } from './utils';
 import Header from './components/Header';
 import SessionCard from './components/SessionCard';
 import BottomNav from './components/BottomNav';
@@ -9,7 +9,7 @@ import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import InstallBanner from './components/InstallBanner';
 import PullToRefresh from './components/PullToRefresh';
-import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus } from 'lucide-react';
+import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
 // OPTIMIZATION: Lazy-load heavy components to reduce initial bundle size
@@ -17,9 +17,12 @@ const SessionDetailModal = lazy(() => import('./components/SessionDetailModal'))
 const CreateSessionModal = lazy(() => import('./components/CreateSessionModal'));
 const PlayerProfileModal = lazy(() => import('./components/PlayerProfileModal'));
 const Leaderboard = lazy(() => import('./components/Leaderboard'));
-const Profile = lazy(() => import('./components/Profile'));
-const RegisterScreen = lazy(() => import('./components/RegisterScreen'));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
+const Profile = lazy(() => import('./components/Profile'));
+const HistoryScreen = lazy(() => import('./components/HistoryScreen'));
+const ActivityLogModal = lazy(() => import('./components/ActivityLogModal'));
+const StatsPage = lazy(() => import('./components/StatsPage'));
+const RegisterScreen = lazy(() => import('./components/RegisterScreen'));
 const ArenaTiersModal = lazy(() => import('./components/ArenaTiersModal'));
 const InstallGuideModal = lazy(() => import('./components/InstallGuideModal'));
 const ShareReportModal = lazy(() => import('./components/ShareReportModal'));
@@ -57,9 +60,12 @@ const App: React.FC = () => {
     const [pastLoaded, setPastLoaded] = useState(false);
 
     // Navigation State
-    const [activeTab, setActiveTab] = useState<'sessions' | 'leaderboard' | 'profile'>('sessions');
-    const [isTabTransitioning, startTabTransition] = useTransition();
+    const [activeTab, setActiveTab] = useState<'sessions' | 'leaderboard' | 'stats'>('sessions');
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [isActivityOpen, setIsActivityOpen] = useState(false);
+    const [isTabTransitioning, startTabTransition] = useTransition();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSession, setEditingSession] = useState<Session | null>(null);
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -158,19 +164,27 @@ const App: React.FC = () => {
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1); // active window = last 24h
 
-            // 1. Critical Load: Profiles + Active/Upcoming Sessions
-            const [profilesRes, activeSessionsRes] = await Promise.all([
+            // 1. Critical Load: Profiles + Active/Upcoming Sessions + Recent Past
+            const [profilesRes, activeSessionsRes, recentPastRes] = await Promise.all([
                 withTimeout(supabase.from('profiles').select('*')),
                 withTimeout(
                     supabase.from('sessions')
                         .select('*')
                         .gte('end_time', yesterday.toISOString()) // Only recent/ongoing
                         .order('start_time', { ascending: true })
+                ),
+                withTimeout(
+                    supabase.from('sessions')
+                        .select('*')
+                        .lt('end_time', new Date().toISOString()) // Sessions that have ended
+                        .order('end_time', { ascending: false })
+                        .limit(3) // Last 3 sessions for Recent Battles
                 )
             ]) as any;
 
             if (profilesRes.error) throw profilesRes.error;
             if (activeSessionsRes.error) throw activeSessionsRes.error;
+            // Non-critical: don't throw on recentPast error
 
             if (profilesRes.data) {
                 const mappedUsers = profilesRes.data.map(mapProfileFromDB);
@@ -183,6 +197,12 @@ const App: React.FC = () => {
             if (activeSessionsRes.data) {
                 const activeSessions = activeSessionsRes.data.map(mapSessionFromDB);
                 setSessions(activeSessions);
+            }
+
+            // Seed past sessions for Recent Battles section on home page
+            if (recentPastRes?.data && !recentPastRes.error) {
+                const recentPast = recentPastRes.data.map(mapSessionFromDB);
+                setPastSessions(recentPast);
             }
 
             // Unlock UI immediately — no history fetch needed!
@@ -291,6 +311,9 @@ const App: React.FC = () => {
             if (session) {
                 setIsAuthenticated(true);
                 setAuthStage('app');
+                // Always land on home (Arena) page after login
+                setActiveTab('sessions');
+                setIsProfileOpen(false);
                 await Promise.allSettled([
                     fetchUserProfile(session.user.id),
                     fetchData()
@@ -385,7 +408,7 @@ const App: React.FC = () => {
     const handleUserChange = useCallback((userId: string) => { const user = users.find(u => u.id === userId); if (user) setCurrentUser(user); }, [users]);
 
     // Tab switching with useTransition for smoother UX
-    const handleTabChange = useCallback((tab: 'sessions' | 'leaderboard' | 'profile') => {
+    const handleTabChange = useCallback((tab: 'sessions' | 'leaderboard' | 'stats') => {
         startTabTransition(() => { setActiveTab(tab); });
     }, [startTabTransition]);
 
@@ -900,7 +923,32 @@ const App: React.FC = () => {
             .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     }, [sessions]);
 
+    const recentSessions = useMemo(() => {
+        return [...allSessions]
+            .filter(s => s.finalBill || new Date(s.endTime).getTime() < Date.now())
+            .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime())
+            .slice(0, 3);
+    }, [allSessions]);
+
     const paginatedSessions = upcomingSessions.slice(0, visibleCount);
+
+    const marqueeConfigs = useMemo(() => [
+        { className: "w-12 h-12 animate-bounce -rotate-12 shrink-0", delay: '0s', duration: '4.2s', shadowSize: 20 },
+        { className: "w-16 h-16 animate-bounce rotate-6 mx-2 shrink-0", delay: '1.2s', duration: '5.5s', shadowSize: 30 },
+        { className: "w-10 h-10 animate-bounce rotate-12 mb-4 shrink-0", delay: '2.5s', duration: '3.8s', shadowSize: 20 },
+        { className: "w-14 h-14 animate-bounce -rotate-6 mt-4 mx-2 shrink-0", delay: '0.8s', duration: '4.8s', shadowSize: 30 },
+        { className: "w-8 h-8 animate-bounce rotate-[-15deg] shrink-0", delay: '1.8s', duration: '6s', shadowSize: 15 },
+        { className: "w-10 h-10 animate-bounce mt-2 mx-1 shrink-0", delay: '3.2s', duration: '4.5s', shadowSize: 20 },
+        { className: "w-6 h-6 animate-bounce rotate-12 mb-6 mx-3 shrink-0", delay: '0.3s', duration: '5.2s', shadowSize: 15 }
+    ], []);
+
+    const floatingUsersRow1 = useMemo(() => {
+        return [...users].sort(() => 0.5 - Math.random()).slice(0, 7);
+    }, [users]);
+
+    const floatingUsersRow2 = useMemo(() => {
+        return [...users].sort(() => 0.5 - Math.random()).slice(7, 14);
+    }, [users]);
 
     const groupedUpcomingSessions = useMemo(() => {
         const grouped: { title: string; sessions: Session[] }[] = [];
@@ -958,26 +1006,100 @@ const App: React.FC = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'leaderboard': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} /></Suspense>;
-            case 'profile':
-                if (isSettingsOpen) return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><SettingsScreen currentUser={activeUser} onUpdateUser={handleUpdateUser} onDeleteAccount={handleDeleteAccount} onBack={() => setIsSettingsOpen(false)} onLogout={handleLogout} /></Suspense>;
-                return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Profile user={activeUser} sessions={allSessions} allUsers={users} onOpenSettings={() => setIsSettingsOpen(true)} onSessionClick={setSelectedSessionId} onOpenTiers={() => setShowTiers(true)} onOpenInstallGuide={() => setShowInstallGuide(true)} onLogout={handleLogout} onLoadPastSessions={fetchPastSessions} isLoadingPast={isLoadingPast} hasMorePast={hasMorePast} pastLoaded={pastLoaded} /></Suspense>;
+            case 'stats': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} /></Suspense>;
             case 'sessions':
             default:
                 return (
                     <div className="space-y-6 animate-fade-in-up">
                         <section className="mb-12">
-                            <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-6 flex items-center gap-3">
-                                <span>Upcoming <span className="text-[#00FF41]">Sessions</span></span>
-                            </h3>
+                            {upcomingSessions.length > 0 && (
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-xl font-black italic uppercase tracking-tighter text-white m-0 flex items-center gap-3">
+                                        <span>Upcoming <span className="text-[#00FF41]">Sessions</span></span>
+                                    </h3>
+                                    <button
+                                        onClick={() => { triggerHaptic('medium'); setIsModalOpen(true); }}
+                                        className="bg-[#00FF41] hover:bg-white text-[#000B29] px-4 py-2 rounded-none text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(0,255,65,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        <Plus size={16} strokeWidth={4} />
+                                        <span className="hidden sm:inline">New Session</span>
+                                    </button>
+                                </div>
+                            )}
                             {upcomingSessions.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-16 bg-[#001645] border border-[#002266] rounded-2xl shadow-xl overflow-hidden relative group">
-                                    <div className="absolute inset-0 bg-[#00FF41] blur-3xl opacity-5 group-hover:opacity-10 transition-opacity duration-700"></div>
-                                    <div className="relative z-10 flex flex-col items-center">
-                                        <div className="w-20 h-20 bg-[#000B29] border border-[#002266] rounded-full flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(0,255,65,0.15)] group-hover:scale-110 transition-transform duration-500">
-                                            <Zap className="text-[#00FF41]" size={36} fill="currentColor" strokeWidth={0} />
+                                <div className="flex flex-col items-center justify-center py-4 relative group overflow-hidden" style={{ width: '100vw', marginLeft: 'calc(-50vw + 50%)' }}>
+                                    <div className="relative z-10 flex flex-col items-center w-full max-w-5xl mx-auto">
+                                        <div className="relative w-full max-w-full overflow-hidden mb-2 pointer-events-none group-hover:scale-110 transition-transform duration-700 ease-out flex items-center justify-center">
+                                            {/* Edge fade mask */}
+                                            <div className="absolute inset-0 z-20 pointer-events-none" style={{ background: 'linear-gradient(to right, #000B29 0%, transparent 20%, transparent 80%, #000B29 100%)' }}></div>
+
+                                            <style>
+                                                {`
+                                                    @keyframes scrollRightToLeft {
+                                                        0% { transform: translateX(0); }
+                                                        100% { transform: translateX(-50%); }
+                                                    }
+                                                    .animate-marquee-row1 {
+                                                        display: flex;
+                                                        width: max-content;
+                                                        animation: scrollRightToLeft 75s linear infinite;
+                                                    }
+                                                    .animate-marquee-row2 {
+                                                        display: flex;
+                                                        width: max-content;
+                                                        animation: scrollRightToLeft 90s linear infinite;
+                                                    }
+                                                `}
+                                            </style>
+
+                                            {(() => {
+                                                const renderMarqueeRow = (usersArray: User[], className: string, offset: number = 0) => (
+                                                    <div className={className}>
+                                                        {usersArray.map((user, idx) => {
+                                                            const config = marqueeConfigs[(idx + offset) % marqueeConfigs.length];
+
+                                                            const glowColor = (() => {
+                                                                try {
+                                                                    const url = new URL(user.avatar);
+                                                                    const bg = url.searchParams.get('backgroundColor');
+                                                                    return bg ? `#${bg}` : getAvatarColor(user.id);
+                                                                } catch {
+                                                                    return getAvatarColor(user.id);
+                                                                }
+                                                            })();
+
+                                                            return (
+                                                                <div
+                                                                    key={`${user.id}-${idx}`}
+                                                                    className={`rounded-full border-2 border-[#000B29] shrink-0 ${config.className}`}
+                                                                    style={{
+                                                                        animationDelay: config.delay,
+                                                                        animationDuration: config.duration,
+                                                                        backgroundColor: glowColor,
+                                                                        boxShadow: `0 0 ${config.shadowSize}px ${glowColor}60`
+                                                                    }}
+                                                                >
+                                                                    <img src={user.avatar} className="w-full h-full rounded-full object-cover" alt={user.name} />
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                );
+
+                                                const fullArray1 = [...floatingUsersRow1, ...floatingUsersRow1, ...floatingUsersRow1, ...floatingUsersRow1];
+                                                const reversedArray2 = [...floatingUsersRow2].reverse();
+                                                const fullReversedArray2 = [...reversedArray2, ...reversedArray2, ...reversedArray2, ...reversedArray2];
+
+                                                return (
+                                                    <div className="flex flex-col w-full -space-y-6 pt-4 pb-0">
+                                                        {renderMarqueeRow(fullArray1, "animate-marquee-row1 items-center gap-8 pl-10 relative z-10", 0)}
+                                                        {renderMarqueeRow(fullReversedArray2, "animate-marquee-row2 items-center gap-12 pr-12 relative z-20", 3)}
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
-                                        <h3 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">The Arena is <span className="text-gray-600">Quiet</span></h3>
-                                        <p className="text-gray-400 font-medium text-xs uppercase tracking-widest mb-8 text-center max-w-[250px] leading-relaxed">No upcoming battles scheduled. Be the one to rally the squad.</p>
+                                        <h3 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">The Court is <span className="text-[#00FF41]">Yours</span></h3>
+                                        <p className="text-gray-400 font-medium text-xs uppercase tracking-widest mb-8 text-center max-w-[300px] leading-relaxed">No sessions have been created.<br />Be the first to claim the court.</p>
                                         <button
                                             onClick={() => { triggerHaptic('medium'); setIsModalOpen(true); }}
                                             className="bg-[#00FF41] hover:bg-white text-[#000B29] px-8 py-4 rounded-none -skew-x-12 text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(0,255,65,0.3)] hover:shadow-[0_0_40px_rgba(255,255,255,0.5)] transition-all active:scale-95 flex items-center gap-2 group/btn"
@@ -990,23 +1112,45 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="space-y-8">
-                                    {groupedUpcomingSessions.map((group) => (
-                                        <div key={group.title}>
-                                            <div className="flex items-center gap-4 mb-4">
-                                                <div className="h-px bg-gradient-to-r from-transparent via-[#002266] to-[#002266] flex-1"></div>
-                                                <span className="text-[#00FF41] font-black text-xs uppercase tracking-widest bg-[#001645]/50 px-4 py-1 rounded-full">{group.title}</span>
-                                                <div className="h-px bg-gradient-to-l from-transparent via-[#002266] to-[#002266] flex-1"></div>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                {group.sessions.map(session => (
-                                                    <SessionCard key={session.id} session={session} currentUser={activeUser} allUsers={users} onJoin={handleJoin} onLeave={handleLeave} onDelete={handleDelete} onClick={setSelectedSessionId} />
-                                                ))}
-                                            </div>
+                                <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 pb-4 -mx-4 px-4 scroll-px-4 after:content-[''] after:w-px after:shrink-0">
+                                    {paginatedSessions.map(session => (
+                                        <div key={session.id} className="w-[90vw] sm:w-[480px] shrink-0 snap-start">
+                                            <SessionCard session={session} currentUser={activeUser} allUsers={users} onDelete={handleDelete} onClick={setSelectedSessionId} />
                                         </div>
                                     ))}
                                 </div>
                             )}
+
+                            {/* Recent Battles */}
+                            {recentSessions.length > 0 && (
+                                <div className="space-y-4 mt-8 mb-4">
+                                    <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-3">
+                                        <span>Recent <span className="text-[#00FF41]">Battles</span></span>
+                                    </h3>
+                                    <div className="space-y-2">
+                                        {recentSessions.map(session => {
+                                            const { day, month } = getDateParts(session.startTime);
+                                            return (
+                                                <div key={session.id} onClick={() => { triggerHaptic('light'); setSelectedSessionId(session.id); }} className="cursor-pointer bg-[#001645] hover:shadow-[0_8px_32px_rgba(0,255,65,0.1)] hover:border-[#00FF41]/40 border border-transparent rounded-none p-3 transition-all hover:bg-[#001c55] group flex items-center gap-4">
+                                                    <div className="flex flex-col items-center justify-center min-w-[40px] bg-[#000B29] rounded-none py-1.5 shrink-0 group-hover:bg-[#000F35] transition-colors border-r border-[#00FF41]/10">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 leading-none mb-1">{month}</span>
+                                                        <span className="text-xl font-black text-white italic tracking-tighter leading-none">{day}</span>
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <h4 className="text-sm font-black italic text-white group-hover:text-[#00FF41] transition-colors truncate mb-1 uppercase tracking-tight">{session.title || session.location}</h4>
+                                                        <div className="flex items-center text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em]">
+                                                            <span className="tabular-nums">{formatTime(session.startTime)}</span>
+                                                            <span className="mx-2 opacity-30">•</span>
+                                                            <span className="truncate">{session.location}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                         </section>
                     </div>
                 );
@@ -1018,7 +1162,7 @@ const App: React.FC = () => {
             <PullToRefresh onRefresh={fetchData}>
                 <div className="min-h-screen pb-24 bg-[#000B29] text-white">
                     <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
-                    <Header currentUser={activeUser} allUsers={users} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={activeTab === 'sessions'} showLogoutButton={activeTab === 'profile'} onLogoClick={() => setActiveTab('sessions')} />
+                    <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} onOpenHistory={() => setIsHistoryOpen(true)} onOpenActivity={() => setIsActivityOpen(true)} />
                     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</main>
                 </div>
             </PullToRefresh>
@@ -1030,7 +1174,7 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            {!isSettingsOpen ? <BottomNav activeTab={activeTab} onTabChange={handleTabChange} currentUser={activeUser} /> : null}
+            <BottomNav activeTab={activeTab} onTabChange={handleTabChange} currentUser={activeUser} />
 
             <Suspense fallback={null}>
                 <CreateSessionModal
@@ -1073,6 +1217,56 @@ const App: React.FC = () => {
                 <PlayerProfileModal isOpen={!!viewingPlayerId} onClose={() => setViewingPlayerId(null)} userId={viewingPlayerId} allUsers={users} sessions={sessions} />
             </Suspense>
             <Suspense fallback={null}>
+                {isActivityOpen && activeUser && (
+                    <ActivityLogModal currentUser={activeUser} sessions={sessions} onClose={() => setIsActivityOpen(false)} />
+                )}
+            </Suspense>
+            <Suspense fallback={null}>
+                {isHistoryOpen && (
+                    <div className="fixed inset-0 z-[200] bg-[#000B29] overflow-y-auto animate-in fade-in duration-300">
+                        <HistoryScreen
+                            currentUser={activeUser}
+                            sessions={sessions}
+                            pastSessions={pastSessions}
+                            isLoadingPast={isLoadingPast}
+                            hasMorePast={hasMorePast}
+                            onLoadMore={fetchPastSessions}
+                            onBack={() => setIsHistoryOpen(false)}
+                        />
+                    </div>
+                )}
+            </Suspense>
+            <Suspense fallback={null}>
+                {isProfileOpen && (
+                    <div className="fixed inset-0 z-[200] bg-[#000B29] overflow-y-auto animate-in fade-in duration-300">
+                        <div className="mx-auto min-h-screen relative w-full px-0 py-0">
+                            {isSettingsOpen ? (
+                                <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+                                    <SettingsScreen
+                                        currentUser={activeUser}
+                                        onUpdateUser={handleUpdateUser}
+                                        onDeleteAccount={handleDeleteAccount}
+                                        onBack={() => setIsSettingsOpen(false)}
+                                    />
+                                </div>
+                            ) : (
+                                <Profile
+                                    user={activeUser}
+                                    sessions={sessions}
+                                    allUsers={users}
+                                    onOpenSettings={() => setIsSettingsOpen(true)}
+                                    onSessionClick={setSelectedSessionId}
+                                    onOpenTiers={() => setShowTiers(true)}
+                                    onOpenInstallGuide={() => setShowInstallGuide(true)}
+                                    onLogout={handleLogout}
+                                    onClose={() => setIsProfileOpen(false)}
+                                />
+                            )}
+                        </div>
+                    </div>
+                )}
+            </Suspense>
+            <Suspense fallback={null}>
                 <ArenaTiersModal isOpen={showTiers} onClose={() => setShowTiers(false)} user={activeUser} />
             </Suspense>
             <Suspense fallback={null}>
@@ -1087,7 +1281,7 @@ const App: React.FC = () => {
                 <div className="fixed inset-0 z-[1000] bg-[#000B29]/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-500">
                     <div className="relative">
                         <div className="absolute inset-0 bg-[#00FF41] blur-[60px] opacity-20 animate-pulse"></div>
-                        <div className="relative bg-[#001645] border border-[#00FF41]/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(0,255,65,0.15)] flex flex-col items-center">
+                        <div className="relative bg-[#001645] border border-[#00FF41]/30 p-8 rounded-none shadow-[0_0_50px_rgba(0,255,65,0.15)] flex flex-col items-center">
                             <div className="w-16 h-16 relative mb-6">
                                 <Loader2 className="animate-spin text-[#00FF41] absolute inset-0" size={64} strokeWidth={1.5} />
                                 <Zap className="text-[#00FF41] absolute inset-1/2 -translate-x-1/2 -translate-y-1/2" size={24} fill="currentColor" />

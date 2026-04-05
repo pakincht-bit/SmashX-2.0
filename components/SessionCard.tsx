@@ -1,15 +1,13 @@
-
 import React, { useState, useCallback } from 'react';
 import { Session, User } from '../types';
 import { formatTime, getDateParts, triggerHaptic } from '../utils';
-import { Clock, Users, MapPin, Loader2, LogIn, LogOut } from 'lucide-react';
+import { Loader2, LogOut } from 'lucide-react';
+import { Button } from './ui/Button';
 
 interface SessionCardProps {
     session: Session;
     currentUser: User;
     allUsers: User[]; // Keep this for compatibility if passed
-    onJoin: (sessionId: string) => Promise<void>;
-    onLeave: (sessionId: string) => Promise<void>;
     onDelete: (sessionId: string) => void;
     onClick: (sessionId: string) => void;
 }
@@ -19,13 +17,10 @@ const AUTO_END_GRACE_PERIOD_MS = 30 * 60 * 1000;
 const SessionCard: React.FC<SessionCardProps> = React.memo(({
     session,
     currentUser,
-    onJoin,
-    onLeave,
+    allUsers = [], // Provide default empty array
     onClick
 }) => {
-    const [isProcessing, setIsProcessing] = useState(false);
     const { month, day, weekday } = getDateParts(session.startTime);
-    const isFull = session.playerIds.length >= session.maxPlayers;
     const isJoined = session.playerIds.includes(currentUser.id);
 
     const getSessionStatus = () => {
@@ -35,9 +30,7 @@ const SessionCard: React.FC<SessionCardProps> = React.memo(({
         const end = new Date(session.endTime);
         const endWithGrace = new Date(end.getTime() + AUTO_END_GRACE_PERIOD_MS);
 
-        // Transition to END only after grace period expires
         if (now > endWithGrace) return 'END';
-        // Stay PLAYING during grace period
         if (session.started || (now >= start && now <= endWithGrace)) return 'PLAYING';
         if (isJoined) return 'JOINED';
         return 'OPEN';
@@ -45,92 +38,67 @@ const SessionCard: React.FC<SessionCardProps> = React.memo(({
 
     const status = getSessionStatus();
 
-    const handleAction = useCallback(async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (isProcessing) return;
+    const renderBouncingAvatars = () => {
+        const joinedPlayers = session.playerIds.map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+        if (joinedPlayers.length === 0) return null;
 
-        setIsProcessing(true);
-        try {
-            if (status === 'JOINED') {
-                await onLeave(session.id);
-                triggerHaptic('medium');
-            } else if (status === 'OPEN' && !isFull) {
-                await onJoin(session.id);
-                triggerHaptic('success');
-            }
-        } catch (error) {
-            console.error("Action failed", error);
-            triggerHaptic('error');
-        } finally {
-            setIsProcessing(false);
-        }
-    }, [isProcessing, status, isFull, onJoin, onLeave, session.id]);
+        // Show up to 5 players
+        const displayPlayers = joinedPlayers.slice(0, 5);
 
-    const renderStatusBadge = () => {
-        // Common style for the skewed container
-        const badgeClass = "px-2 py-1.5 rounded-sm -skew-x-12 flex items-center justify-center border transition-all";
-        // Common style for the un-skewed text
-        const textClass = "skew-x-12 text-[10px] font-black uppercase tracking-wider flex items-center gap-1";
+        // Scattered positions on the right side of the card
+        const configs = [
+            { top: '15%', right: '5%', size: 'w-10 h-10', delay: '0s', duration: '3s', zIndex: 10 },
+            { top: '35%', right: '25%', size: 'w-12 h-12', delay: '0.4s', duration: '3.5s', zIndex: 12 },
+            { top: '10%', right: '40%', size: 'w-8 h-8', delay: '0.8s', duration: '2.8s', zIndex: 8 },
+            { top: '65%', right: '12%', size: 'w-10 h-10', delay: '0.2s', duration: '4s', zIndex: 11 },
+            { top: '55%', right: '35%', size: 'w-9 h-9', delay: '0.6s', duration: '3.2s', zIndex: 9 },
+        ];
 
-        if (isProcessing) {
-            return (
-                <div className={`${badgeClass} bg-gray-800 border-gray-600 text-gray-400 cursor-wait`}>
-                    <span className={textClass}>
-                        <Loader2 size={12} className="animate-spin" /> Processing
-                    </span>
+        return (
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {displayPlayers.map((player, index) => {
+                    const conf = configs[index];
+                    return (
+                        <div
+                            key={player.id}
+                            className={`absolute animate-bounce rounded-full border-2 border-[#000B29] overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.5)] ${conf.size}`}
+                            style={{
+                                top: conf.top,
+                                right: conf.right,
+                                zIndex: conf.zIndex,
+                                animationDuration: conf.duration,
+                                animationDelay: conf.delay,
+                            }}
+                        >
+                            <img src={player.avatar} alt={player.name} className="w-full h-full object-cover" />
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
+    const renderTopBadges = () => {
+        const badges = [];
+
+        if (status === 'END') {
+            badges.push(
+                <div key="end" className="px-3 py-1.5 rounded-full bg-gray-900/80 backdrop-blur text-gray-400 text-[11px] font-black uppercase flex items-center gap-1.5 shadow-lg border border-gray-700">
+                    Ended
+                </div>
+            );
+        } else if (status === 'PLAYING') {
+            badges.push(
+                <div key="live" className="px-3 py-1.5 rounded-full bg-red-500 text-white text-[11px] font-black uppercase flex items-center gap-1.5 shadow-lg shadow-red-500/30 border border-red-400">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div> Live
                 </div>
             );
         }
 
-        switch (status) {
-            case 'END':
-                return (
-                    <div className={`${badgeClass} bg-gray-900/50 border-gray-700 text-gray-400`}>
-                        <span className={textClass}>Finished</span>
-                    </div>
-                );
-            case 'PLAYING':
-                return (
-                    <div className={`${badgeClass} bg-[#00FF41]/10 border-[#00FF41]/30 text-[#00FF41] shadow-[0_0_10px_rgba(0,255,65,0.2)]`}>
-                        <span className={textClass}>
-                            <div className="w-1.5 h-1.5 bg-[#00FF41] rounded-full animate-pulse"></div> Live
-                        </span>
-                    </div>
-                );
-            case 'JOINED':
-                return (
-                    <button
-                        onClick={handleAction}
-                        className={`${badgeClass} bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-red-500/10 hover:border-red-500/50 hover:text-red-500 group/status`}
-                    >
-                        <span className={`${textClass} hidden group-hover/status:flex`}>
-                            <LogOut size={12} /> Leave
-                        </span>
-                        <span className={`${textClass} group-hover/status:hidden`}>
-                            Joined
-                        </span>
-                    </button>
-                );
-            default:
-                if (isFull) {
-                    return (
-                        <div className={`${badgeClass} bg-red-500/10 border-red-500/30 text-red-500`}>
-                            <span className={textClass}>Full</span>
-                        </div>
-                    );
-                }
-                return (
-                    <button
-                        onClick={handleAction}
-                        className={`${badgeClass} bg-[#00FF41] border-[#00FF41] text-[#000B29] shadow-[0_0_10px_rgba(0,255,65,0.3)] hover:bg-white hover:text-[#000B29] active:scale-95`}
-                    >
-                        <span className={textClass}>
-                            <LogIn size={12} strokeWidth={3} /> Join
-                        </span>
-                    </button>
-                );
-        }
+        return badges;
     };
+
+
 
     return (
         <div
@@ -138,56 +106,62 @@ const SessionCard: React.FC<SessionCardProps> = React.memo(({
                 triggerHaptic('light');
                 onClick(session.id);
             }}
-            className="cursor-pointer group relative flex bg-[#001645] border border-[#002266] rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#00FF41]/40 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] active:scale-[0.99]"
+            className="flex flex-col bg-[#1A1C23] rounded-none overflow-hidden cursor-pointer group hover:shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all duration-300 w-full"
         >
-            {/* Date Section - Left Side */}
-            <div className="bg-[#000B29] border-r border-[#002266] w-20 shrink-0 flex flex-col items-center justify-center p-2 relative overflow-hidden group-hover:bg-[#000F33] transition-colors">
-                <div className="absolute top-0 right-0 w-12 h-12 bg-[#00FF41] opacity-5 -rotate-45 translate-x-6 -translate-y-6"></div>
-                {/* Weekday moved to top and highlighted */}
-                <span className="text-[10px] font-black text-[#00FF41] uppercase tracking-widest mb-0.5">{weekday}</span>
-                <span className="text-4xl font-black text-white italic leading-none tracking-tighter">{day}</span>
-                {/* Month moved to bottom */}
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{month}</span>
+            {/* Top Banner Area */}
+            <div className="relative w-full bg-gradient-to-br from-[#002266] to-[#000B29] p-4 flex flex-col justify-between overflow-hidden">
+                {/* Background Pattern / Texture */}
+                <div className="absolute inset-0 bg-[#3b82f6] opacity-[0.05] mix-blend-overlay"></div>
+                <div className="absolute top-0 right-0 w-48 h-48 bg-[#3b82f6] opacity-10 blur-[50px] -translate-y-1/2 translate-x-1/3 rounded-full pointer-events-none"></div>
+
+                {renderBouncingAvatars()}
+
+                {/* Floating Badges (Top Right) */}
+                <div className="absolute top-4 right-4 z-20 flex gap-2">
+                    {renderTopBadges()}
+                </div>
+
+                {/* Big Date Display acting as the "Image" cover */}
+                <div className="relative z-10 flex flex-col items-start justify-end">
+                    <div className="flex items-end gap-3 text-white drop-shadow-md">
+                        <span className="text-7xl font-black italic tracking-tighter leading-none">{day}</span>
+                        <div className="flex flex-col leading-none pb-2">
+                            <span className="text-xl font-black uppercase text-[#00FF41] tracking-widest mb-0.5">{month}</span>
+                            <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">{weekday}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Content Section */}
-            <div className="flex-1 p-3 flex flex-col justify-between min-w-0 relative gap-3">
-                {/* Header: Title & Status */}
-                <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-base font-black italic text-white uppercase tracking-tight leading-none group-hover:text-[#00FF41] transition-colors line-clamp-1 flex-1">
+            {/* Content Area */}
+            <div className="flex flex-col p-5 gap-5 bg-[#18181b]">
+                {/* Title and Location */}
+                <div className="flex flex-col gap-1.5">
+                    <h3 className="text-2xl font-black text-white italic uppercase tracking-tight leading-none line-clamp-1 group-hover:text-[#00FF41] transition-colors shadow-black drop-shadow-sm">
                         {session.title || 'Badminton Session'}
                     </h3>
-                    {/* Status Badge */}
-                    <div className="shrink-0 z-10">
-                        {renderStatusBadge()}
+                    <div className="flex items-center gap-2 text-[13px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                        <span className="truncate">{session.location}</span>
                     </div>
                 </div>
 
-                {/* Meta Badges Row - Grid Layout for equal width */}
-                <div className="grid grid-cols-3 gap-2 w-full">
-                    {/* Location Badge */}
-                    <div className="bg-[#001645] border border-[#00FF41]/30 text-white px-1 py-1.5 rounded-sm -skew-x-12 flex items-center justify-center w-full">
-                        <span className="skew-x-12 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 truncate w-full">
-                            <MapPin size={10} className="text-[#00FF41] shrink-0" />
-                            <span className="truncate">{session.location}</span>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-4 py-4 pb-0 border-t border-white/5">
+                    <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2 text-gray-500">
+                            <span className="text-[10px] font-black uppercase tracking-widest">Time</span>
+                        </div>
+                        <span className="text-lg font-black text-white italic tracking-tighter shadow-black drop-shadow-sm">
+                            {formatTime(session.startTime)} – {formatTime(session.endTime)}
                         </span>
                     </div>
 
-                    {/* Time Badge */}
-                    <div className="bg-[#001645] border border-[#00FF41]/30 text-white px-1 py-1.5 rounded-sm -skew-x-12 flex items-center justify-center w-full">
-                        <span className="skew-x-12 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 truncate w-full">
-                            <Clock size={10} className="text-[#00FF41] shrink-0" />
-                            <span className="truncate">{formatTime(session.startTime)}</span>
-                        </span>
-                    </div>
-
-                    {/* Players Badge */}
-                    <div className={`px-1 py-1.5 rounded-sm -skew-x-12 flex items-center justify-center border w-full ${isFull ? 'bg-red-500/5 border-red-500/30' : 'bg-[#001645] border-[#002266]'}`}>
-                        <span className="skew-x-12 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 truncate w-full">
-                            <Users size={10} strokeWidth={3} className={isFull ? "text-red-500" : "text-[#00FF41]"} />
-                            <span className={isFull ? "text-red-500" : "text-white"}>{session.playerIds.length}</span>
-                            <span className="text-gray-500">/</span>
-                            <span className="text-gray-400">{session.maxPlayers}</span>
+                    <div className="flex flex-col gap-1.5 pl-4 border-l border-white/5">
+                        <div className="flex items-center gap-2 text-gray-500">
+                            <span className="text-[10px] font-black uppercase tracking-widest">Players</span>
+                        </div>
+                        <span className="text-xl font-black text-white italic tracking-tighter shadow-black drop-shadow-sm">
+                            {session.playerIds.length}
                         </span>
                     </div>
                 </div>

@@ -40,6 +40,40 @@
     content="https://api.dicebear.com/9.x/adventurer/png?seed=SmashXRoster&backgroundColor=00FF41" />
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              base: '#000B29',
+              struct: '#001030',
+              card: '#001645',
+              border: '#002266',
+            },
+            neon: {
+              primary: '#00FF41',
+              primaryHover: '#00cc33',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          animation: {
+            'value-update': 'valueUpdate 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            'fade-in-up': 'fadeInUp 0.4s ease-out forwards',
+            'session-float': 'sessionCardFloat 4s ease-in-out infinite alternate',
+          },
+          boxShadow: {
+            'glow-primary': '0 0 10px rgba(0, 255, 65, 0.3)',
+            'glow-primary-strong': '0 0 20px rgba(0, 255, 65, 0.5)',
+            'deep-card': '0 8px 32px rgba(0, 0, 0, 0.4)',
+            'deep-card-hover': '0 8px 30px rgba(0, 0, 0, 0.5)',
+          }
+        }
+      }
+    }
+  </script>
 
   <!-- Google Fonts with CORS Fix -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -270,6 +304,11 @@
       border: 2px solid #ffffff;
       box-shadow: 0 0 12px rgba(255, 255, 255, 0.6), 0 0 4px rgba(255, 255, 255, 0.3);
     }
+    /* Floating avatar animation for SessionCard */
+    @keyframes sessionCardFloat {
+      0% { transform: translateY(0px); }
+      100% { transform: translateY(-6px); }
+    }
   </style>
   <script type="importmap">
 {
@@ -289,7 +328,7 @@
   <link rel="stylesheet" href="/index.css">
 </head>
 
-<body class="bg-[#000B29] text-white antialiased">
+<body class="bg-[#000B29] text-white antialiased overflow-x-hidden w-full relative">
   <div id="root"></div>
 
   <!-- SVG filters removed for battery optimization -->

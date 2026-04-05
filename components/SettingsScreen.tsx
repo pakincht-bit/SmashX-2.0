@@ -11,7 +11,6 @@ interface SettingsScreenProps {
     onUpdateUser: (updatedUser: User) => void;
     onDeleteAccount: () => void;
     onBack: () => void;
-    onLogout: () => void;
 }
 
 const PRESET_SEEDS = [
@@ -32,7 +31,7 @@ const BG_COLORS = [
     { name: 'Deep Space', hex: '1e293b' },
 ];
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUser, onDeleteAccount, onBack, onLogout }) => {
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUser, onDeleteAccount, onBack }) => {
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
     const parseCurrentSettings = (): Partial<AvatarOptions> => {
@@ -70,47 +69,20 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
         onBack();
     };
 
-    const handleLogoutWithHaptic = () => {
-        triggerHaptic('medium');
-        onLogout();
-    };
-
     return (
         <div className="space-y-6 animate-fade-in-up pb-32">
-            <div className="flex items-center gap-4 mb-6 sticky top-0 bg-[#000B29]/90 backdrop-blur z-20 py-4 -mt-4 px-1 border-b border-[#002266]">
+            <div className="flex items-center gap-3 mb-6 sticky top-0 bg-[#000B29]/90 backdrop-blur z-20 py-3 -mt-4 px-1 border-b border-[#002266]">
                 <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors">
-                    <ArrowLeft size={24} />
+                    <ArrowLeft size={20} />
                 </button>
-                <h2 className="text-xl font-black italic uppercase text-white tracking-wider flex-1">Identity <span className="text-[#00FF41]">Lab</span></h2>
-
+                <h2 className="text-lg font-black italic uppercase text-white tracking-wider flex-1">Profile <span className="text-[#00FF41]">Settings</span></h2>
             </div>
 
             <form onSubmit={handleSave} className="space-y-10">
                 {/* Identity Customization Section */}
-                <div className="bg-[#001645] border border-[#002266] rounded-2xl p-6 relative overflow-hidden shadow-xl">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-                        <Sparkles size={100} className="text-[#00FF41]" />
-                    </div>
+                <AvatarBuilder initialOptions={initialOptions} onUrlChange={setAvatarUrl} />
 
-                    <AvatarBuilder initialOptions={initialOptions} onUrlChange={setAvatarUrl} />
-                </div>
 
-                {/* Fields */}
-                <div className="space-y-6">
-                    <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] mb-2 ml-1">Profile Name</label>
-                        <div className="relative group opacity-50">
-                            <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-                            <input
-                                type="text"
-                                value={currentUser.name}
-                                readOnly
-                                className="w-full pl-12 pr-4 py-4 bg-[#001645] border border-[#002266] text-gray-400 rounded-none outline-none font-black italic tracking-tight"
-                            />
-                        </div>
-                        <p className="text-[9px] text-gray-600 mt-2 ml-1 font-bold uppercase tracking-widest leading-relaxed">* Name changes are restricted for ranking integrity</p>
-                    </div>
-                </div>
 
                 <div className="pt-4 flex flex-col gap-8">
                     <button
@@ -123,9 +95,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
                     </button>
 
                     <div className="pt-8 border-t border-[#002266] flex flex-col gap-4">
-
-
-                        <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-6">
+                        <div className="bg-red-500/5 border border-red-500/20 rounded-none p-6 mt-4">
                             <div className="flex items-center gap-3 mb-4">
                                 <AlertTriangle className="text-red-500" size={20} />
                                 <h3 className="text-sm font-black uppercase tracking-widest text-red-500">Danger Zone</h3>

@@ -41,7 +41,7 @@ const StatCard = React.memo<StatCardProps>(({ title, user, value, icon, colorCla
     return (
         <div
             onClick={() => onPlayerClick?.(user.id)}
-            className={`bg-[#001645] border ${borderClass} rounded-xl p-3 flex flex-col items-center justify-center relative overflow-hidden group transition-transform active:scale-95 cursor-pointer hover:bg-[#001c55]`}
+            className={`bg-[#001645] border ${borderClass} rounded-none p-3 flex flex-col items-center justify-center relative overflow-hidden group transition-transform active:scale-95 cursor-pointer hover:bg-[#001c55]`}
         >
             <div className={`absolute -right-3 -bottom-3 opacity-10 ${colorClass} transform rotate-12 scale-150 pointer-events-none`}>
                 {icon}
@@ -128,8 +128,8 @@ const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, is
     return (
         <div
             onClick={() => onPlayerClick?.(user.id)}
-            className={`p-3 grid grid-cols-[32px_1fr_100px] gap-4 items-center transition-all relative group cursor-pointer
-                ${isMe ? 'bg-[#00FF41]/10 border-y border-[#00FF41]/30 z-10' : 'hover:bg-[#001c55]'}`}
+            className={`py-3 px-4 grid grid-cols-[28px_1fr_auto] gap-3 items-center transition-all relative group cursor-pointer
+            ${isMe ? 'bg-[#00FF41]/10 border-y border-[#00FF41]/10 z-10' : 'hover:bg-[#001c55]'}`}
         >
             <div className={`font-black text-sm italic text-center ${rankColor}`}>
                 {index + 1}
@@ -147,7 +147,7 @@ const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, is
                 <div className="min-w-0">
                     <div className="text-sm font-bold text-white leading-none flex items-center gap-2">
                         <span className="truncate">{user.name}</span>
-                        {isMe && <span className="text-[8px] bg-[#00FF41] text-[#000B29] px-1 rounded-sm font-black uppercase tracking-widest italic animate-pulse">YOU</span>}
+                        {isMe && <span className="text-[8px] bg-[#00FF41] text-[#000B29] px-1 rounded-none font-black uppercase tracking-widest italic animate-pulse">YOU</span>}
                     </div>
                     <div className="text-[9px] mt-1 flex items-center gap-2">
                         {sortMode === 'points' ? (
@@ -293,61 +293,24 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
 
     return (
         <div className="space-y-6 animate-fade-in-up">
-            <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
-                    Leader<span className="text-[#00FF41]">board</span>
-                </h2>
-            </div>
 
-            <div className="grid grid-cols-3 gap-2">
-                <StatCard
-                    title="Most Played"
-                    user={mostPlayed}
-                    value={stats[mostPlayed?.id ?? '']?.played}
-                    icon={<Flame size={40} />}
-                    colorClass="text-orange-500"
-                    borderClass="border-orange-500/30"
-                    unit="Matches"
-                    onPlayerClick={handlePlayerClick}
-                />
-                <StatCard
-                    title="Most Wins"
-                    user={mostWins}
-                    value={stats[mostWins?.id ?? '']?.wins}
-                    icon={<Crown size={40} />}
-                    colorClass="text-yellow-500"
-                    borderClass="border-yellow-500/30"
-                    unit="Wins"
-                    onPlayerClick={handlePlayerClick}
-                />
-                <StatCard
-                    title="Needs Practice"
-                    user={mostLosses}
-                    value={stats[mostLosses?.id ?? '']?.losses}
-                    icon={<Frown size={40} />}
-                    colorClass="text-blue-400"
-                    borderClass="border-blue-400/30"
-                    unit="Losses"
-                    onPlayerClick={handlePlayerClick}
-                />
-            </div>
 
             <div className="space-y-3">
-                <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-2">
+                <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-2">
                     All <span className="text-[#00FF41]">Rankings</span>
                 </h3>
 
-                <div className="bg-[#001645] border border-[#002266] rounded-xl overflow-hidden shadow-2xl">
+                <div className="-mx-4 flex flex-col w-[calc(100%+2rem)] max-w-[calc(100%+2rem)] lg:-mx-0 lg:w-full lg:max-w-full">
                     {/* Sort Tabs */}
-                    <div className="bg-[#000B29] p-1.5 border-b border-[#002266] flex gap-1">
+                    <div className="flex border-b border-white/10 mb-2 w-full px-4">
                         {SORT_TABS.map(tab => (
                             <button
                                 key={tab.key}
                                 onClick={() => { triggerHaptic('light'); setSortMode(tab.key); }}
-                                className={`flex-1 flex items-center justify-center py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
-                                    ${sortMode === tab.key
-                                        ? 'bg-[#00FF41] text-[#000B29] shadow-[0_0_12px_rgba(0,255,65,0.2)]'
-                                        : 'text-gray-500 hover:text-gray-300 hover:bg-[#001645]'
+                                className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px]
+                            ${sortMode === tab.key
+                                        ? 'text-[#00FF41] border-[#00FF41]'
+                                        : 'text-gray-500 border-transparent hover:text-gray-300'
                                     }`}
                             >
                                 {tab.label}
@@ -356,7 +319,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
                     </div>
 
                     {/* Table Header */}
-                    <div className="bg-[#000B29]/50 px-3 py-2 border-b border-[#002266] grid grid-cols-[32px_1fr_100px] gap-4">
+                    <div className="py-2 px-4 border-b border-[#002266] grid grid-cols-[28px_1fr_auto] gap-3">
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">#</span>
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Player</span>
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">{activeTab.headerLabel}</span>

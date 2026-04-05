@@ -1,8 +1,8 @@
-
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { User, Session } from '../types';
-import { Pencil, Clock, Smartphone, Target, Trophy, Swords, Zap, ChevronRight, LogOut, Loader2, ChevronDown } from 'lucide-react';
-import { getAvatarColor, formatTime, getRankFrameClass, getDateParts, getNextTierProgress, triggerHaptic, getWinRateColor } from '../utils';
+import { Settings, Trophy, ChevronRight, LogOut, ArrowLeft } from 'lucide-react';
+import { getAvatarColor, getNextTierProgress, triggerHaptic, getWinRateColor, getRankFrameClass } from '../utils';
+import { Button } from './ui/Button';
 
 interface ProfileProps {
     user: User;
@@ -13,28 +13,11 @@ interface ProfileProps {
     onOpenTiers: () => void;
     onOpenInstallGuide: () => void;
     onLogout: () => void;
-    onLoadPastSessions: () => void;
-    isLoadingPast: boolean;
-    hasMorePast: boolean;
-    pastLoaded: boolean;
+    onClose: () => void;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSettings, onSessionClick, onOpenTiers, onOpenInstallGuide, onLogout, onLoadPastSessions, isLoadingPast, hasMorePast, pastLoaded }) => {
-    const [isStandalone, setIsStandalone] = useState(true);
-    const [visibleCount, setVisibleCount] = useState(3);
-
-    useEffect(() => {
-        const checkStandalone = () => {
-            const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
-                (window.navigator as any).standalone === true;
-            setIsStandalone(isStandaloneMode);
-        };
-        checkStandalone();
-    }, []);
-
-
+const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSettings, onOpenTiers, onLogout, onClose }) => {
     const stats = useMemo(() => {
-        // Wins/Losses are now materialized in profiles — always accurate
         const wins = user.wins;
         const losses = user.losses;
         const played = wins + losses;
@@ -59,212 +42,174 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
 
     const rankInfo = useMemo(() => {
         const p = user.points;
-        if (p >= 2000) return { name: 'The Ascended', color: 'text-yellow-400', dot: 'bg-yellow-400 shadow-[0_0_8px_gold]' };
-        if (p >= 1600) return { name: 'The Void', color: 'text-purple-500', dot: 'bg-purple-900 shadow-[0_0_8px_#581c87]' };
-        if (p >= 1300) return { name: 'The Combustion', color: 'text-orange-500', dot: 'bg-orange-600' };
-        if (p >= 1100) return { name: 'The Spark', color: 'text-cyan-400', dot: 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' };
-        return { name: 'The Unpolished', color: 'text-gray-400', dot: 'bg-gray-600' };
+        const baseClass = "text-[10px] font-bold uppercase tracking-[0.2em]";
+        if (p >= 2000) return { name: 'The Ascended', color: `text-yellow-400 ${baseClass}`, dot: 'bg-yellow-400 shadow-[0_0_12px_gold]' };
+        if (p >= 1600) return { name: 'The Void', color: `text-purple-400 ${baseClass}`, dot: 'bg-purple-500 shadow-[0_0_12px_#a855f7]' };
+        if (p >= 1300) return { name: 'The Combustion', color: `text-orange-400 ${baseClass}`, dot: 'bg-orange-500 shadow-[0_0_12px_#f97316]' };
+        if (p >= 1100) return { name: 'The Spark', color: `text-cyan-400 ${baseClass}`, dot: 'bg-cyan-400 shadow-[0_0_12px_#22d3ee]' };
+        return { name: 'The Unpolished', color: `text-gray-400 ${baseClass}`, dot: 'bg-gray-500' };
     }, [user.points]);
 
-    const sessionHistory = useMemo(() => {
-        const now = new Date();
-        return sessions
-            .filter(s => s.playerIds.includes(user.id))
-            .filter(s => !!s.finalBill || new Date(s.endTime) < now)
-            .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-    }, [sessions, user.id]);
 
-    // Auto-fetch past sessions if not enough history to display (e.g. after 24h window)
-    useEffect(() => {
-        if (!pastLoaded && !isLoadingPast && sessionHistory.length < 3) {
-            onLoadPastSessions();
-        }
-    }, [pastLoaded, isLoadingPast, sessionHistory.length, onLoadPastSessions]);
-
-    const getSessionUserStats = useCallback((session: Session) => {
-        let wins = 0; let losses = 0; let pointsChange = 0;
-        if (session.matches) {
-            session.matches.forEach(match => {
-                const isTeam1 = match.team1Ids.includes(user.id);
-                const isTeam2 = match.team2Ids.includes(user.id);
-                if (!isTeam1 && !isTeam2) return;
-                const isWin = (isTeam1 && match.winningTeamIndex === 1) || (isTeam2 && match.winningTeamIndex === 2);
-                if (isWin) { wins++; pointsChange += match.pointsChange; } else { losses++; pointsChange -= match.pointsChange; }
-            });
-        }
-        return { wins, losses, pointsChange };
-    }, [user.id]);
-
-    const handleLogoutWithHaptic = useCallback(() => {
-        triggerHaptic('medium');
-        onLogout();
-    }, [onLogout]);
-
-    const handleLoadMore = useCallback(() => {
-        setVisibleCount(prev => prev + 10);
-        // Fetch more from DB if we're running out of local history
-        if (sessionHistory.length - visibleCount <= 10 && (!pastLoaded || hasMorePast)) {
-            onLoadPastSessions();
-        }
-    }, [sessionHistory.length, visibleCount, pastLoaded, hasMorePast, onLoadPastSessions]);
 
     return (
-        <div className="space-y-6 animate-fade-in-up pb-10">
-            {/* Compact Profile Card */}
-            <div className="relative bg-[#001645] border border-[#002266] rounded-2xl overflow-hidden shadow-2xl">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-[#00FF41] rounded-full filter blur-[100px] opacity-5 -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        <div className="relative w-full min-h-screen bg-[#000B29] text-white overflow-y-auto pb-20 font-sans">
 
-                <div className="p-4 sm:p-5">
-                    {/* Header Row: Avatar + Name/Rank + Actions */}
-                    <div className="flex items-start justify-between gap-4 mb-6">
-                        <div className="flex items-center gap-6">
-                            <div className="relative shrink-0">
-                                <div className={`w-24 h-24 rounded-full p-1 shadow-lg transition-all duration-500 ${getRankFrameClass(user.rankFrame)}`}>
-                                    <img src={user.avatar} className="w-full h-full rounded-full border-4 border-[#000B29] object-cover relative z-10" style={{ backgroundColor: getAvatarColor(user.avatar) }} alt={user.name} />
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col items-start min-w-0 flex-1">
-                                <span className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] italic mb-1 leading-none">Rank #{rank}</span>
-                                <h2 className="text-3xl font-black text-white italic tracking-tighter mb-0.5 truncate w-full">{user.name}</h2>
-                                <div className={`flex items-center gap-2 px-1 mb-2 ${rankInfo.color}`}>
-                                    <span className="text-[10px] font-black uppercase tracking-[0.25em] italic">{rankInfo.name}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2 shrink-0">
-                            <button onClick={onOpenSettings} className="p-2 bg-[#000B29] border border-[#002266] rounded-xl text-gray-400 hover:text-white transition-all active:scale-90">
-                                <Pencil size={18} />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Stats Grid */}
-                    <div className="relative z-10 grid grid-cols-4 gap-2 mb-6 pt-6 border-t border-[#002266]">
-                        <div className="flex flex-col items-center justify-center py-2">
-                            <span className="text-lg font-black text-[#00FF41] font-mono leading-none">{user.points}</span>
-                            <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Points</span>
-                        </div>
-
-                        <div className="flex flex-col items-center justify-center py-2 border-l border-[#002266]">
-                            <span className="text-lg font-black text-white font-mono leading-none">{stats.played}</span>
-                            <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Played</span>
-                        </div>
-
-                        <div className="flex flex-col items-center justify-center py-2 border-l border-[#002266]">
-                            <div className="text-lg font-black italic leading-none flex items-center">
-                                <span className="text-green-500">{stats.wins}</span>
-                                <span className="text-gray-600 mx-[2px]">-</span>
-                                <span className="text-red-500">{stats.losses}</span>
-                            </div>
-                            <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">W-L</span>
-                        </div>
-
-                        <div className="flex flex-col items-center justify-center py-2 border-l border-[#002266]">
-                            <span className={`text-lg font-black font-mono leading-none ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
-                            <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">WR</span>
-                        </div>
-                    </div>
-
-                    {/* Thin Progression Bar */}
-                    <div
-                        onClick={() => { triggerHaptic('light'); onOpenTiers(); }}
-                        className="bg-[#000B29] border border-[#002266] hover:border-[#00FF41]/30 rounded-xl p-3 cursor-pointer transition-all active:scale-[0.98] group"
-                    >
-                        <div className="flex justify-between items-center mb-1.5 px-1">
-                            <div className="flex items-center gap-1.5">
-                                <Trophy size={10} className="text-[#00FF41] group-hover:scale-110 transition-transform" />
-                                <span className="text-[8px] font-black uppercase tracking-widest text-gray-400 group-hover:text-white transition-colors">Next: {rankProgression.nextTierName}</span>
-                                <ChevronRight size={10} className="text-gray-600 group-hover:text-[#00FF41] transition-colors" />
-                            </div>
-                            <span className="text-[8px] font-black text-[#00FF41] uppercase tracking-widest">{rankProgression.remaining} To Go</span>
-                        </div>
-                        <div className="relative h-1.5 bg-[#001645] rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-gradient-to-r from-[#00FF41] to-teal-400 transition-all duration-1000 shadow-[0_0_8px_rgba(0,255,65,0.3)]"
-                                style={{ width: `${rankProgression.progress}%` }}
-                            ></div>
-                        </div>
-                    </div>
+            {/* Sticky Navigation Header */}
+            <div className="flex items-center gap-3 sticky top-0 bg-[#000B29]/90 backdrop-blur z-50 py-3 px-4 sm:px-6 border-b border-[#002266] w-full">
+                <button onClick={() => { triggerHaptic('light'); onClose(); }} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors active:scale-95">
+                    <ArrowLeft size={20} />
+                </button>
+                <div className="flex items-center flex-1">
+                    <h2 className="text-lg font-black italic uppercase text-white tracking-wider">Player <span className="text-[#00FF41]">Profile</span></h2>
                 </div>
             </div>
 
-            <div className="pt-2">
-                <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-2">
-                    Session <span className="text-[#00FF41]">History</span>
-                    <span className="bg-[#002266] text-[#00FF41] text-[10px] px-2 py-0.5 rounded-full font-mono ml-2 not-italic tracking-normal">
-                        {sessionHistory.length}
-                    </span>
-                </h3>
-                {sessionHistory.length === 0 ? (
-                    isLoadingPast ? (
-                        <div className="flex items-center justify-center gap-2 py-10 bg-[#001645]/50 border border-[#002266] rounded-xl">
-                            <Loader2 className="animate-spin text-[#00FF41]" size={16} />
-                            <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">Loading history...</span>
-                        </div>
-                    ) : (
-                        <div className="text-center py-10 bg-[#001645]/50 border border-[#002266] border-dashed rounded-xl">
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No sessions logged yet.</p>
-                        </div>
-                    )
-                ) : (
-                    <div className="space-y-2">
-                        {sessionHistory.slice(0, visibleCount).map(session => {
-                            const sStats = getSessionUserStats(session);
-                            const isGain = sStats.pointsChange >= 0;
-                            const { day, month } = getDateParts(session.startTime);
-                            return (
-                                <div key={session.id} onClick={() => onSessionClick(session.id)} className="cursor-pointer bg-[#001645] border border-[#002266] hover:border-[#00FF41]/40 rounded-lg p-3 transition-all hover:bg-[#001c55] group flex items-center gap-4 shadow-sm">
-                                    <div className="flex flex-col items-center justify-center min-w-[36px] bg-[#000B29] rounded py-1.5 border border-[#002266] shadow-inner shrink-0">
-                                        <span className="text-[7px] font-black uppercase tracking-widest text-gray-500 leading-none mb-0.5">{month}</span>
-                                        <span className="text-sm font-black text-white leading-none tracking-tighter">{day}</span>
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <h4 className="text-xs font-black text-white group-hover:text-[#00FF41] transition-colors truncate mb-0.5 uppercase tracking-tight">{session.title || session.location}</h4>
-                                        <div className="flex items-center text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em]">
-                                            <Clock size={8} className="mr-1 text-[#00FF41]/40" />
-                                            <span>{formatTime(session.startTime)}</span>
-                                            <span className="mx-2 opacity-30">•</span>
-                                            <span className="truncate">{session.location}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 shrink-0">
-                                        <div className="flex items-center text-[10px] font-black italic">
-                                            <span className="text-green-500">{sStats.wins}W</span>
-                                            <span className="text-gray-500 mx-0.5">/</span>
-                                            <span className="text-red-500">{sStats.losses}L</span>
-                                        </div>
-                                        <div className={`flex items-center justify-center w-[52px] py-1.5 rounded text-[9px] font-mono font-black ${isGain ? 'text-[#00FF41] bg-[#00FF41]/10 border border-[#00FF41]/20' : 'text-red-500 bg-red-500/10 border border-red-500/20'}`}>
-                                            {isGain ? '+' : ''}{sStats.pointsChange}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
+            {/* Elegant Ambient Background */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg aspect-square bg-[#00FF41] rounded-full blur-[160px] opacity-[0.05] pointer-events-none z-0"></div>
 
-                {/* Unified Load More Button */}
-                {sessionHistory.length > 0 && (visibleCount < sessionHistory.length || hasMorePast) && (
-                    <button
-                        onClick={handleLoadMore}
-                        disabled={isLoadingPast}
-                        className="w-full mt-4 py-4 bg-[#001645] border border-[#002266] rounded-xl text-center hover:border-gray-500 transition-all active:scale-[0.99] group"
+            <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-8 md:pt-12 animate-fade-in-up flex flex-col items-center min-h-[calc(100dvh-80px)]">
+
+                {/* Header Section with Integrated Progression Border */}
+                {/* Avatar Section */}
+                <div className="flex flex-col items-center justify-center w-full pb-8 relative">
+
+                    <div className="relative group/avatar mb-4">
+                        {/* Dot / Glow */}
+                        <div className={`absolute inset-0 ${rankInfo.dot} blur-[16px] opacity-20 transition-opacity duration-700 rounded-full group-hover/avatar:opacity-40`}></div>
+
+                        {/* Avatar */}
+                        <div className={`w-28 h-28 relative rounded-full bg-[#001030] shadow-[0_8px_32px_rgba(0,0,0,0.4)] group-hover/avatar:scale-105 transition-transform ${getRankFrameClass(user.rankFrame)}`}>
+                            <img
+                                src={user.avatar}
+                                className="w-full h-full rounded-full object-cover border-[3px] border-[#000B29]"
+                                style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                                alt={user.name}
+                            />
+                        </div>
+
+                        {/* Settings Button Overlay */}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); triggerHaptic('light'); onOpenSettings(); }}
+                            className="absolute -top-1 -right-1 p-2.5 bg-[#001645] text-gray-400 hover:text-[#00FF41] hover:bg-[#001030] rounded-full transition-all shadow-[0_8px_32px_rgba(0,0,0,0.6)] active:scale-95 z-20 hover:rotate-45 border-[3px] border-[#000B29]"
+                        >
+                            <Settings size={18} strokeWidth={2} />
+                        </button>
+                    </div>
+
+                    {/* Name and Rank */}
+                    <div className="flex flex-col items-center justify-center text-center">
+                        <h1 className="text-2xl font-black text-white italic tracking-tighter truncate max-w-[280px] mb-1 leading-none">{user.name}</h1>
+                        <span className="text-xs font-black uppercase tracking-[0.2em] italic text-gray-400">Rank #{rank}</span>
+                    </div>
+                </div>
+
+                {/* Clickable Progress Row Card */}
+                <div
+                    onClick={() => { triggerHaptic('light'); onOpenTiers(); }}
+                    className="w-full relative p-5 px-6 mb-6 bg-[#001645] rounded-none border border-white/5 cursor-pointer group active:scale-95 transition-all shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:shadow-[0_8px_32px_rgba(0,255,65,0.15)] flex flex-col gap-4"
+                >
+                    <style>{`
+                        @keyframes pan-stripes {
+                            0% { transform: translateX(-40px); }
+                            100% { transform: translateX(0); }
+                        }
+                        .cyber-gauge-container {
+                            position: relative;
+                            overflow: hidden;
+                        }
+                        .cyber-gauge-pattern {
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: -40px;
+                            bottom: 0;
+                            background-image: repeating-linear-gradient(
+                                -45deg,
+                                rgba(0,0,0,0.3),
+                                rgba(0,0,0,0.3) 10px,
+                                transparent 10px,
+                                transparent 20px
+                            );
+                            animation: pan-stripes 2s linear infinite;
+                            will-change: transform;
+                        }
+                    `}</style>
+                    <div className="flex justify-between items-center w-full">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${rankInfo.dot}`}></div>
+                            <div className="flex flex-col">
+                                <span className={`${rankInfo.color} text-xs leading-none mb-1`}>{rankInfo.name}</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 italic leading-none">
+                                    Next: {rankProgression.nextTierName}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-black uppercase tracking-widest text-[#00FF41]">
+                                {rankProgression.remaining} RP
+                            </span>
+                            <ChevronRight size={18} className="text-gray-500 group-hover:text-[#00FF41] group-hover:translate-x-1 transition-all" />
+                        </div>
+                    </div>
+                    <div className="w-full h-[14px] bg-[#000B29] rounded-full overflow-hidden shadow-[inset_0_2px_8px_rgba(0,0,0,0.8)] relative z-0">
+                        <div
+                            className="h-full bg-gradient-to-r from-[#00A82B] to-[#00FF41] cyber-gauge-container transition-all duration-1000 ease-out relative shadow-[0_0_15px_rgba(0,255,65,0.4)]"
+                            style={{ width: `${Math.max(1, rankProgression.progress)}%` }}
+                        >
+                            <div className="cyber-gauge-pattern pointer-events-none"></div>
+                            <div className="absolute right-0 top-0 bottom-0 w-1 bg-white blur-[1px] opacity-90 z-10 pointer-events-none"></div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Static Stats Overview */}
+                <div className="w-full mb-12 relative">
+                    <div className="grid grid-cols-2 gap-1 relative z-10">
+                        {/* Played */}
+                        <div className="bg-[#001030] rounded-none p-4 flex flex-col justify-center items-center relative overflow-hidden">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Played</span>
+                            <span className="text-4xl tabular-nums font-black italic tracking-tighter text-white">{stats.played}</span>
+                        </div>
+                        {/* W-L */}
+                        <div className="bg-[#001030] rounded-none p-4 flex flex-col justify-center items-center relative overflow-hidden">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">W-L</span>
+                            <div className="flex items-center text-4xl font-black italic tracking-tighter leading-none">
+                                <span className="text-green-500">{stats.wins}</span>
+                                <span className="text-gray-600 mx-1.5">-</span>
+                                <span className="text-red-500">{stats.losses}</span>
+                            </div>
+                        </div>
+                        {/* Total Points */}
+                        <div className="bg-[#001030] rounded-none p-4 flex flex-col justify-center items-center relative overflow-hidden">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] mb-1">Points</span>
+                            <span className="text-4xl tabular-nums font-black italic tracking-tighter text-[#00FF41]">{user.points}</span>
+                        </div>
+                        {/* Win Rate */}
+                        <div className="bg-[#001030] rounded-none p-4 flex flex-col justify-center items-center relative overflow-hidden">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] mb-1">Win Rate</span>
+                            <span className={`text-4xl tabular-nums font-black italic tracking-tighter ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
+                        </div>
+                    </div>
+                </div>
+
+
+
+
+                {/* Logout Button */}
+                <div className="w-full pb-10 flex justify-center mt-auto">
+                    <Button
+                        type="button"
+                        variant="danger"
+                        size="md"
+                        skewed
+                        className="w-full py-4"
+                        onClick={() => { triggerHaptic('medium'); onLogout(); }}
                     >
-                        {isLoadingPast ? (
-                            <div className="flex items-center justify-center gap-2">
-                                <Loader2 className="animate-spin text-[#00FF41]" size={16} />
-                                <span className="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Loading...</span>
-                            </div>
-                        ) : (
-                            <div className="flex items-center justify-center gap-2">
-                                <ChevronDown className="text-gray-500 group-hover:text-[#00FF41] transition-colors" size={16} />
-                                <span className="text-gray-400 group-hover:text-white font-bold text-[10px] uppercase tracking-widest transition-colors">Load More History</span>
-                            </div>
-                        )}
-                    </button>
-                )}
+                        <LogOut size={16} /> Log Out
+                    </Button>
+                </div>
+
             </div>
         </div>
     );
