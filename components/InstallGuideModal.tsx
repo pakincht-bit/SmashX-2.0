@@ -15,7 +15,7 @@ const InstallGuideModal: React.FC<InstallGuideModalProps> = ({ isOpen, onClose }
  return (
  <div className="fixed inset-0 z-[210] bg-[#000B29]/95 backdrop-blur-2xl flex flex-col p-6 animate-in fade-in zoom-in duration-300 overflow-y-auto">
  <div className="flex justify-end mb-6">
- <button onClick={onClose} className="p-3 bg-white/5 rounded-full text-white hover:bg-white/10 transition-colors">
+ <button onClick={onClose} className="p-3 bg-white/5 rounded-full text-white transition-colors">
  <X size={24}/>
  </button>
  </div>

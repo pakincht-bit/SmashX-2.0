@@ -42,7 +42,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
  <div className="flex border-t border-white/5">
  <button
  onClick={onCancel}
- className="flex-1 py-4 bg-[#000F33] hover:bg-[#001645] text-gray-400 hover:text-white font-bold uppercase tracking-wider text-xs transition-colors border-r border-white/5"
+ className="flex-1 py-4 bg-[#000F33] text-gray-400 font-bold uppercase tracking-wider text-xs transition-colors border-r border-white/5"
  >
  {cancelLabel}
  </button>
@@ -50,8 +50,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
  onClick={onConfirm}
  className={`flex-1 py-4 font-black uppercase tracking-wider text-xs transition-all
  ${isDestructive
- ? 'bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white'
- : 'bg-[#00FF41]/10 hover:bg-[#00FF41] text-[#00FF41] hover:text-[#000B29]'
+ ? 'bg-red-500/10 text-red-500 '
+ : 'bg-[#00FF41]/10 text-[#00FF41] '
  }`}
  >
  {confirmLabel}

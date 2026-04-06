@@ -130,7 +130,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onLoginClick, onRegisterCli
  <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 pt-10">
  {/* Animated Logo */}
  <div className="mb-8 relative group">
- <div className="absolute inset-0 bg-[#00FF41] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+ <div className="absolute inset-0 bg-[#00FF41] blur-2xl opacity-20 transition-opacity duration-500"></div>
  <div className="w-24 h-24 bg-[#00FF41] -skew-x-12 flex items-center justify-center shadow-[0_0_30px_rgba(0,255,65,0.3)] relative overflow-hidden">
  {/* Cracks for SX Logo */}
  <div className="absolute top-[-10%] left-[20%] w-[2px] h-[50%] bg-[#000B29]/30 rotate-[15deg]"></div>
@@ -156,8 +156,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onLoginClick, onRegisterCli
  onClick={onLoginClick}
  className="w-full group relative"
  >
- <div className="absolute inset-0 bg-[#00FF41] rounded opacity-0 group-hover:opacity-100 blur transition-opacity duration-300"></div>
- <div className="relative bg-[#00FF41] hover:bg-white text-[#000B29] py-4 px-6 -skew-x-12 transition-all duration-300 border border-[#00FF41] shadow-[0_0_20px_rgba(0,255,65,0.3)]">
+ <div className="absolute inset-0 bg-[#00FF41] rounded opacity-0 blur transition-opacity duration-300"></div>
+ <div className="relative bg-[#00FF41] text-[#000B29] py-4 px-6 -skew-x-12 transition-all duration-300 border border-[#00FF41] shadow-[0_0_20px_rgba(0,255,65,0.3)]">
  <span className="block skew-x-12 font-black uppercase tracking-widest text-sm">Login</span>
  </div>
  </button>
@@ -166,7 +166,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onLoginClick, onRegisterCli
  onClick={onRegisterClick}
  className="w-full group relative"
  >
- <div className="relative bg-[#000B29]/80 hover:bg-[#001645] backdrop-blur text-white py-4 px-6 -skew-x-12 transition-all duration-300 border border-gray-600 hover:border-white shadow-lg">
+ <div className="relative bg-[#000B29]/80 backdrop-blur text-white py-4 px-6 -skew-x-12 transition-all duration-300 border border-gray-600 shadow-lg">
  <span className="block skew-x-12 font-bold uppercase tracking-widest text-sm">Create Account</span>
  </div>
  </button>

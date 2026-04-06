@@ -189,7 +189,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  <button
  type="button"
  onClick={handleRandomize}
- className="absolute -bottom-2 -right-2 bg-[#001645] shadow-[0_8px_32px_rgba(0,0,0,0.4)] p-3 rounded-full text-white hover:text-[#00FF41] hover:border-[#00FF41] hover:scale-110 active:scale-95 transition-all shadow-xl z-20"
+ className="absolute -bottom-2 -right-2 bg-[#001645] shadow-[0_8px_32px_rgba(0,0,0,0.4)] p-3 rounded-full text-white active:scale-95 transition-all shadow-xl z-20"
  >
  <Dices size={20} />
  </button>
@@ -245,7 +245,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  return { ...prev, [activeTab]: newVal };
  });
  }}
- className={`w-full aspect-square rounded-none border-2 transition-all overflow-hidden bg-[#000B29] relative group ${isActive ? 'border-[#00FF41] shadow-[0_0_15px_rgba(0,255,65,0.4)] scale-105 z-10' : 'border-white/5 border opacity-70 hover:opacity-100 hover:border-gray-500'}`}
+ className={`flex flex-col items-center justify-center aspect-square rounded-none border-2 transition-all overflow-hidden bg-[#000B29] relative group ${isActive ? 'border-[#00FF41] shadow-[0_0_15px_rgba(0,255,65,0.4)] scale-105 z-10' : 'border-white/5 border opacity-70'}`}
  >
  {isNullOption ? (
  <div className="w-full h-full flex items-center justify-center text-gray-500 text-[10px] font-bold uppercase tracking-widest">None</div>
@@ -254,7 +254,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  <div className="w-full h-full rounded-full border border-white/10 shadow-inner"style={{ backgroundColor: `#${optionLabel}` }}></div>
  </div>
  ) : (
- <img src={thumbUrl} alt={optionLabel} loading="lazy"className="w-full h-full object-cover scale-[1.3] translate-y-1 transition-transform group-hover:scale-[1.4]"/>
+ <img src={thumbUrl} alt={optionLabel} loading="lazy" className="w-full h-full object-cover scale-[1.3] translate-y-1 transition-transform" />
  )}
  {isActive && (
  <div className="absolute top-1 right-1 bg-[#00FF41] text-[#000B29] rounded-full p-0.5">

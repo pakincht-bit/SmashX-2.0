@@ -109,7 +109,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  <h2 className="text-xl font-black italic uppercase text-white tracking-wider">
  {initialData ? 'Edit' : 'New'} <span className="text-[#00FF41]">Session</span>
  </h2>
- <button onClick={onClose} className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition">
+ <button onClick={onClose} className="p-1 text-gray-400 rounded-full transition">
  <X size={20} />
  </button>
  </div>
@@ -119,8 +119,8 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  <div>
  <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">Session Title</label>
  <div className="relative group">
-                  <input
-                    type="text"
+ <input
+ type="text"
  name="title"
  required
  value={formData.title}
@@ -134,8 +134,8 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  <div>
  <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">Location</label>
  <div className="relative group">
-                  <input
-                    type="text"
+ <input
+ type="text"
  name="location"
  required
  value={formData.location}
@@ -150,7 +150,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  <div>
  <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">Date</label>
  <div className="relative group">
-                     <input
+ <input
  type="date"
  name="date"
  required
@@ -163,7 +163,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  <div>
  <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">Courts</label>
  <div className="relative group">
-                        <input
+ <input
  type="number"
  name="courtCount"
  min="1"
@@ -181,7 +181,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  <div>
  <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">Start Time</label>
  <div className="relative group">
-                        <input
+ <input
  type="time"
  name="startTime"
  required
@@ -194,7 +194,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  <div>
  <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">End Time</label>
  <div className="relative group">
-                        <input
+ <input
  type="time"
  name="endTime"
  required
@@ -225,7 +225,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  className={`w-full py-3.5 font-black uppercase tracking-widest transition-all transform -skew-x-12
  ${isSubmitting 
  ? 'bg-gray-800 text-gray-500 cursor-wait' 
- : 'bg-[#00FF41] hover:bg-white text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] active:scale-[0.98]'
+ : 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.2)] (255,255,255,0.4)] active:scale-[0.98]'
  }`}
  >
  <span className="skew-x-12 inline-flex items-center gap-2">

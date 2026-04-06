@@ -143,7 +143,7 @@ const QueueDisplay: React.FC<QueueDisplayProps> = ({
  flex items-center gap-2 p-2 rounded-none border transition-all
  ${isInRecentPair
  ? 'bg-yellow-500/5 border-yellow-500/30'
- : 'bg-[#000B29] border-white/5 border hover:border-[#00FF41]/30'
+ : 'bg-[#000B29] border-white/5 border '
  }
  ${onPlayerClick ? 'cursor-pointer' : ''}
  `}
@@ -186,7 +186,7 @@ const QueueDisplay: React.FC<QueueDisplayProps> = ({
  triggerHaptic('medium');
  onSkipTurn(user.id);
  }}
- className="p-1.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+ className="p-1.5 rounded bg-gray-800 text-gray-400 transition-colors"
  title="Skip turn"
  >
  <SkipForward size={12} />
@@ -205,7 +205,7 @@ const QueueDisplay: React.FC<QueueDisplayProps> = ({
  const topFourIds = pool.slice(0, 4).map(p => p.id);
  onAutoAssign(topFourIds);
  }}
- className="w-full mt-4 py-3 bg-[#00FF41] hover:bg-white text-[#000B29] font-black uppercase tracking-widest text-sm rounded-none transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-[0_0_20px_rgba(0,255,65,0.3)]"
+ className="w-full mt-4 py-3 bg-[#00FF41] text-[#000B29] font-black uppercase tracking-widest text-sm rounded-none transition-all flex items-center justify-center gap-2 shadow-lg (0,255,65,0.3)]"
  >
  <Play size={16} fill="currentColor"/>
  <span>Assign Top 4 to Court</span>
@@ -236,7 +236,7 @@ const QueueDisplay: React.FC<QueueDisplayProps> = ({
  }}
  className={`
  flex items-center gap-3 p-2 rounded-none bg-[#000B29]/50 
- ${onPlayerClick ? 'cursor-pointer hover:bg-[#001645]' : ''}
+ ${onPlayerClick ? 'cursor-pointer ' : ''}
  transition-colors
  `}
  >

@@ -11,11 +11,11 @@ interface BottomNavProps {
 }
 
 const BottomNav: React.FC<BottomNavProps> = React.memo(({ activeTab, onTabChange, currentUser }) => {
-    const tabs = useMemo(() => [
-        { id: 'sessions', label: 'Arena', icon: Calendar },
-        { id: 'leaderboard', label: 'Ranks', icon: Trophy },
-        { id: 'stats', label: 'Analytics', icon: Activity },
-    ], []);
+ const tabs = useMemo(() => [
+ { id: 'sessions', label: 'Arena', icon: Calendar },
+ { id: 'leaderboard', label: 'Ranks', icon: Trophy },
+ { id: 'stats', label: 'Analytics', icon: Activity },
+ ], []);
 
  const activeIndex = tabs.findIndex(t => t.id === activeTab);
 
@@ -54,7 +54,7 @@ const BottomNav: React.FC<BottomNavProps> = React.memo(({ activeTab, onTabChange
  <button
  key={tab.id}
  onClick={() => handleTabClick(tab.id)}
- className={`relative z-10 flex flex-col items-center justify-center w-full h-full transition-all duration-300 ${isActive ? 'text-[#00FF41]' : 'text-gray-500 hover:text-gray-300'}`}
+ className={`relative z-10 flex flex-col items-center justify-center w-full h-full transition-all duration-300 ${isActive ? 'text-[#00FF41]' : 'text-gray-500 '}`}
  >
  <div className={`transition-transform duration-500 ${isActive ? 'scale-95' : 'scale-85'}`}>
  <div className="relative">

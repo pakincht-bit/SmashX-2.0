@@ -33,7 +33,7 @@ const InstallBanner: React.FC<InstallBannerProps> = ({ onOpenGuide }) => {
  className="sticky top-0 z-[60] w-full bg-[#00FF41] text-[#000B29] cursor-pointer group overflow-hidden animate-in slide-in-from-top duration-500 pt-[env(safe-area-inset-top)]"
  >
  {/* Animated Background Pulse */}
- <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+ <div className="absolute inset-0 bg-white opacity-0 transition-opacity duration-300"></div>
  <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg] animate-[shine_4s_infinite]"></div>
 
  <div className="max-w-5xl mx-auto px-4 h-11 flex items-center justify-between relative z-10">
@@ -47,7 +47,7 @@ const InstallBanner: React.FC<InstallBannerProps> = ({ onOpenGuide }) => {
  </div>
 
  <div className="flex items-center gap-4">
- <div className="hidden sm:flex items-center gap-1.5 bg-[#000B29] text-white px-3 py-1 -skew-x-12 text-[9px] font-black uppercase tracking-widest shadow-md group-hover:bg-white group-hover:text-[#000B29] transition-all">
+ <div className="hidden sm:flex items-center gap-1.5 bg-[#000B29] text-white px-3 py-1 -skew-x-12 text-[9px] font-black uppercase tracking-widest shadow-md transition-all">
  <Download size={10} className="skew-x-12"strokeWidth={4} />
  <span className="skew-x-12">Install App</span>
  </div>

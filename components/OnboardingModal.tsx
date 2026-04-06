@@ -54,7 +54,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, user
  <div className="space-y-8">
  {protocolItems.map((item, index) => (
  <div key={index} className="flex items-start gap-4 group">
- <div className="w-12 h-12 rounded-none bg-[#000B29] shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex items-center justify-center shrink-0 shadow-lg group-hover:border-[#00FF41]/50 transition-colors">
+ <div className="w-12 h-12 rounded-none bg-[#000B29] shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex items-center justify-center shrink-0 shadow-lg transition-colors">
  {item.icon}
  </div>
  <div className="flex-1">
@@ -76,7 +76,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, user
 
  <button 
  onClick={onClose}
- className="w-full py-5 bg-[#00FF41] hover:bg-white text-[#000B29] font-black uppercase tracking-widest text-sm -skew-x-12 transition-all shadow-[0_0_30px_rgba(0,255,65,0.2)] hover:shadow-[0_0_40px_rgba(255,255,255,0.4)] group"
+ className="w-full py-5 bg-[#00FF41] text-[#000B29] font-black uppercase tracking-widest text-sm -skew-x-12 transition-all shadow-[0_0_30px_rgba(0,255,65,0.2)] (255,255,255,0.4)] group"
  >
  <span className="skew-x-12 inline-flex items-center gap-2 group-active:scale-95 transition-transform">
  Enter the Arena <Check size={20} strokeWidth={3} />

@@ -33,7 +33,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLogin, onBack }) => 
 
  return (
  <div className="fixed inset-0 z-50 bg-[#000B29] flex flex-col p-6 animate-fade-in-up overflow-y-auto">
- <button onClick={onBack} className="self-start text-gray-400 hover:text-white mb-4">
+ <button onClick={onBack} className="self-start text-gray-400 mb-4">
  <ArrowLeft size={24} />
  </button>
 
@@ -48,8 +48,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLogin, onBack }) => 
  <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">Username</label>
  <div className="relative group">
  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[#00FF41] transition-colors"size={18} />
-                    <input 
-                      type="text" 
+ <input 
+ type="text" 
  value={username}
  onChange={(e) => {
  setUsername(e.target.value);
@@ -66,7 +66,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLogin, onBack }) => 
  <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">Password</label>
  <div className="relative group">
  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[#00FF41] transition-colors"size={18} />
-                    <input 
+ <input 
  type="password"
  value={password}
  onChange={(e) => {
@@ -90,7 +90,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLogin, onBack }) => 
  type="submit"
  disabled={!username.trim() || loading}
  className={`w-full py-4 -skew-x-12 font-black uppercase tracking-widest text-sm transition-all shadow-[0_0_20px_rgba(0,0,0,0.5)]
- ${username.trim() && !loading ? 'bg-[#00FF41] text-[#000B29] hover:bg-white hover:shadow-[0_0_20px_rgba(0,255,65,0.4)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}
+ ${username.trim() && !loading ? 'bg-[#00FF41] text-[#000B29] (0,255,65,0.4)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}
  `}
  >
  <span className="skew-x-12 inline-flex items-center gap-2">

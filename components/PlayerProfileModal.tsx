@@ -31,16 +31,16 @@ const PlayerProfileModal: React.FC<PlayerProfileModalProps> = ({ isOpen, onClose
  return sorted.findIndex(u => u.id === user.id) + 1;
  }, [allUsers, user]);
 
-    const rankInfo = useMemo(() => {
-        const p = user?.points || 1000;
-        if (p >= 2000) return { name: 'The Ascended', color: 'text-yellow-400', dot: 'bg-yellow-400 shadow-[0_0_8px_gold]' };
-        if (p >= 1600) return { name: 'The Void', color: 'text-purple-500', dot: 'bg-purple-900 shadow-[0_0_8px_#581c87]' };
-        if (p >= 1300) return { name: 'The Combustion', color: 'text-orange-500', dot: 'bg-orange-600' };
-        if (p >= 1100) return { name: 'The Spark', color: 'text-cyan-400', dot: 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' };
-        return { name: 'The Unpolished', color: 'text-gray-500', dot: 'bg-gray-700' };
-    }, [user]);
+ const rankInfo = useMemo(() => {
+ const p = user?.points || 1000;
+ if (p >= 2000) return { name: 'The Ascended', color: 'text-yellow-400', dot: 'bg-yellow-400 shadow-[0_0_8px_gold]' };
+ if (p >= 1600) return { name: 'The Void', color: 'text-purple-500', dot: 'bg-purple-900 shadow-[0_0_8px_#581c87]' };
+ if (p >= 1300) return { name: 'The Combustion', color: 'text-orange-500', dot: 'bg-orange-600' };
+ if (p >= 1100) return { name: 'The Spark', color: 'text-cyan-400', dot: 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' };
+ return { name: 'The Unpolished', color: 'text-gray-500', dot: 'bg-gray-700' };
+ }, [user]);
 
-    if (!isOpen || !user) return null;
+ if (!isOpen || !user) return null;
 
  return (
  <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
@@ -49,7 +49,7 @@ const PlayerProfileModal: React.FC<PlayerProfileModalProps> = ({ isOpen, onClose
  {/* Close Button */}
  <button
  onClick={onClose}
- className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white rounded-full bg-[#000B29]/50 hover:bg-[#000B29] transition-colors z-20"
+ className="absolute top-4 right-4 p-2 text-gray-400 rounded-full bg-[#000B29]/50 transition-colors z-20"
  >
  <X size={20} />
  </button>
@@ -71,50 +71,50 @@ const PlayerProfileModal: React.FC<PlayerProfileModalProps> = ({ isOpen, onClose
  </div>
  </div>
 
-                <div className="flex flex-col items-start min-w-0 flex-1">
-                    <span className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] italic mb-1 leading-none">Rank #{rank}</span>
-                    <h2 className="text-3xl font-black text-white italic tracking-tighter mb-0.5 truncate w-full">
-                        {user.name}
-                    </h2>
+ <div className="flex flex-col items-start min-w-0 flex-1">
+ <span className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] italic mb-1 leading-none">Rank #{rank}</span>
+ <h2 className="text-3xl font-black text-white italic tracking-tighter mb-0.5 truncate w-full">
+ {user.name}
+ </h2>
 
-                    <div className={`flex items-center gap-2 px-1 mb-2 ${rankInfo.color}`}>
-                        <span className="text-[10px] font-black uppercase tracking-[0.25em] italic">
-                            {rankInfo.name}
-                        </span>
-                    </div>
-                </div>
+ <div className={`flex items-center gap-2 px-1 mb-2 ${rankInfo.color}`}>
+ <span className="text-[10px] font-black uppercase tracking-[0.25em] italic">
+ {rankInfo.name}
+ </span>
+ </div>
+ </div>
 
-            </div>
+ </div>
 
-                {/* Stats Grid */}
-                <div className="relative z-10 grid grid-cols-4 gap-2 mt-2 pt-6 border-t border-white/5">
-                    <div className="flex flex-col items-center justify-center py-2">
-                        <span className="text-lg font-black text-[#00FF41] font-mono leading-none">{user.points}</span>
-                        <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Points</span>
-                    </div>
+ {/* Stats Grid */}
+ <div className="relative z-10 grid grid-cols-4 gap-2 mt-2 pt-6 border-t border-white/5">
+ <div className="flex flex-col items-center justify-center py-2">
+ <span className="text-lg font-black text-[#00FF41] font-mono leading-none">{user.points}</span>
+ <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Points</span>
+ </div>
 
-                    <div className="flex flex-col items-center justify-center py-2 border-l border-white/5">
-                        <span className="text-lg font-black text-white font-mono leading-none">{stats.played}</span>
-                        <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Played</span>
-                    </div>
+ <div className="flex flex-col items-center justify-center py-2 border-l border-white/5">
+ <span className="text-lg font-black text-white font-mono leading-none">{stats.played}</span>
+ <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Played</span>
+ </div>
 
-                    <div className="flex flex-col items-center justify-center py-2 border-l border-white/5">
-                        <div className="text-lg font-black italic leading-none flex items-center">
-                            <span className="text-green-500">{stats.wins}</span>
-                            <span className="text-gray-600 mx-[2px]">-</span>
-                            <span className="text-red-500">{stats.losses}</span>
-                        </div>
-                        <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">W-L</span>
-                    </div>
+ <div className="flex flex-col items-center justify-center py-2 border-l border-white/5">
+ <div className="text-lg font-black italic leading-none flex items-center">
+ <span className="text-green-500">{stats.wins}</span>
+ <span className="text-gray-600 mx-[2px]">-</span>
+ <span className="text-red-500">{stats.losses}</span>
+ </div>
+ <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">W-L</span>
+ </div>
 
-                    <div className="flex flex-col items-center justify-center py-2 border-l border-white/5">
-                        <span className={`text-lg font-black font-mono leading-none ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
-                        <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">WR</span>
-                    </div>
-                </div>
+ <div className="flex flex-col items-center justify-center py-2 border-l border-white/5">
+ <span className={`text-lg font-black font-mono leading-none ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
+ <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">WR</span>
+ </div>
+ </div>
 
-            </div>
-        </div>
+ </div>
+ </div>
  </div>
  );
 };

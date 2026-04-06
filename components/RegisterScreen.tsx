@@ -100,7 +100,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
  return (
  <div className={`fixed inset-0 z-50 bg-[#000B29] flex flex-col p-6 animate-fade-in-up overflow-hidden`}>
  <div className="flex items-center justify-between mb-4 relative z-20">
- <button onClick={handleBack} className="text-gray-400 hover:text-white transition-colors p-2 -ml-2">
+ <button onClick={handleBack} className="text-gray-400 transition-colors p-2 -ml-2">
  <ArrowLeft size={24} />
  </button>
  <div className="flex gap-2">
@@ -118,7 +118,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
  <div className="w-12 h-12 rounded-full bg-[#00FF41]/10 flex items-center justify-center mb-4"><User className="text-[#00FF41]"size={24} /></div>
  <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">Create <span className="text-[#00FF41]">Username</span></h2>
  </div>
-                            <input type="text" value={name} onChange={(e) => { setName(e.target.value); setNameError(''); }} className={`w-full bg-[#001645] border text-white p-4 rounded-none outline-none font-bold text-lg ${nameError ? 'border-red-500' : 'border-[#002266] focus:border-[#00FF41]'}`} placeholder="e.g. BadmintonKing" autoFocus />
+ <input type="text" value={name} onChange={(e) => { setName(e.target.value); setNameError(''); }} className={`w-full bg-[#001645] border text-white p-4 rounded-none outline-none font-bold text-lg ${nameError ? 'border-red-500' : 'border-[#002266] focus:border-[#00FF41]'}`} placeholder="e.g. BadmintonKing" autoFocus />
  <p className="text-[10px] mt-2 font-bold text-gray-500 uppercase tracking-widest leading-tight leading-relaxed">* Only English characters allowed</p>
  {nameError && <div className="mt-2 text-red-500 text-xs font-bold flex items-center gap-2"><AlertCircle size={12} /> {nameError}</div>}
  </div>
@@ -130,7 +130,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
  <div className="w-12 h-12 rounded-full bg-[#00FF41]/10 flex items-center justify-center mb-4"><Lock className="text-[#00FF41]"size={24} /></div>
  <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">Create <span className="text-[#00FF41]">Password</span></h2>
  </div>
-                            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#001645] border border-[#002266] text-white p-4 rounded-none focus:border-[#00FF41] outline-none font-bold text-lg tracking-widest" placeholder="••••••••" autoFocus />
+ <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#001645] border border-[#002266] text-white p-4 rounded-none focus:border-[#00FF41] outline-none font-bold text-lg tracking-widest" placeholder="••••••••" autoFocus />
  <p className={`text-[10px] mt-2 font-bold ${password.length > 0 && password.length < 6 ? 'text-red-500' : 'text-gray-500'}`}>* Minimum 6 characters</p>
  </div>
  )}
@@ -159,7 +159,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
  type="submit"
  disabled={(step === 1 && (!name.trim() || isCheckingName)) || (step === 2 && password.length < 6) || isRegistering}
  className={`w-full py-4 -skew-x-12 font-black uppercase tracking-widest text-sm transition-all shadow-[0_0_20px_rgba(0,0,0,0.5)]
- ${((step === 1 && name.trim() && !isCheckingName) || (step === 2 && password.length >= 6) || step === 3) && !isRegistering ? 'bg-[#00FF41] text-[#000B29] hover:bg-white hover:shadow-[0_0_30px_rgba(0,255,65,0.3)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+ ${((step === 1 && name.trim() && !isCheckingName) || (step === 2 && password.length >= 6) || step === 3) && !isRegistering ? 'bg-[#00FF41] text-[#000B29] (0,255,65,0.3)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
  >
  <span className="skew-x-12 inline-flex items-center gap-2">
  {isCheckingName ? (

@@ -30,1277 +30,1276 @@ const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ defa
 
 const SESSIONS_PER_PAGE = 10;
 const PAST_SESSIONS_PER_PAGE = 10;
-const INITIAL_LOAD_TIMEOUT = 15000;
-const FETCH_TIMEOUT = 12000;
+const INITIAL_LOAD_TIMEOUT = 35000;
+const FETCH_TIMEOUT = 30000;
 const AUTO_END_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes grace period
 
 const App: React.FC = () => {
-    // Auth State
-    const [authStage, setAuthStage] = useState<'splash' | 'login' | 'register' | 'app'>('splash');
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isProcessingAuth, setIsProcessingAuth] = useState(false);
-
-    // Data State
-    const [users, setUsers] = useState<User[]>([]);
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [sessions, setSessions] = useState<Session[]>([]);
-    const [isInitialLoading, setIsInitialLoading] = useState(true);
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [fetchError, setFetchError] = useState<string | null>(null);
-    const isInitializing = useRef(false);
-
-    // Infinite Scroll State
-    const [visibleCount, setVisibleCount] = useState(SESSIONS_PER_PAGE);
-    const observerTarget = useRef<HTMLDivElement>(null);
-
-    // Past Sessions (on-demand)
-    const [pastSessions, setPastSessions] = useState<Session[]>([]);
-    const [isLoadingPast, setIsLoadingPast] = useState(false);
-    const [hasMorePast, setHasMorePast] = useState(true);
-    const [pastLoaded, setPastLoaded] = useState(false);
-
-    // Navigation State
-    const [activeTab, setActiveTab] = useState<'sessions' | 'leaderboard' | 'stats'>('sessions');
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-    const [isActivityOpen, setIsActivityOpen] = useState(false);
-    const [isTabTransitioning, startTabTransition] = useTransition();
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingSession, setEditingSession] = useState<Session | null>(null);
-    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-    const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
-
-    // Profile Sub-modals
-    const [showTiers, setShowTiers] = useState(false);
-    const [showInstallGuide, setShowInstallGuide] = useState(false);
-
-    // Toast State
-    const [toast, setToast] = useState<{ message: string; visible: boolean; isError?: boolean } | null>(null);
-
-    const showToast = useCallback((message: string, isError = false) => {
-        setToast({ message, visible: true, isError });
-        setTimeout(() => setToast(null), 3000);
-    }, []);
-
-    // --- Helper: Fetch with Timeout ---
-    const withTimeout = (promise: Promise<any> | PromiseLike<any>, ms: number = FETCH_TIMEOUT) => {
-        return Promise.race([
-            promise,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), ms))
-        ]);
-    };
-
-    // --- Realtime Subscription + Auto-Refresh on Resume ---
-    useEffect(() => {
-        if (!isAuthenticated) return;
-
-        const channel = supabase.channel('public:all-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'sessions' },
-                (payload) => {
-                    if (payload.eventType === 'INSERT') {
-                        const newSession = mapSessionFromDB(payload.new);
-                        setSessions(prev => {
-                            if (prev.find(s => s.id === newSession.id)) return prev;
-                            return [...prev, newSession].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-                        });
-                    } else if (payload.eventType === 'UPDATE') {
-                        setSessions(prev => prev.map(s => {
-                            if (s.id !== payload.new.id) return s;
-                            const newSession = mapSessionFromDB(payload.new);
-                            // Preserve nextMatchups if missing/null in payload (handling incomplete updates or missing column)
-                            // This ensures the optimistic update persists locally until a valid non-null update comes in
-                            if ((payload.new.next_matchups === undefined || payload.new.next_matchups === null) && s.nextMatchups && s.nextMatchups.length > 0) {
-                                newSession.nextMatchups = s.nextMatchups;
-                            }
-                            return newSession;
-                        }));
-                    } else if (payload.eventType === 'DELETE') {
-                        setSessions(prev => prev.filter(s => s.id !== payload.old.id));
-                    }
-                }
-            )
-            .on(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'profiles' },
-                (payload) => {
-                    // Live-update user profiles (points, rankFrame, etc.) when match results are recorded
-                    const updated = mapProfileFromDB(payload.new);
-                    updated.rankFrame = getFrameByPoints(updated.points);
-                    setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
-                }
-            )
-            .subscribe((status) => {
-                console.log('SX: Realtime channel status:', status);
-            });
-
-        // Auto-refresh when app returns from background (phone was locked/switched apps)
-        // Mobile browsers disconnect WebSocket when backgrounded, so we need to catch up
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                console.log('SX: App resumed from background — syncing data...');
-                fetchData();
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            supabase.removeChannel(channel);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [isAuthenticated]);
-
-    // --- Data Fetching ---
-
-    const fetchData = async () => {
-        console.log("SX: Fetching Arena Data...");
-        setFetchError(null);
-        try {
-            // OPTIMIZATION: Split fetching into Critical (Active/Future) vs History
-            // This allows the user to interact with the app much faster
-
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1); // active window = last 24h
-
-            // 1. Critical Load: Profiles + Active/Upcoming Sessions + Recent Past
-            const [profilesRes, activeSessionsRes, recentPastRes] = await Promise.all([
-                withTimeout(supabase.from('profiles').select('*')),
-                withTimeout(
-                    supabase.from('sessions')
-                        .select('*')
-                        .gte('end_time', yesterday.toISOString()) // Only recent/ongoing
-                        .order('start_time', { ascending: true })
-                ),
-                withTimeout(
-                    supabase.from('sessions')
-                        .select('*')
-                        .lt('end_time', new Date().toISOString()) // Sessions that have ended
-                        .order('end_time', { ascending: false })
-                        .limit(3) // Last 3 sessions for Recent Battles
-                )
-            ]) as any;
-
-            if (profilesRes.error) throw profilesRes.error;
-            if (activeSessionsRes.error) throw activeSessionsRes.error;
-            // Non-critical: don't throw on recentPast error
-
-            if (profilesRes.data) {
-                const mappedUsers = profilesRes.data.map(mapProfileFromDB);
-                // Derive rank_frame from stored points (canonical source)
-                mappedUsers.forEach((u: User) => { u.rankFrame = getFrameByPoints(u.points); });
-                setUsers(mappedUsers);
-            }
-
-            // Set initial active sessions to unblock UI
-            if (activeSessionsRes.data) {
-                const activeSessions = activeSessionsRes.data.map(mapSessionFromDB);
-                setSessions(activeSessions);
-            }
-
-            // Seed past sessions for Recent Battles section on home page
-            if (recentPastRes?.data && !recentPastRes.error) {
-                const recentPast = recentPastRes.data.map(mapSessionFromDB);
-                setPastSessions(recentPast);
-            }
-
-            // Unlock UI immediately — no history fetch needed!
-            // Points are stored directly in profiles table.
-            setIsInitialLoading(false);
-            console.log("SX: Data fetched (points from profiles, active sessions only)");
-
-        } catch (error: any) {
-            console.error("SX: Fetch data failed:", error.message);
-            if (sessions.length === 0) {
-                setFetchError(error.message || "Connection failed.");
-                setIsInitialLoading(false);
-            }
-        }
-    };
-
-    // --- Past Sessions: On-demand loading ---
-    const fetchPastSessions = useCallback(async () => {
-        setIsLoadingPast(true);
-        try {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-
-            // Use offset-based pagination
-            const offset = pastSessions.length;
-
-            const { data, error } = await supabase
-                .from('sessions')
-                .select('*')
-                .lt('end_time', yesterday.toISOString()) // Only past sessions (older than 24h)
-                .order('start_time', { ascending: false })
-                .range(offset, offset + PAST_SESSIONS_PER_PAGE - 1);
-
-            if (error) throw error;
-
-            if (data) {
-                const mapped = data.map(mapSessionFromDB);
-                setPastSessions(prev => [...prev, ...mapped]);
-                setHasMorePast(data.length === PAST_SESSIONS_PER_PAGE);
-                setPastLoaded(true);
-            }
-        } catch (err: any) {
-            console.error("SX: Failed to load past sessions:", err.message);
-            showToast("Failed to load history", true);
-        } finally {
-            setIsLoadingPast(false);
-        }
-    }, [pastSessions.length, showToast]);
-
-    // fetchHistoryData removed — points are now stored in profiles table.
-    // No need to download historical sessions for points calculation.
-
-    const fetchUserProfile = async (userId: string) => {
-        console.log("SX: Fetching User Profile for", userId);
-        try {
-            const { data, error } = await withTimeout(
-                supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
-            ) as any;
-
-            if (error) throw error;
-
-            if (data) {
-                setCurrentUser(mapProfileFromDB(data));
-            } else {
-                const { data: { session } } = await supabase.auth.getSession();
-                const userName = session?.user?.user_metadata?.name || 'Player';
-                const userAvatar = session?.user?.user_metadata?.avatar || `https://api.dicebear.com/9.x/adventurer/svg?seed=${userId}`;
-
-                const { data: newProfile } = await supabase.from('profiles').upsert({
-                    id: userId,
-                    name: userName,
-                    avatar: userAvatar,
-                    points: 1000,
-                    wins: 0,
-                    losses: 0,
-                    rank_frame: 'unpolished'
-                }).select().maybeSingle();
-
-                if (newProfile) {
-                    setCurrentUser(mapProfileFromDB(newProfile));
-                } else {
-                    setCurrentUser({ id: userId, name: userName, avatar: userAvatar, points: 1000, wins: 0, losses: 0, rankFrame: 'unpolished' });
-                }
-            }
-        } catch (error: any) {
-            console.error("SX: Error fetching user profile:", error.message);
-            if (!currentUser) {
-                setCurrentUser({
-                    id: userId,
-                    name: 'Arena Player',
-                    avatar: `https://api.dicebear.com/9.x/adventurer/svg?seed=${userId}`,
-                    points: 1000,
-                    wins: 0,
-                    losses: 0,
-                    rankFrame: 'unpolished'
-                });
-            }
-        }
-    };
-
-    const initializeApp = async (session: any) => {
-        if (isInitializing.current) return;
-        isInitializing.current = true;
-
-        try {
-            if (session) {
-                setIsAuthenticated(true);
-                setAuthStage('app');
-                // Always land on home (Arena) page after login
-                setActiveTab('sessions');
-                setIsProfileOpen(false);
-                await Promise.allSettled([
-                    fetchUserProfile(session.user.id),
-                    fetchData()
-                ]);
-            } else {
-                setIsAuthenticated(false);
-                setAuthStage('splash');
-                setIsInitialLoading(false);
-            }
-        } catch (err) {
-            setIsInitialLoading(false);
-        } finally {
-            isInitializing.current = false;
-        }
-    };
-
-    useEffect(() => {
-        const failsafe = setTimeout(() => {
-            if (isInitialLoading) setIsInitialLoading(false);
-        }, INITIAL_LOAD_TIMEOUT);
-
-        const checkInitialSession = async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) await initializeApp(session);
-                else setIsInitialLoading(false);
-            } catch (e) {
-                setIsInitialLoading(false);
-            }
-        };
-
-        checkInitialSession();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-                await initializeApp(session);
-            } else if (event === 'SIGNED_OUT') {
-                setIsAuthenticated(false);
-                setAuthStage('splash');
-                setCurrentUser(null);
-                setIsInitialLoading(false);
-                isInitializing.current = false;
-            }
-        });
-
-        return () => {
-            clearTimeout(failsafe);
-            subscription.unsubscribe();
-        };
-    }, []);
-
-    // Points are now stored directly in profiles table — no client-side recalculation needed.
-    // users already has correct points and rankFrame from the DB fetch.
-
-    const activeUser = useMemo(() => {
-        if (!currentUser) return null;
-        return users.find(u => u.id === currentUser.id) || currentUser;
-    }, [currentUser, users]);
-
-    const handleUpdateUser = useCallback(async (updatedUser: User) => {
-        setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-        setCurrentUser(updatedUser);
-        // Optimistic update done, now sync
-        await supabase.from('profiles').update({
-            name: updatedUser.name,
-            avatar: updatedUser.avatar,
-            rank_frame: updatedUser.rankFrame
-        }).eq('id', updatedUser.id);
-    }, []);
-
-    const handleLogin = useCallback(async (name: string, password: string) => {
-        const email = `${name.replace(/\s/g, '').toLowerCase()}@example.com`;
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-    }, []);
-
-    const handleRegister = useCallback(async (name: string, avatarUrl: string, password?: string) => {
-        if (!password || isProcessingAuth) return;
-        setIsProcessingAuth(true);
-        const email = `${name.replace(/\s/g, '').toLowerCase()}@example.com`;
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { name, avatar: avatarUrl } }
-        });
-        if (error) { setIsProcessingAuth(false); throw error; }
-        setIsProcessingAuth(false);
-    }, [isProcessingAuth]);
-
-    const handleLogout = useCallback(async () => { await supabase.auth.signOut(); }, []);
-    const handleDeleteAccount = useCallback(async () => { if (currentUser) { await supabase.rpc('delete_user'); await handleLogout(); } }, [currentUser, handleLogout]);
-    const handleUserChange = useCallback((userId: string) => { const user = users.find(u => u.id === userId); if (user) setCurrentUser(user); }, [users]);
-
-    // Tab switching with useTransition for smoother UX
-    const handleTabChange = useCallback((tab: 'sessions' | 'leaderboard' | 'stats') => {
-        startTabTransition(() => { setActiveTab(tab); });
-    }, [startTabTransition]);
-
-    // --- OPTIMIZED ACTION HANDLERS ---
-
-    const handleSaveSession = useCallback(async (data: CreateSessionDTO): Promise<string | null> => {
-        if (!currentUser) return "Login required.";
-
-        triggerHaptic('medium');
-
-        const startDateTime = new Date(`${data.date}T${data.startTime}`);
-        let endDateTime = new Date(`${data.date}T${data.endTime}`);
-        if (endDateTime < startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
-
-        if (editingSession) {
-            // UPDATE Existing Session
-            const previousSessions = sessions;
-            const updatedSession = {
-                ...editingSession,
-                title: data.title,
-                location: data.location,
-                startTime: startDateTime.toISOString(),
-                endTime: endDateTime.toISOString(),
-                courtCount: data.courtCount,
-                maxPlayers: calculateMaxPlayers(data.courtCount),
-            };
-
-            // Optimistic Update
-            setSessions(prev => prev.map(s => s.id === editingSession.id ? updatedSession : s));
-
-            const { error } = await supabase.from('sessions').update({
-                title: data.title,
-                location: data.location,
-                start_time: startDateTime.toISOString(),
-                end_time: endDateTime.toISOString(),
-                court_count: data.courtCount,
-                max_players: calculateMaxPlayers(data.courtCount),
-            }).eq('id', editingSession.id);
-
-            if (error) {
-                setSessions(previousSessions);
-                return error.message;
-            }
-            showToast("Session Updated", false);
-        } else {
-            // CREATE New Session
-            const { data: newSession, error } = await supabase.from('sessions').insert({
-                title: data.title,
-                location: data.location,
-                start_time: startDateTime.toISOString(),
-                end_time: endDateTime.toISOString(),
-                court_count: data.courtCount,
-                max_players: calculateMaxPlayers(data.courtCount),
-                host_id: currentUser.id,
-                player_ids: [currentUser.id],
-            }).select().single();
-
-            if (error) return error.message;
-
-            if (newSession) {
-                const mapped = mapSessionFromDB(newSession);
-                setSessions(prev => [...prev, mapped].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
-                showToast("Session Created", false);
-            }
-        }
-        return null;
-    }, [currentUser, sessions, editingSession, showToast]);
-
-    const handleEditSessionTrigger = useCallback((sessionId: string) => {
-        const session = sessions.find(s => s.id === sessionId);
-        if (session) {
-            setEditingSession(session);
-            setIsModalOpen(true);
-        }
-    }, [sessions]);
-
-    const handleJoin = useCallback(async (sessionId: string) => {
-        if (!currentUser) return;
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session || session.playerIds.includes(currentUser.id)) return;
-
-        // 1. Optimistic Update
-        const previousSessions = sessions;
-        const updatedPlayerIds = [...session.playerIds, currentUser.id];
-
-        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, playerIds: updatedPlayerIds } : s));
-
-        // 2. Network Request
-        const { error } = await supabase.from('sessions').update({ player_ids: updatedPlayerIds }).eq('id', sessionId);
-
-        // 3. Rollback if error
-        if (error) {
-            console.error("Join failed", error);
-            setSessions(previousSessions);
-            showToast("Failed to join", true);
-        }
-    }, [currentUser, sessions, showToast]);
-
-    const handleLeave = useCallback(async (sessionId: string) => {
-        if (!currentUser) return;
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session) return;
-
-        // 1. Optimistic Update
-        const previousSessions = sessions;
-        const newPlayerIds = session.playerIds.filter(id => id !== currentUser.id);
-
-        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, playerIds: newPlayerIds } : s));
-
-        // 2. Network Request
-        const { error } = await supabase.from('sessions').update({ player_ids: newPlayerIds }).eq('id', sessionId);
-
-        // 3. Rollback if error
-        if (error) {
-            console.error("Leave failed", error);
-            setSessions(previousSessions);
-            showToast("Failed to leave", true);
-        }
-    }, [currentUser, sessions, showToast]);
-
-    const handleDelete = useCallback(async (sessionId: string) => {
-        const previousSessions = sessions;
-
-        // Optimistic Delete
-        setSessions(prev => prev.filter(s => s.id !== sessionId));
-        if (selectedSessionId === sessionId) setSelectedSessionId(null);
-
-        const { error } = await supabase.from('sessions').delete().eq('id', sessionId);
-
-        if (error) {
-            setSessions(previousSessions);
-            showToast("Delete failed", true);
-        } else {
-            showToast("Session Deleted");
-        }
-    }, [sessions, selectedSessionId, showToast]);
-
-    const handleCheckInToggle = useCallback(async (sessionId: string, playerId: string) => {
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session) return;
-
-        const previousSessions = sessions;
-        const currentCheckedIn = session.checkedInPlayerIds || [];
-        const isCheckingIn = !currentCheckedIn.includes(playerId);
-
-        let newCheckedIn;
-        if (isCheckingIn) newCheckedIn = [...currentCheckedIn, playerId];
-        else newCheckedIn = currentCheckedIn.filter(id => id !== playerId);
-
-        const newTimes = { ...(session.checkInTimes || {}) };
-        if (isCheckingIn) newTimes[playerId] = new Date().toISOString();
-        else delete newTimes[playerId];
-
-        // Optimistic Update
-        setSessions(prev => prev.map(s => s.id === sessionId ? {
-            ...s,
-            checkedInPlayerIds: newCheckedIn,
-            checkInTimes: newTimes,
-            started: s.started || (newCheckedIn.length > 0)
-        } : s));
-
-        const { error } = await supabase.from('sessions').update({
-            checked_in_player_ids: newCheckedIn,
-            check_in_times: newTimes
-        }).eq('id', sessionId);
-
-        if (error) {
-            setSessions(previousSessions);
-            showToast("Update failed", true);
-        }
-    }, [sessions, showToast]);
-
-    // Skip Turn: Reset player's check-in time to now (moves them to end of queue)
-    // Skip Turn: Swap position with the next player in the queue
-    const handleSkipTurn = useCallback(async (sessionId: string, playerId: string) => {
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session) return;
-
-        console.log("SX: Skipping turn for", playerId);
-
-        const previousSessions = sessions;
-        const newTimes = { ...(session.checkInTimes || {}) };
-
-        // Calculate current queue to find the next person
-        const queue = calculateQueue(session);
-        const available = getAvailablePlayers(queue); // Only swap with waiting players
-        const currentIndex = available.findIndex(p => p.id === playerId);
-
-        console.log("SX: Current Index:", currentIndex, "Available:", available.length);
-
-        if (currentIndex !== -1 && currentIndex < available.length - 1) {
-            // Swap with next person
-            const nextPlayer = available[currentIndex + 1];
-
-            // Get Date objects
-            const dateA = new Date(available[currentIndex].waitingSince);
-            const dateB = new Date(available[currentIndex + 1].waitingSince);
-
-            console.log(`SX: Swapping ${playerId} (${dateA.toISOString()}) with ${nextPlayer.id} (${dateB.toISOString()})`);
-
-            if (dateA.getTime() === dateB.getTime()) {
-                // If times are equal, just make current player 1 second newer (moves down)
-                const newDateA = new Date(dateA.getTime() + 1000);
-                newTimes[playerId] = newDateA.toISOString();
-                // nextPlayer stays same covers the swap effectively
-            } else {
-                // Standard swap
-                newTimes[playerId] = dateB.toISOString();
-                newTimes[nextPlayer.id] = dateA.toISOString();
-            }
-
-            showToast("Swapped with next player");
-        } else {
-            // If last or not found, fall back to moving to end (reset to now)
-            console.log("SX: Moving to end of queue");
-            newTimes[playerId] = new Date().toISOString();
-            showToast("Moved to end of queue");
-        }
-
-        // Optimistic Update
-        setSessions(prev => prev.map(s => s.id === sessionId ? {
-            ...s,
-            checkInTimes: newTimes
-        } : s));
-
-        const { error } = await supabase.from('sessions').update({
-            check_in_times: newTimes
-        }).eq('id', sessionId);
-
-        if (error) {
-            setSessions(previousSessions);
-            showToast("Skip failed", true);
-        }
-    }, [sessions, showToast]);
-
-    const handleStartSession = useCallback(async (sessionId: string, initialCheckInIds: string[] = []) => {
-        const previousSessions = sessions;
-        const now = new Date().toISOString();
-        const checkInTimes: Record<string, string> = {};
-        initialCheckInIds.forEach(id => { checkInTimes[id] = now; });
-
-        // Optimistic
-        setSessions(prev => prev.map(s => s.id === sessionId ? {
-            ...s,
-            started: true,
-            checkedInPlayerIds: initialCheckInIds,
-            checkInTimes: checkInTimes
-        } : s));
-
-        const { error } = await supabase.from('sessions').update({
-            checked_in_player_ids: initialCheckInIds,
-            check_in_times: checkInTimes
-        }).eq('id', sessionId);
-
-        if (error) {
-            setSessions(previousSessions);
-            showToast("Failed to start", true);
-        } else {
-            showToast("Session Started");
-        }
-    }, [showToast]);
-
-    const handleEndSession = useCallback(async (sessionId: string, costData: any) => {
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session) return;
-
-        const previousSessions = sessions;
-        const { shuttlesUsed, pricePerShuttle, totalCourtPrice, splitMode } = costData;
-        const totalShuttlePrice = shuttlesUsed * pricePerShuttle;
-        const totalCost = totalCourtPrice + totalShuttlePrice;
-
-        const checkedInIds = session.checkedInPlayerIds || [];
-
-        let items: any[] = [];
-        if (splitMode === 'EQUAL' && checkedInIds.length > 0) {
-            const amount = Math.round(totalCost / checkedInIds.length);
-            items = checkedInIds.map(userId => ({ userId, durationMinutes: 0, amount }));
-        } else if (checkedInIds.length > 0) {
-            const playerMatchCounts: Record<string, number> = {};
-            checkedInIds.forEach(id => playerMatchCounts[id] = 0);
-            (session.matches || []).forEach(m => {
-                [...m.team1Ids, ...m.team2Ids].forEach(id => {
-                    if (playerMatchCounts[id] !== undefined) playerMatchCounts[id]++;
-                });
-            });
-
-            const totalParticipations = Object.values(playerMatchCounts).reduce((a, b) => a + b, 0);
-            if (totalParticipations === 0) {
-                const amount = Math.round(totalCost / checkedInIds.length);
-                items = checkedInIds.map(userId => ({ userId, durationMinutes: 0, amount }));
-            } else {
-                items = checkedInIds.map(userId => ({
-                    userId,
-                    durationMinutes: 0,
-                    amount: Math.round(((playerMatchCounts[userId] || 0) / totalParticipations) * totalCost)
-                }));
-            }
-        }
-
-        const finalBill: FinalBill = {
-            totalCourtPrice,
-            totalShuttlePrice,
-            shuttlesUsed,
-            pricePerShuttle,
-            totalCost,
-            splitMode,
-            items
-        };
-
-        // Optimistic
-        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, finalBill } : s));
-
-        const { error } = await supabase.from('sessions').update({ final_bill: finalBill }).eq('id', sessionId);
-        if (error) {
-            setSessions(previousSessions);
-            showToast("Failed to end session", true);
-        } else {
-            showToast("Session Ended");
-        }
-    }, [sessions, showToast]);
-
-    const handleCourtAssignment = useCallback(async (sessionId: string, courtIndex: number, playerIds: string[]) => {
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session) return;
-
-        const previousSessions = sessions;
-        const newAssignments = { ...(session.courtAssignments || {}) };
-        const newStartTimes = { ...(session.matchStartTimes || {}) };
-
-        if (playerIds.length === 0) {
-            delete newAssignments[courtIndex];
-            delete newStartTimes[courtIndex];
-        } else {
-            newAssignments[courtIndex] = playerIds;
-            newStartTimes[courtIndex] = new Date().toISOString();
-        }
-
-        // Optimistic
-        setSessions(prev => prev.map(s => s.id === sessionId ? {
-            ...s,
-            courtAssignments: newAssignments,
-            matchStartTimes: newStartTimes
-        } : s));
-
-        const { error } = await supabase.from('sessions').update({
-            court_assignments: newAssignments,
-            match_start_times: newStartTimes
-        }).eq('id', sessionId);
-
-        if (error) {
-            setSessions(previousSessions);
-            showToast("Assignment failed", true);
-        }
-    }, [sessions, showToast]);
-
-    const handleQueueMatch = useCallback(async (sessionId: string, playerIds: string[]) => {
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session) return;
-        const previousSessions = sessions;
-        const newMatchup = { id: generateId(), playerIds };
-        const updatedQueue = [...(session.nextMatchups || []), newMatchup];
-
-        // Optimistic
-        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, nextMatchups: updatedQueue } : s));
-
-        const { error } = await supabase.from('sessions').update({ next_matchups: updatedQueue }).eq('id', sessionId);
-        if (error) {
-            console.error("SX: Supabase Queue Match Error:", error);
-            setSessions(previousSessions);
-            showToast("Queue failed", true);
-        } else {
-            showToast("Match Queued");
-        }
-    }, [sessions, showToast]);
-
-    const handleDeleteQueuedMatch = useCallback(async (sessionId: string, matchupId: string) => {
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session) return;
-        const previousSessions = sessions;
-        const updatedQueue = (session.nextMatchups || []).filter(m => m.id !== matchupId);
-
-        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, nextMatchups: updatedQueue } : s));
-
-        const { error } = await supabase.from('sessions').update({ next_matchups: updatedQueue }).eq('id', sessionId);
-        if (error) {
-            console.error("SX: Supabase Delete Queue Match Error:", error);
-            setSessions(previousSessions);
-            showToast("Delete failed", true);
-        }
-    }, [sessions, showToast]);
-
-    const handlePromoteMatch = useCallback(async (sessionId: string, matchupId: string, courtIndex: number) => {
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session) return;
-
-        const matchup = (session.nextMatchups || []).find(m => m.id === matchupId);
-        if (!matchup) return;
-
-        // OPTIMIZATION: Run queue removal and court assignment in parallel
-        await Promise.all([
-            handleDeleteQueuedMatch(sessionId, matchupId),
-            handleCourtAssignment(sessionId, courtIndex, matchup.playerIds)
-        ]);
-    }, [sessions, handleDeleteQueuedMatch, handleCourtAssignment]);
-
-
-
-    const handleRecordMatchResult = useCallback(async (sessionId: string, courtIndex: number, winningTeamIndex: 1 | 2) => {
-        const session = sessions.find(s => s.id === sessionId);
-        if (!session) return;
-
-        const previousSessions = sessions;
-        const assignedPlayerIds = (session.courtAssignments || {})[courtIndex] || [];
-        if (assignedPlayerIds.length === 0) return;
-
-        const mid = Math.ceil(assignedPlayerIds.length / 2);
-        const team1Ids = assignedPlayerIds.slice(0, mid);
-        const team2Ids = assignedPlayerIds.slice(mid);
-
-        const newMatchId = generateId();
-        const now = new Date().toISOString();
-        const pointsChange = 25;
-
-        // 1. Optimistic Update (Immediate UI Feedback)
-        const newMatch: MatchResult = {
-            id: newMatchId,
-            timestamp: now,
-            team1Ids,
-            team2Ids,
-            winningTeamIndex,
-            pointsChange
-        };
-
-        const optimisticMatches = [...(session.matches || []), newMatch];
-        const newAssignments = { ...(session.courtAssignments || {}) };
-        const newStartTimes = { ...(session.matchStartTimes || {}) };
-        delete newAssignments[courtIndex];
-        delete newStartTimes[courtIndex];
-
-        const newCheckInTimes = { ...(session.checkInTimes || {}) };
-        assignedPlayerIds.forEach(playerId => {
-            newCheckInTimes[playerId] = now;
-        });
-
-        setSessions(prev => prev.map(s => s.id === sessionId ? {
-            ...s,
-            matches: optimisticMatches,
-            courtAssignments: newAssignments,
-            matchStartTimes: newStartTimes,
-            checkInTimes: newCheckInTimes
-        } : s));
-
-        try {
-            // 2. Database Update via RPC
-            // This handles sessions update and profiles stats update atomically
-            const { data, error } = await supabase.rpc('record_match_result', {
-                p_session_id: sessionId,
-                p_match_id: newMatchId,
-                p_court_index: courtIndex,
-                p_team1_ids: team1Ids,
-                p_team2_ids: team2Ids,
-                p_winning_team_index: winningTeamIndex,
-                p_points_change: pointsChange,
-                p_now: now
-            });
-
-            if (error) throw error;
-
-            setIsSyncing(true); // Start full stat sync overlay
-
-            // 3. Refresh profile data for all players to ensure local points are accurate
-            // We fetch everyone because points changes affect the leaderboard/rankings
-            const { data: updatedProfiles, error: profileError } = await supabase
-                .from('profiles')
-                .select('*');
-
-            if (!profileError && updatedProfiles) {
-                const mappedUsers = updatedProfiles.map(mapProfileFromDB);
-                mappedUsers.forEach((u: User) => { u.rankFrame = getFrameByPoints(u.points); });
-                setUsers(mappedUsers);
-            }
-
-            showToast("Match Recorded");
-
-        } catch (err) {
-            console.error("Failed to record match safely:", err);
-            setSessions(previousSessions); // Rollback on error
-            showToast("Failed to save match. Please refresh.", true);
-        } finally {
-            setIsSyncing(false);
-        }
-    }, [sessions, showToast]);
-
-    // Merge active + past sessions for child components that need full history
-    const allSessions = useMemo(() => {
-        const ids = new Set(sessions.map(s => s.id));
-        const merged = [...sessions];
-        for (const ps of pastSessions) {
-            if (!ids.has(ps.id)) merged.push(ps);
-        }
-        return merged;
-    }, [sessions, pastSessions]);
-
-    // OPTIMIZATION: Memoize selectedSession to avoid .find() on every render
-    // Search allSessions (active + past) so past session details can be viewed
-    const selectedSession = useMemo(() => allSessions.find(s => s.id === selectedSessionId) || null, [allSessions, selectedSessionId]);
-
-    const upcomingSessions = useMemo(() => {
-        const now = new Date();
-        // Keep session visible until 30 minutes after scheduled end time
-        return sessions.filter(s => now.getTime() <= new Date(s.endTime).getTime() + AUTO_END_GRACE_PERIOD_MS)
-            .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-    }, [sessions]);
-
-    const recentSessions = useMemo(() => {
-        return [...allSessions]
-            .filter(s => s.finalBill || new Date(s.endTime).getTime() < Date.now())
-            .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime())
-            .slice(0, 3);
-    }, [allSessions]);
-
-    const paginatedSessions = upcomingSessions.slice(0, visibleCount);
-
-    const marqueeConfigs = useMemo(() => [
-        { className: "w-12 h-12 animate-bounce -rotate-12 shrink-0", delay: '0s', duration: '4.2s', shadowSize: 20 },
-        { className: "w-16 h-16 animate-bounce rotate-6 mx-2 shrink-0", delay: '1.2s', duration: '5.5s', shadowSize: 30 },
-        { className: "w-10 h-10 animate-bounce rotate-12 mb-4 shrink-0", delay: '2.5s', duration: '3.8s', shadowSize: 20 },
-        { className: "w-14 h-14 animate-bounce -rotate-6 mt-4 mx-2 shrink-0", delay: '0.8s', duration: '4.8s', shadowSize: 30 },
-        { className: "w-8 h-8 animate-bounce rotate-[-15deg] shrink-0", delay: '1.8s', duration: '6s', shadowSize: 15 },
-        { className: "w-10 h-10 animate-bounce mt-2 mx-1 shrink-0", delay: '3.2s', duration: '4.5s', shadowSize: 20 },
-        { className: "w-6 h-6 animate-bounce rotate-12 mb-6 mx-3 shrink-0", delay: '0.3s', duration: '5.2s', shadowSize: 15 }
-    ], []);
-
-    const floatingUsersRow1 = useMemo(() => {
-        return [...users].sort(() => 0.5 - Math.random()).slice(0, 7);
-    }, [users]);
-
-    const floatingUsersRow2 = useMemo(() => {
-        return [...users].sort(() => 0.5 - Math.random()).slice(7, 14);
-    }, [users]);
-
-    const groupedUpcomingSessions = useMemo(() => {
-        const grouped: { title: string; sessions: Session[] }[] = [];
-        paginatedSessions.forEach((s) => {
-            const rawDate = new Date(String(s.startTime));
-            const title = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(rawDate);
-            let lastGroup = grouped[grouped.length - 1];
-            if (!lastGroup || lastGroup.title !== title) grouped.push({ title, sessions: [s] });
-            else lastGroup.sessions.push(s);
-        });
-        return grouped;
-    }, [paginatedSessions]);
-
-    if (isInitialLoading) {
-        return (
-            <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center">
-                <Loader2 className="animate-spin text-[#00FF41] mb-4" size={48} />
-                <span className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Entering Arena...</span>
-            </div>
-        );
-    }
-
-    // Render logic ordered to prioritize Auth screens over Error screens
-    if (authStage === 'splash') return <SplashScreen onLoginClick={() => setAuthStage('login')} onRegisterClick={() => setAuthStage('register')} />;
-    if (authStage === 'login') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><LoginScreen users={users} onLogin={handleLogin} onBack={() => setAuthStage('splash')} /></Suspense>;
-    if (authStage === 'register') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><RegisterScreen onRegister={handleRegister} onBack={() => setAuthStage('splash')} /></Suspense>;
-
-    if (fetchError && !sessions.length) {
-        return (
-            <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center p-8 text-center">
-                <WifiOff className="text-red-500 mb-6" size={64} />
-                <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter mb-4">Connection <span className="text-red-500">Failed</span></h2>
-                <button onClick={() => { setIsInitialLoading(true); fetchData(); }} className="px-8 py-4 bg-[#00FF41] text-[#000B29] font-black uppercase tracking-widest text-sm -skew-x-12">
-                    <span className="skew-x-12 inline-block">Retry Connection</span>
-                </button>
-            </div>
-        );
-    }
-
-    if (!activeUser && isAuthenticated) {
-        return (
-            <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center p-8 text-center">
-                <Loader2 className="animate-spin text-[#00FF41] mb-6" size={48} />
-                <h2 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">Syncing <span className="text-[#00FF41]">Profile</span></h2>
-                <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest mb-6">Securing Arena Credentials</p>
-                <button onClick={() => window.location.reload()} className="flex items-center gap-2 text-gray-400 font-bold uppercase text-[10px] tracking-widest hover:text-white transition-colors">
-                    <RefreshCcw size={14} /> Force Refresh
-                </button>
-            </div>
-        );
-    }
-
-    if (!activeUser) return null;
-
-    const renderContent = () => {
-        switch (activeTab) {
-            case 'leaderboard': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} /></Suspense>;
-            case 'stats': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} /></Suspense>;
-            case 'sessions':
-            default:
-                return (
-                    <div className="space-y-6 animate-fade-in-up">
-                        <section className="mb-12">
-                            {upcomingSessions.length > 0 && (
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xl font-black italic uppercase tracking-tighter text-white m-0 flex items-center gap-3">
-                                        <span>Upcoming <span className="text-[#00FF41]">Sessions</span></span>
-                                    </h3>
-                                    <button
-                                        onClick={() => { triggerHaptic('medium'); setIsModalOpen(true); }}
-                                        className="bg-[#00FF41] hover:bg-white text-[#000B29] px-4 py-2 rounded-none text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(0,255,65,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all active:scale-95 flex items-center gap-2"
-                                    >
-                                        <Plus size={16} strokeWidth={4} />
-                                        <span className="hidden sm:inline">New Session</span>
-                                    </button>
-                                </div>
-                            )}
-                            {upcomingSessions.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-4 relative group overflow-hidden" style={{ width: '100vw', marginLeft: 'calc(-50vw + 50%)' }}>
-                                    <div className="relative z-10 flex flex-col items-center w-full max-w-5xl mx-auto">
-                                        <div className="relative w-full max-w-full overflow-hidden mb-2 pointer-events-none group-hover:scale-110 transition-transform duration-700 ease-out flex items-center justify-center">
-                                            {/* Edge fade mask */}
-                                            <div className="absolute inset-0 z-20 pointer-events-none" style={{ background: 'linear-gradient(to right, #000B29 0%, transparent 20%, transparent 80%, #000B29 100%)' }}></div>
-
-                                            <style>
-                                                {`
-                                                    @keyframes scrollRightToLeft {
-                                                        0% { transform: translateX(0); }
-                                                        100% { transform: translateX(-50%); }
-                                                    }
-                                                    .animate-marquee-row1 {
-                                                        display: flex;
-                                                        width: max-content;
-                                                        animation: scrollRightToLeft 75s linear infinite;
-                                                    }
-                                                    .animate-marquee-row2 {
-                                                        display: flex;
-                                                        width: max-content;
-                                                        animation: scrollRightToLeft 90s linear infinite;
-                                                    }
-                                                `}
-                                            </style>
-
-                                            {(() => {
-                                                const renderMarqueeRow = (usersArray: User[], className: string, offset: number = 0) => (
-                                                    <div className={className}>
-                                                        {usersArray.map((user, idx) => {
-                                                            const config = marqueeConfigs[(idx + offset) % marqueeConfigs.length];
-
-                                                            const glowColor = (() => {
-                                                                try {
-                                                                    const url = new URL(user.avatar);
-                                                                    const bg = url.searchParams.get('backgroundColor');
-                                                                    return bg ? `#${bg}` : getAvatarColor(user.id);
-                                                                } catch {
-                                                                    return getAvatarColor(user.id);
-                                                                }
-                                                            })();
-
-                                                            return (
-                                                                <div
-                                                                    key={`${user.id}-${idx}`}
-                                                                    className={`rounded-full border-2 border-[#000B29] shrink-0 ${config.className}`}
-                                                                    style={{
-                                                                        animationDelay: config.delay,
-                                                                        animationDuration: config.duration,
-                                                                        backgroundColor: glowColor,
-                                                                        boxShadow: `0 0 ${config.shadowSize}px ${glowColor}60`
-                                                                    }}
-                                                                >
-                                                                    <img src={user.avatar} className="w-full h-full rounded-full object-cover" alt={user.name} />
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                );
-
-                                                const fullArray1 = [...floatingUsersRow1, ...floatingUsersRow1, ...floatingUsersRow1, ...floatingUsersRow1];
-                                                const reversedArray2 = [...floatingUsersRow2].reverse();
-                                                const fullReversedArray2 = [...reversedArray2, ...reversedArray2, ...reversedArray2, ...reversedArray2];
-
-                                                return (
-                                                    <div className="flex flex-col w-full -space-y-6 pt-4 pb-0">
-                                                        {renderMarqueeRow(fullArray1, "animate-marquee-row1 items-center gap-8 pl-10 relative z-10", 0)}
-                                                        {renderMarqueeRow(fullReversedArray2, "animate-marquee-row2 items-center gap-12 pr-12 relative z-20", 3)}
-                                                    </div>
-                                                );
-                                            })()}
-                                        </div>
-                                        <h3 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">The Court is <span className="text-[#00FF41]">Yours</span></h3>
-                                        <p className="text-gray-400 font-medium text-xs uppercase tracking-widest mb-8 text-center max-w-[300px] leading-relaxed">No sessions have been created.<br />Be the first to claim the court.</p>
-                                        <button
-                                            onClick={() => { triggerHaptic('medium'); setIsModalOpen(true); }}
-                                            className="bg-[#00FF41] hover:bg-white text-[#000B29] px-8 py-4 rounded-none -skew-x-12 text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(0,255,65,0.3)] hover:shadow-[0_0_40px_rgba(255,255,255,0.5)] transition-all active:scale-95 flex items-center gap-2 group/btn"
-                                        >
-                                            <span className="skew-x-12 flex items-center gap-2">
-                                                <Plus size={16} strokeWidth={4} className="group-hover/btn:rotate-90 transition-transform" />
-                                                Create Session
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 pb-4 -mx-4 px-4 scroll-px-4 after:content-[''] after:w-px after:shrink-0">
-                                    {paginatedSessions.map(session => (
-                                        <div key={session.id} className="w-[90vw] sm:w-[480px] shrink-0 snap-start">
-                                            <SessionCard session={session} currentUser={activeUser} allUsers={users} onDelete={handleDelete} onClick={setSelectedSessionId} />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Recent Battles */}
-                            {recentSessions.length > 0 && (
-                                <div className="space-y-4 mt-8 mb-4">
-                                    <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-3">
-                                        <span>Recent <span className="text-[#00FF41]">Battles</span></span>
-                                    </h3>
-                                    <div className="space-y-2">
-                                        {recentSessions.map(session => {
-                                            const { day, month } = getDateParts(session.startTime);
-                                            return (
-                                                <div key={session.id} onClick={() => { triggerHaptic('light'); setSelectedSessionId(session.id); }} className="cursor-pointer bg-[#001645] hover:shadow-[0_8px_32px_rgba(0,255,65,0.1)] hover:border-[#00FF41]/40 border border-transparent rounded-none p-3 transition-all hover:bg-[#001c55] group flex items-center gap-4">
-                                                    <div className="flex flex-col items-center justify-center min-w-[40px] bg-[#000B29] rounded-none py-1.5 shrink-0 group-hover:bg-[#000F35] transition-colors border-r border-[#00FF41]/10">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 leading-none mb-1">{month}</span>
-                                                        <span className="text-xl font-black text-white italic tracking-tighter leading-none">{day}</span>
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <h4 className="text-sm font-black italic text-white group-hover:text-[#00FF41] transition-colors truncate mb-1 uppercase tracking-tight">{session.title || session.location}</h4>
-                                                        <div className="flex items-center text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em]">
-                                                            <span className="tabular-nums">{formatTime(session.startTime)}</span>
-                                                            <span className="mx-2 opacity-30">•</span>
-                                                            <span className="truncate">{session.location}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                        </section>
-                    </div>
-                );
-        }
-    };
-
-    return (
-        <>
-            <PullToRefresh onRefresh={fetchData}>
-                <div className="min-h-screen pb-24 bg-[#000B29] text-white">
-                    <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
-                    <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} onOpenHistory={() => setIsHistoryOpen(true)} onOpenActivity={() => setIsActivityOpen(true)} />
-                    <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</main>
-                </div>
-            </PullToRefresh>
-
-            <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 transform ${toast?.visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0 pointer-events-none'}`}>
-                <div className={`backdrop-blur-md border px-6 py-3 rounded-full shadow-lg flex items-center gap-3 ${toast?.isError ? 'bg-red-500/90 border-red-500 text-white shadow-red-500/20' : 'bg-[#001645]/90 border-[#00FF41] text-white shadow-[0_0_20px_rgba(0,255,65,0.3)]'}`}>
-                    {toast?.isError ? <Info className="text-white" size={20} /> : <CheckCircle className="text-[#00FF41]" size={20} />}
-                    <span className="text-sm font-bold tracking-wide">{toast?.message}</span>
-                </div>
-            </div>
-
-            <BottomNav activeTab={activeTab} onTabChange={handleTabChange} currentUser={activeUser} />
-
-            <Suspense fallback={null}>
-                <CreateSessionModal
-                    isOpen={isModalOpen}
-                    onClose={() => { setIsModalOpen(false); setEditingSession(null); }}
-                    onCreate={handleSaveSession}
-                    initialData={editingSession}
-                />
-            </Suspense>
-            {selectedSession !== null ? (
-                <Suspense fallback={
-                    <div className="fixed inset-0 z-[150] bg-[#000B29] flex items-center justify-center">
-                        <Loader2 className="animate-spin text-[#00FF41]" size={48} />
-                    </div>
-                }>
-                    <SessionDetailModal
-                        session={selectedSession}
-                        currentUser={activeUser}
-                        allUsers={users}
-                        onClose={() => setSelectedSessionId(null)}
-                        onJoin={handleJoin}
-                        onLeave={handleLeave}
-                        onDelete={handleDelete}
-                        onStart={handleStartSession}
-                        onEnd={handleEndSession}
-                        onCheckInToggle={handleCheckInToggle}
-                        onSkipTurn={handleSkipTurn}
-                        onCourtAssignment={handleCourtAssignment}
-                        onRecordMatchResult={handleRecordMatchResult}
-                        onPlayerClick={setViewingPlayerId}
-                        onRefresh={fetchData}
-                        onEdit={handleEditSessionTrigger}
-                        onQueueMatch={handleQueueMatch}
-                        onPromoteMatch={handlePromoteMatch}
-                        onDeleteQueuedMatch={handleDeleteQueuedMatch}
-                    />
-                </Suspense>
-            ) : null}
-            <Suspense fallback={null}>
-                <PlayerProfileModal isOpen={!!viewingPlayerId} onClose={() => setViewingPlayerId(null)} userId={viewingPlayerId} allUsers={users} sessions={sessions} />
-            </Suspense>
-            <Suspense fallback={null}>
-                {isActivityOpen && activeUser && (
-                    <ActivityLogModal currentUser={activeUser} sessions={sessions} onClose={() => setIsActivityOpen(false)} />
-                )}
-            </Suspense>
-            <Suspense fallback={null}>
-                {isHistoryOpen && (
-                    <div className="fixed inset-0 z-[200] bg-[#000B29] overflow-y-auto animate-in fade-in duration-300">
-                        <HistoryScreen
-                            currentUser={activeUser}
-                            sessions={sessions}
-                            pastSessions={pastSessions}
-                            isLoadingPast={isLoadingPast}
-                            hasMorePast={hasMorePast}
-                            onLoadMore={fetchPastSessions}
-                            onBack={() => setIsHistoryOpen(false)}
-                            onSessionClick={(id) => setSelectedSessionId(id)}
-                        />
-                    </div>
-                )}
-            </Suspense>
-            <Suspense fallback={null}>
-                {isProfileOpen && (
-                    <div className="fixed inset-0 z-[200] bg-[#000B29] overflow-y-auto animate-in fade-in duration-300">
-                        <div className="mx-auto min-h-screen relative w-full px-0 py-0">
-                            {isSettingsOpen ? (
-                                <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-                                    <SettingsScreen
-                                        currentUser={activeUser}
-                                        onUpdateUser={handleUpdateUser}
-                                        onDeleteAccount={handleDeleteAccount}
-                                        onBack={() => setIsSettingsOpen(false)}
-                                    />
-                                </div>
-                            ) : (
-                                <Profile
-                                    user={activeUser}
-                                    sessions={sessions}
-                                    allUsers={users}
-                                    onOpenSettings={() => setIsSettingsOpen(true)}
-                                    onSessionClick={setSelectedSessionId}
-                                    onOpenTiers={() => setShowTiers(true)}
-                                    onOpenInstallGuide={() => setShowInstallGuide(true)}
-                                    onLogout={handleLogout}
-                                    onClose={() => setIsProfileOpen(false)}
-                                />
-                            )}
-                        </div>
-                    </div>
-                )}
-            </Suspense>
-            <Suspense fallback={null}>
-                <ArenaTiersModal isOpen={showTiers} onClose={() => setShowTiers(false)} user={activeUser} />
-            </Suspense>
-            <Suspense fallback={null}>
-                <InstallGuideModal isOpen={showInstallGuide} onClose={() => setShowInstallGuide(false)} />
-            </Suspense>
-            <Suspense fallback={null}>
-                <Analytics />
-            </Suspense>
-
-            {/* Global Syncing Overlay */}
-            {isSyncing && (
-                <div className="fixed inset-0 z-[1000] bg-[#000B29]/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-500">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-[#00FF41] blur-[60px] opacity-20 animate-pulse"></div>
-                        <div className="relative bg-[#001645] border border-[#00FF41]/30 p-8 rounded-none shadow-[0_0_50px_rgba(0,255,65,0.15)] flex flex-col items-center">
-                            <div className="w-16 h-16 relative mb-6">
-                                <Loader2 className="animate-spin text-[#00FF41] absolute inset-0" size={64} strokeWidth={1.5} />
-                                <Zap className="text-[#00FF41] absolute inset-1/2 -translate-x-1/2 -translate-y-1/2" size={24} fill="currentColor" />
-                            </div>
-                            <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter mb-2">Syncing <span className="text-[#00FF41]">Arena Stats</span></h2>
-                            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] animate-pulse">Updating Ranks & Points</p>
-
-                            <div className="mt-8 flex gap-1">
-                                {[0, 1, 2].map(i => (
-                                    <div key={i} className="w-1 h-1 bg-[#00FF41] rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }}></div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
-    );
+ // Auth State
+ const [authStage, setAuthStage] = useState<'splash' | 'login' | 'register' | 'app'>('splash');
+ const [isAuthenticated, setIsAuthenticated] = useState(false);
+ const [isProcessingAuth, setIsProcessingAuth] = useState(false);
+
+ // Data State
+ const [users, setUsers] = useState<User[]>([]);
+ const [currentUser, setCurrentUser] = useState<User | null>(null);
+ const [sessions, setSessions] = useState<Session[]>([]);
+ const [isInitialLoading, setIsInitialLoading] = useState(true);
+ const [isSyncing, setIsSyncing] = useState(false);
+ const [fetchError, setFetchError] = useState<string | null>(null);
+ const isInitializing = useRef(false);
+
+ // Infinite Scroll State
+ const [visibleCount, setVisibleCount] = useState(SESSIONS_PER_PAGE);
+ const observerTarget = useRef<HTMLDivElement>(null);
+
+ // Past Sessions (on-demand)
+ const [pastSessions, setPastSessions] = useState<Session[]>([]);
+ const [isLoadingPast, setIsLoadingPast] = useState(false);
+ const [hasMorePast, setHasMorePast] = useState(true);
+ const [pastLoaded, setPastLoaded] = useState(false);
+
+ // Navigation State
+ const [activeTab, setActiveTab] = useState<'sessions' | 'leaderboard' | 'stats'>('sessions');
+ const [isProfileOpen, setIsProfileOpen] = useState(false);
+ const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+ const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+ const [isActivityOpen, setIsActivityOpen] = useState(false);
+ const [isTabTransitioning, startTabTransition] = useTransition();
+ const [isModalOpen, setIsModalOpen] = useState(false);
+ const [editingSession, setEditingSession] = useState<Session | null>(null);
+ const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+ const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
+
+ // Profile Sub-modals
+ const [showTiers, setShowTiers] = useState(false);
+ const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+ // Toast State
+ const [toast, setToast] = useState<{ message: string; visible: boolean; isError?: boolean } | null>(null);
+
+ const showToast = useCallback((message: string, isError = false) => {
+ setToast({ message, visible: true, isError });
+ setTimeout(() => setToast(null), 3000);
+ }, []);
+
+ // --- Helper: Fetch with Timeout ---
+ const withTimeout = (promise: Promise<any> | PromiseLike<any>, ms: number = FETCH_TIMEOUT) => {
+ return Promise.race([
+ promise,
+ new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), ms))
+ ]);
+ };
+
+ // --- Realtime Subscription + Auto-Refresh on Resume ---
+ useEffect(() => {
+ if (!isAuthenticated) return;
+
+ const channel = supabase.channel('public:all-changes')
+ .on(
+ 'postgres_changes',
+ { event: '*', schema: 'public', table: 'sessions' },
+ (payload) => {
+ if (payload.eventType === 'INSERT') {
+ const newSession = mapSessionFromDB(payload.new);
+ setSessions(prev => {
+ if (prev.find(s => s.id === newSession.id)) return prev;
+ return [...prev, newSession].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+ });
+ } else if (payload.eventType === 'UPDATE') {
+ setSessions(prev => prev.map(s => {
+ if (s.id !== payload.new.id) return s;
+ const newSession = mapSessionFromDB(payload.new);
+ // Preserve nextMatchups if missing/null in payload (handling incomplete updates or missing column)
+ // This ensures the optimistic update persists locally until a valid non-null update comes in
+ if ((payload.new.next_matchups === undefined || payload.new.next_matchups === null) && s.nextMatchups && s.nextMatchups.length > 0) {
+ newSession.nextMatchups = s.nextMatchups;
+ }
+ return newSession;
+ }));
+ } else if (payload.eventType === 'DELETE') {
+ setSessions(prev => prev.filter(s => s.id !== payload.old.id));
+ }
+ }
+ )
+ .on(
+ 'postgres_changes',
+ { event: 'UPDATE', schema: 'public', table: 'profiles' },
+ (payload) => {
+ // Live-update user profiles (points, rankFrame, etc.) when match results are recorded
+ const updated = mapProfileFromDB(payload.new);
+ updated.rankFrame = getFrameByPoints(updated.points);
+ setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+ }
+ )
+ .subscribe((status) => {
+ console.log('SX: Realtime channel status:', status);
+ });
+
+ // Auto-refresh when app returns from background (phone was locked/switched apps)
+ // Mobile browsers disconnect WebSocket when backgrounded, so we need to catch up
+ const handleVisibilityChange = () => {
+ if (document.visibilityState === 'visible') {
+ console.log('SX: App resumed from background — syncing data...');
+ fetchData();
+ }
+ };
+ document.addEventListener('visibilitychange', handleVisibilityChange);
+
+ return () => {
+ supabase.removeChannel(channel);
+ document.removeEventListener('visibilitychange', handleVisibilityChange);
+ };
+ }, [isAuthenticated]);
+
+ // --- Data Fetching ---
+
+ const fetchData = async () => {
+ console.log("SX: Fetching Arena Data...");
+ setFetchError(null);
+ try {
+ // OPTIMIZATION: Split fetching into Critical (Active/Future) vs History
+ // This allows the user to interact with the app much faster
+
+ const yesterday = new Date();
+ yesterday.setDate(yesterday.getDate() - 1); // active window = last 24h
+
+ // 1. Critical Load: Profiles + Active/Upcoming Sessions + Recent Past
+ const [profilesRes, activeSessionsRes, recentPastRes] = await Promise.all([
+ withTimeout(supabase.from('profiles').select('*')),
+ withTimeout(
+ supabase.from('sessions')
+ .select('*')
+ .gte('end_time', yesterday.toISOString()) // Only recent/ongoing
+ .order('start_time', { ascending: true })
+ ),
+ withTimeout(
+ supabase.from('sessions')
+ .select('*')
+ .lt('end_time', new Date().toISOString()) // Sessions that have ended
+ .order('end_time', { ascending: false })
+ .limit(3) // Last 3 sessions for Recent Battles
+ )
+ ]) as any;
+
+ if (profilesRes.error) throw profilesRes.error;
+ if (activeSessionsRes.error) throw activeSessionsRes.error;
+ // Non-critical: don't throw on recentPast error
+
+ if (profilesRes.data) {
+ const mappedUsers = profilesRes.data.map(mapProfileFromDB);
+ // Derive rank_frame from stored points (canonical source)
+ mappedUsers.forEach((u: User) => { u.rankFrame = getFrameByPoints(u.points); });
+ setUsers(mappedUsers);
+ }
+
+ // Set initial active sessions to unblock UI
+ if (activeSessionsRes.data) {
+ const activeSessions = activeSessionsRes.data.map(mapSessionFromDB);
+ setSessions(activeSessions);
+ }
+
+ // Seed past sessions for Recent Battles section on home page
+ if (recentPastRes?.data && !recentPastRes.error) {
+ const recentPast = recentPastRes.data.map(mapSessionFromDB);
+ setPastSessions(recentPast);
+ }
+
+ // Unlock UI immediately — no history fetch needed!
+ // Points are stored directly in profiles table.
+ setIsInitialLoading(false);
+ console.log("SX: Data fetched (points from profiles, active sessions only)");
+
+ } catch (error: any) {
+ console.error("SX: Fetch data failed:", error.message);
+ if (sessions.length === 0) {
+ setFetchError(error.message || "Connection failed.");
+ setIsInitialLoading(false);
+ }
+ }
+ };
+
+ // --- Past Sessions: On-demand loading ---
+ const fetchPastSessions = useCallback(async () => {
+ setIsLoadingPast(true);
+ try {
+ const yesterday = new Date();
+ yesterday.setDate(yesterday.getDate() - 1);
+
+ // Use offset-based pagination
+ const offset = pastSessions.length;
+
+ const { data, error } = await supabase
+ .from('sessions')
+ .select('*')
+ .lt('end_time', yesterday.toISOString()) // Only past sessions (older than 24h)
+ .order('start_time', { ascending: false })
+ .range(offset, offset + PAST_SESSIONS_PER_PAGE - 1);
+
+ if (error) throw error;
+
+ if (data) {
+ const mapped = data.map(mapSessionFromDB);
+ setPastSessions(prev => [...prev, ...mapped]);
+ setHasMorePast(data.length === PAST_SESSIONS_PER_PAGE);
+ setPastLoaded(true);
+ }
+ } catch (err: any) {
+ console.error("SX: Failed to load past sessions:", err.message);
+ showToast("Failed to load history", true);
+ } finally {
+ setIsLoadingPast(false);
+ }
+ }, [pastSessions.length, showToast]);
+
+ // fetchHistoryData removed — points are now stored in profiles table.
+ // No need to download historical sessions for points calculation.
+
+ const fetchUserProfile = async (userId: string) => {
+ console.log("SX: Fetching User Profile for", userId);
+ try {
+ const { data, error } = await withTimeout(
+ supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+ ) as any;
+
+ if (error) throw error;
+
+ if (data) {
+ setCurrentUser(mapProfileFromDB(data));
+ } else {
+ const { data: { session } } = await supabase.auth.getSession();
+ const userName = session?.user?.user_metadata?.name || 'Player';
+ const userAvatar = session?.user?.user_metadata?.avatar || `https://api.dicebear.com/9.x/adventurer/svg?seed=${userId}`;
+
+ const { data: newProfile } = await supabase.from('profiles').upsert({
+ id: userId,
+ name: userName,
+ avatar: userAvatar,
+ points: 1000,
+ wins: 0,
+ losses: 0,
+ rank_frame: 'unpolished'
+ }).select().maybeSingle();
+
+ if (newProfile) {
+ setCurrentUser(mapProfileFromDB(newProfile));
+ } else {
+ setCurrentUser({ id: userId, name: userName, avatar: userAvatar, points: 1000, wins: 0, losses: 0, rankFrame: 'unpolished' });
+ }
+ }
+ } catch (error: any) {
+ console.error("SX: Error fetching user profile:", error.message);
+ if (!currentUser) {
+ setCurrentUser({
+ id: userId,
+ name: 'Arena Player',
+ avatar: `https://api.dicebear.com/9.x/adventurer/svg?seed=${userId}`,
+ points: 1000,
+ wins: 0,
+ losses: 0,
+ rankFrame: 'unpolished'
+ });
+ }
+ }
+ };
+
+ const initializeApp = async (session: any) => {
+ if (isInitializing.current) return;
+ isInitializing.current = true;
+
+ try {
+ if (session) {
+ setIsAuthenticated(true);
+ setAuthStage('app');
+ // Always land on home (Arena) page after login
+ setActiveTab('sessions');
+ setIsProfileOpen(false);
+ await Promise.allSettled([
+ fetchUserProfile(session.user.id),
+ fetchData()
+ ]);
+ } else {
+ setIsAuthenticated(false);
+ setAuthStage('splash');
+ setIsInitialLoading(false);
+ }
+ } catch (err) {
+ setIsInitialLoading(false);
+ } finally {
+ isInitializing.current = false;
+ }
+ };
+
+ useEffect(() => {
+ const failsafe = setTimeout(() => {
+ if (isInitialLoading) setIsInitialLoading(false);
+ }, INITIAL_LOAD_TIMEOUT);
+
+ const checkInitialSession = async () => {
+ try {
+ const { data: { session } } = await supabase.auth.getSession();
+ if (session) await initializeApp(session);
+ else setIsInitialLoading(false);
+ } catch (e) {
+ setIsInitialLoading(false);
+ }
+ };
+
+ checkInitialSession();
+
+ const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+ if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+ await initializeApp(session);
+ } else if (event === 'SIGNED_OUT') {
+ setIsAuthenticated(false);
+ setAuthStage('splash');
+ setCurrentUser(null);
+ setIsInitialLoading(false);
+ isInitializing.current = false;
+ }
+ });
+
+ return () => {
+ clearTimeout(failsafe);
+ subscription.unsubscribe();
+ };
+ }, []);
+
+ // Points are now stored directly in profiles table — no client-side recalculation needed.
+ // users already has correct points and rankFrame from the DB fetch.
+
+ const activeUser = useMemo(() => {
+ if (!currentUser) return null;
+ return users.find(u => u.id === currentUser.id) || currentUser;
+ }, [currentUser, users]);
+
+ const handleUpdateUser = useCallback(async (updatedUser: User) => {
+ setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+ setCurrentUser(updatedUser);
+ // Optimistic update done, now sync
+ await supabase.from('profiles').update({
+ name: updatedUser.name,
+ avatar: updatedUser.avatar,
+ rank_frame: updatedUser.rankFrame
+ }).eq('id', updatedUser.id);
+ }, []);
+
+ const handleLogin = useCallback(async (name: string, password: string) => {
+ const email = `${name.replace(/\s/g, '').toLowerCase()}@example.com`;
+ const { error } = await supabase.auth.signInWithPassword({ email, password });
+ if (error) throw error;
+ }, []);
+
+ const handleRegister = useCallback(async (name: string, avatarUrl: string, password?: string) => {
+ if (!password || isProcessingAuth) return;
+ setIsProcessingAuth(true);
+ const email = `${name.replace(/\s/g, '').toLowerCase()}@example.com`;
+ const { error } = await supabase.auth.signUp({
+ email,
+ password,
+ options: { data: { name, avatar: avatarUrl } }
+ });
+ if (error) { setIsProcessingAuth(false); throw error; }
+ setIsProcessingAuth(false);
+ }, [isProcessingAuth]);
+
+ const handleLogout = useCallback(async () => { await supabase.auth.signOut(); }, []);
+ const handleDeleteAccount = useCallback(async () => { if (currentUser) { await supabase.rpc('delete_user'); await handleLogout(); } }, [currentUser, handleLogout]);
+ const handleUserChange = useCallback((userId: string) => { const user = users.find(u => u.id === userId); if (user) setCurrentUser(user); }, [users]);
+
+ // Tab switching with useTransition for smoother UX
+ const handleTabChange = useCallback((tab: 'sessions' | 'leaderboard' | 'stats') => {
+ startTabTransition(() => { setActiveTab(tab); });
+ }, [startTabTransition]);
+
+ // --- OPTIMIZED ACTION HANDLERS ---
+
+ const handleSaveSession = useCallback(async (data: CreateSessionDTO): Promise<string | null> => {
+ if (!currentUser) return "Login required.";
+
+ triggerHaptic('medium');
+
+ const startDateTime = new Date(`${data.date}T${data.startTime}`);
+ let endDateTime = new Date(`${data.date}T${data.endTime}`);
+ if (endDateTime < startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
+
+ if (editingSession) {
+ // UPDATE Existing Session
+ const previousSessions = sessions;
+ const updatedSession = {
+ ...editingSession,
+ title: data.title,
+ location: data.location,
+ startTime: startDateTime.toISOString(),
+ endTime: endDateTime.toISOString(),
+ courtCount: data.courtCount,
+ maxPlayers: calculateMaxPlayers(data.courtCount),
+ };
+
+ // Optimistic Update
+ setSessions(prev => prev.map(s => s.id === editingSession.id ? updatedSession : s));
+
+ const { error } = await supabase.from('sessions').update({
+ title: data.title,
+ location: data.location,
+ start_time: startDateTime.toISOString(),
+ end_time: endDateTime.toISOString(),
+ court_count: data.courtCount,
+ max_players: calculateMaxPlayers(data.courtCount),
+ }).eq('id', editingSession.id);
+
+ if (error) {
+ setSessions(previousSessions);
+ return error.message;
+ }
+ showToast("Session Updated", false);
+ } else {
+ // CREATE New Session
+ const { data: newSession, error } = await supabase.from('sessions').insert({
+ title: data.title,
+ location: data.location,
+ start_time: startDateTime.toISOString(),
+ end_time: endDateTime.toISOString(),
+ court_count: data.courtCount,
+ max_players: calculateMaxPlayers(data.courtCount),
+ host_id: currentUser.id,
+ player_ids: [currentUser.id],
+ }).select().single();
+
+ if (error) return error.message;
+
+ if (newSession) {
+ const mapped = mapSessionFromDB(newSession);
+ setSessions(prev => [...prev, mapped].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
+ showToast("Session Created", false);
+ }
+ }
+ return null;
+ }, [currentUser, sessions, editingSession, showToast]);
+
+ const handleEditSessionTrigger = useCallback((sessionId: string) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (session) {
+ setEditingSession(session);
+ setIsModalOpen(true);
+ }
+ }, [sessions]);
+
+ const handleJoin = useCallback(async (sessionId: string) => {
+ if (!currentUser) return;
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session || session.playerIds.includes(currentUser.id)) return;
+
+ // 1. Optimistic Update
+ const previousSessions = sessions;
+ const updatedPlayerIds = [...session.playerIds, currentUser.id];
+
+ setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, playerIds: updatedPlayerIds } : s));
+
+ // 2. Network Request
+ const { error } = await supabase.from('sessions').update({ player_ids: updatedPlayerIds }).eq('id', sessionId);
+
+ // 3. Rollback if error
+ if (error) {
+ console.error("Join failed", error);
+ setSessions(previousSessions);
+ showToast("Failed to join", true);
+ }
+ }, [currentUser, sessions, showToast]);
+
+ const handleLeave = useCallback(async (sessionId: string) => {
+ if (!currentUser) return;
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+
+ // 1. Optimistic Update
+ const previousSessions = sessions;
+ const newPlayerIds = session.playerIds.filter(id => id !== currentUser.id);
+
+ setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, playerIds: newPlayerIds } : s));
+
+ // 2. Network Request
+ const { error } = await supabase.from('sessions').update({ player_ids: newPlayerIds }).eq('id', sessionId);
+
+ // 3. Rollback if error
+ if (error) {
+ console.error("Leave failed", error);
+ setSessions(previousSessions);
+ showToast("Failed to leave", true);
+ }
+ }, [currentUser, sessions, showToast]);
+
+ const handleDelete = useCallback(async (sessionId: string) => {
+ const previousSessions = sessions;
+
+ // Optimistic Delete
+ setSessions(prev => prev.filter(s => s.id !== sessionId));
+ if (selectedSessionId === sessionId) setSelectedSessionId(null);
+
+ const { error } = await supabase.from('sessions').delete().eq('id', sessionId);
+
+ if (error) {
+ setSessions(previousSessions);
+ showToast("Delete failed", true);
+ } else {
+ showToast("Session Deleted");
+ }
+ }, [sessions, selectedSessionId, showToast]);
+
+ const handleCheckInToggle = useCallback(async (sessionId: string, playerId: string) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+
+ const previousSessions = sessions;
+ const currentCheckedIn = session.checkedInPlayerIds || [];
+ const isCheckingIn = !currentCheckedIn.includes(playerId);
+
+ let newCheckedIn;
+ if (isCheckingIn) newCheckedIn = [...currentCheckedIn, playerId];
+ else newCheckedIn = currentCheckedIn.filter(id => id !== playerId);
+
+ const newTimes = { ...(session.checkInTimes || {}) };
+ if (isCheckingIn) newTimes[playerId] = new Date().toISOString();
+ else delete newTimes[playerId];
+
+ // Optimistic Update
+ setSessions(prev => prev.map(s => s.id === sessionId ? {
+ ...s,
+ checkedInPlayerIds: newCheckedIn,
+ checkInTimes: newTimes,
+ started: s.started || (newCheckedIn.length > 0)
+ } : s));
+
+ const { error } = await supabase.from('sessions').update({
+ checked_in_player_ids: newCheckedIn,
+ check_in_times: newTimes
+ }).eq('id', sessionId);
+
+ if (error) {
+ setSessions(previousSessions);
+ showToast("Update failed", true);
+ }
+ }, [sessions, showToast]);
+
+ // Skip Turn: Reset player's check-in time to now (moves them to end of queue)
+ // Skip Turn: Swap position with the next player in the queue
+ const handleSkipTurn = useCallback(async (sessionId: string, playerId: string) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+
+ console.log("SX: Skipping turn for", playerId);
+
+ const previousSessions = sessions;
+ const newTimes = { ...(session.checkInTimes || {}) };
+
+ // Calculate current queue to find the next person
+ const queue = calculateQueue(session);
+ const available = getAvailablePlayers(queue); // Only swap with waiting players
+ const currentIndex = available.findIndex(p => p.id === playerId);
+
+ console.log("SX: Current Index:", currentIndex, "Available:", available.length);
+
+ if (currentIndex !== -1 && currentIndex < available.length - 1) {
+ // Swap with next person
+ const nextPlayer = available[currentIndex + 1];
+
+ // Get Date objects
+ const dateA = new Date(available[currentIndex].waitingSince);
+ const dateB = new Date(available[currentIndex + 1].waitingSince);
+
+ console.log(`SX: Swapping ${playerId} (${dateA.toISOString()}) with ${nextPlayer.id} (${dateB.toISOString()})`);
+
+ if (dateA.getTime() === dateB.getTime()) {
+ // If times are equal, just make current player 1 second newer (moves down)
+ const newDateA = new Date(dateA.getTime() + 1000);
+ newTimes[playerId] = newDateA.toISOString();
+ // nextPlayer stays same covers the swap effectively
+ } else {
+ // Standard swap
+ newTimes[playerId] = dateB.toISOString();
+ newTimes[nextPlayer.id] = dateA.toISOString();
+ }
+
+ showToast("Swapped with next player");
+ } else {
+ // If last or not found, fall back to moving to end (reset to now)
+ console.log("SX: Moving to end of queue");
+ newTimes[playerId] = new Date().toISOString();
+ showToast("Moved to end of queue");
+ }
+
+ // Optimistic Update
+ setSessions(prev => prev.map(s => s.id === sessionId ? {
+ ...s,
+ checkInTimes: newTimes
+ } : s));
+
+ const { error } = await supabase.from('sessions').update({
+ check_in_times: newTimes
+ }).eq('id', sessionId);
+
+ if (error) {
+ setSessions(previousSessions);
+ showToast("Skip failed", true);
+ }
+ }, [sessions, showToast]);
+
+ const handleStartSession = useCallback(async (sessionId: string, initialCheckInIds: string[] = []) => {
+ const previousSessions = sessions;
+ const now = new Date().toISOString();
+ const checkInTimes: Record<string, string> = {};
+ initialCheckInIds.forEach(id => { checkInTimes[id] = now; });
+
+ // Optimistic
+ setSessions(prev => prev.map(s => s.id === sessionId ? {
+ ...s,
+ started: true,
+ checkedInPlayerIds: initialCheckInIds,
+ checkInTimes: checkInTimes
+ } : s));
+
+ const { error } = await supabase.from('sessions').update({
+ checked_in_player_ids: initialCheckInIds,
+ check_in_times: checkInTimes
+ }).eq('id', sessionId);
+
+ if (error) {
+ setSessions(previousSessions);
+ showToast("Failed to start", true);
+ } else {
+ showToast("Session Started");
+ }
+ }, [showToast]);
+
+ const handleEndSession = useCallback(async (sessionId: string, costData: any) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+
+ const previousSessions = sessions;
+ const { shuttlesUsed, pricePerShuttle, totalCourtPrice, splitMode } = costData;
+ const totalShuttlePrice = shuttlesUsed * pricePerShuttle;
+ const totalCost = totalCourtPrice + totalShuttlePrice;
+
+ const checkedInIds = session.checkedInPlayerIds || [];
+
+ let items: any[] = [];
+ if (splitMode === 'EQUAL' && checkedInIds.length > 0) {
+ const amount = Math.round(totalCost / checkedInIds.length);
+ items = checkedInIds.map(userId => ({ userId, durationMinutes: 0, amount }));
+ } else if (checkedInIds.length > 0) {
+ const playerMatchCounts: Record<string, number> = {};
+ checkedInIds.forEach(id => playerMatchCounts[id] = 0);
+ (session.matches || []).forEach(m => {
+ [...m.team1Ids, ...m.team2Ids].forEach(id => {
+ if (playerMatchCounts[id] !== undefined) playerMatchCounts[id]++;
+ });
+ });
+
+ const totalParticipations = Object.values(playerMatchCounts).reduce((a, b) => a + b, 0);
+ if (totalParticipations === 0) {
+ const amount = Math.round(totalCost / checkedInIds.length);
+ items = checkedInIds.map(userId => ({ userId, durationMinutes: 0, amount }));
+ } else {
+ items = checkedInIds.map(userId => ({
+ userId,
+ durationMinutes: 0,
+ amount: Math.round(((playerMatchCounts[userId] || 0) / totalParticipations) * totalCost)
+ }));
+ }
+ }
+
+ const finalBill: FinalBill = {
+ totalCourtPrice,
+ totalShuttlePrice,
+ shuttlesUsed,
+ pricePerShuttle,
+ totalCost,
+ splitMode,
+ items
+ };
+
+ // Optimistic
+ setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, finalBill } : s));
+
+ const { error } = await supabase.from('sessions').update({ final_bill: finalBill }).eq('id', sessionId);
+ if (error) {
+ setSessions(previousSessions);
+ showToast("Failed to end session", true);
+ } else {
+ showToast("Session Ended");
+ }
+ }, [sessions, showToast]);
+
+ const handleCourtAssignment = useCallback(async (sessionId: string, courtIndex: number, playerIds: string[]) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+
+ const previousSessions = sessions;
+ const newAssignments = { ...(session.courtAssignments || {}) };
+ const newStartTimes = { ...(session.matchStartTimes || {}) };
+
+ if (playerIds.length === 0) {
+ delete newAssignments[courtIndex];
+ delete newStartTimes[courtIndex];
+ } else {
+ newAssignments[courtIndex] = playerIds;
+ newStartTimes[courtIndex] = new Date().toISOString();
+ }
+
+ // Optimistic
+ setSessions(prev => prev.map(s => s.id === sessionId ? {
+ ...s,
+ courtAssignments: newAssignments,
+ matchStartTimes: newStartTimes
+ } : s));
+
+ const { error } = await supabase.from('sessions').update({
+ court_assignments: newAssignments,
+ match_start_times: newStartTimes
+ }).eq('id', sessionId);
+
+ if (error) {
+ setSessions(previousSessions);
+ showToast("Assignment failed", true);
+ }
+ }, [sessions, showToast]);
+
+ const handleQueueMatch = useCallback(async (sessionId: string, playerIds: string[]) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+ const previousSessions = sessions;
+ const newMatchup = { id: generateId(), playerIds };
+ const updatedQueue = [...(session.nextMatchups || []), newMatchup];
+
+ // Optimistic
+ setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, nextMatchups: updatedQueue } : s));
+
+ const { error } = await supabase.from('sessions').update({ next_matchups: updatedQueue }).eq('id', sessionId);
+ if (error) {
+ console.error("SX: Supabase Queue Match Error:", error);
+ setSessions(previousSessions);
+ showToast("Queue failed", true);
+ } else {
+ showToast("Match Queued");
+ }
+ }, [sessions, showToast]);
+
+ const handleDeleteQueuedMatch = useCallback(async (sessionId: string, matchupId: string) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+ const previousSessions = sessions;
+ const updatedQueue = (session.nextMatchups || []).filter(m => m.id !== matchupId);
+
+ setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, nextMatchups: updatedQueue } : s));
+
+ const { error } = await supabase.from('sessions').update({ next_matchups: updatedQueue }).eq('id', sessionId);
+ if (error) {
+ console.error("SX: Supabase Delete Queue Match Error:", error);
+ setSessions(previousSessions);
+ showToast("Delete failed", true);
+ }
+ }, [sessions, showToast]);
+
+ const handlePromoteMatch = useCallback(async (sessionId: string, matchupId: string, courtIndex: number) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+
+ const matchup = (session.nextMatchups || []).find(m => m.id === matchupId);
+ if (!matchup) return;
+
+ // OPTIMIZATION: Run queue removal and court assignment in parallel
+ await Promise.all([
+ handleDeleteQueuedMatch(sessionId, matchupId),
+ handleCourtAssignment(sessionId, courtIndex, matchup.playerIds)
+ ]);
+ }, [sessions, handleDeleteQueuedMatch, handleCourtAssignment]);
+
+
+
+ const handleRecordMatchResult = useCallback(async (sessionId: string, courtIndex: number, winningTeamIndex: 1 | 2) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+
+ const previousSessions = sessions;
+ const assignedPlayerIds = (session.courtAssignments || {})[courtIndex] || [];
+ if (assignedPlayerIds.length === 0) return;
+
+ const mid = Math.ceil(assignedPlayerIds.length / 2);
+ const team1Ids = assignedPlayerIds.slice(0, mid);
+ const team2Ids = assignedPlayerIds.slice(mid);
+
+ const newMatchId = generateId();
+ const now = new Date().toISOString();
+ const pointsChange = 25;
+
+ // 1. Optimistic Update (Immediate UI Feedback)
+ const newMatch: MatchResult = {
+ id: newMatchId,
+ timestamp: now,
+ team1Ids,
+ team2Ids,
+ winningTeamIndex,
+ pointsChange
+ };
+
+ const optimisticMatches = [...(session.matches || []), newMatch];
+ const newAssignments = { ...(session.courtAssignments || {}) };
+ const newStartTimes = { ...(session.matchStartTimes || {}) };
+ delete newAssignments[courtIndex];
+ delete newStartTimes[courtIndex];
+
+ const newCheckInTimes = { ...(session.checkInTimes || {}) };
+ assignedPlayerIds.forEach(playerId => {
+ newCheckInTimes[playerId] = now;
+ });
+
+ setSessions(prev => prev.map(s => s.id === sessionId ? {
+ ...s,
+ matches: optimisticMatches,
+ courtAssignments: newAssignments,
+ matchStartTimes: newStartTimes,
+ checkInTimes: newCheckInTimes
+ } : s));
+
+ try {
+ // 2. Database Update via RPC
+ // This handles sessions update and profiles stats update atomically
+ const { data, error } = await supabase.rpc('record_match_result', {
+ p_session_id: sessionId,
+ p_match_id: newMatchId,
+ p_court_index: courtIndex,
+ p_team1_ids: team1Ids,
+ p_team2_ids: team2Ids,
+ p_winning_team_index: winningTeamIndex,
+ p_points_change: pointsChange,
+ p_now: now
+ });
+
+ if (error) throw error;
+
+ setIsSyncing(true); // Start full stat sync overlay
+
+ // 3. Refresh profile data for all players to ensure local points are accurate
+ // We fetch everyone because points changes affect the leaderboard/rankings
+ const { data: updatedProfiles, error: profileError } = await supabase
+ .from('profiles')
+ .select('*');
+
+ if (!profileError && updatedProfiles) {
+ const mappedUsers = updatedProfiles.map(mapProfileFromDB);
+ mappedUsers.forEach((u: User) => { u.rankFrame = getFrameByPoints(u.points); });
+ setUsers(mappedUsers);
+ }
+
+ showToast("Match Recorded");
+
+ } catch (err) {
+ console.error("Failed to record match safely:", err);
+ setSessions(previousSessions); // Rollback on error
+ showToast("Failed to save match. Please refresh.", true);
+ } finally {
+ setIsSyncing(false);
+ }
+ }, [sessions, showToast]);
+
+ // Merge active + past sessions for child components that need full history
+ const allSessions = useMemo(() => {
+ const ids = new Set(sessions.map(s => s.id));
+ const merged = [...sessions];
+ for (const ps of pastSessions) {
+ if (!ids.has(ps.id)) merged.push(ps);
+ }
+ return merged;
+ }, [sessions, pastSessions]);
+
+ // OPTIMIZATION: Memoize selectedSession to avoid .find() on every render
+ // Search allSessions (active + past) so past session details can be viewed
+ const selectedSession = useMemo(() => allSessions.find(s => s.id === selectedSessionId) || null, [allSessions, selectedSessionId]);
+
+ const upcomingSessions = useMemo(() => {
+ const now = new Date();
+ // Keep session visible until 30 minutes after scheduled end time
+ return sessions.filter(s => now.getTime() <= new Date(s.endTime).getTime() + AUTO_END_GRACE_PERIOD_MS)
+ .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+ }, [sessions]);
+
+ const recentSessions = useMemo(() => {
+ return [...allSessions]
+ .filter(s => s.finalBill || new Date(s.endTime).getTime() < Date.now())
+ .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime())
+ .slice(0, 3);
+ }, [allSessions]);
+
+ const paginatedSessions = upcomingSessions.slice(0, visibleCount);
+
+ const marqueeConfigs = useMemo(() => [
+ { className: "w-12 h-12 animate-bounce -rotate-12 shrink-0", delay: '0s', duration: '4.2s', shadowSize: 20 },
+ { className: "w-16 h-16 animate-bounce rotate-6 mx-2 shrink-0", delay: '1.2s', duration: '5.5s', shadowSize: 30 },
+ { className: "w-10 h-10 animate-bounce rotate-12 mb-4 shrink-0", delay: '2.5s', duration: '3.8s', shadowSize: 20 },
+ { className: "w-14 h-14 animate-bounce -rotate-6 mt-4 mx-2 shrink-0", delay: '0.8s', duration: '4.8s', shadowSize: 30 },
+ { className: "w-8 h-8 animate-bounce rotate-[-15deg] shrink-0", delay: '1.8s', duration: '6s', shadowSize: 15 },
+ { className: "w-10 h-10 animate-bounce mt-2 mx-1 shrink-0", delay: '3.2s', duration: '4.5s', shadowSize: 20 },
+ { className: "w-6 h-6 animate-bounce rotate-12 mb-6 mx-3 shrink-0", delay: '0.3s', duration: '5.2s', shadowSize: 15 }
+ ], []);
+
+ const floatingUsersRow1 = useMemo(() => {
+ return [...users].sort(() => 0.5 - Math.random()).slice(0, 7);
+ }, [users]);
+
+ const floatingUsersRow2 = useMemo(() => {
+ return [...users].sort(() => 0.5 - Math.random()).slice(7, 14);
+ }, [users]);
+
+ const groupedUpcomingSessions = useMemo(() => {
+ const grouped: { title: string; sessions: Session[] }[] = [];
+ paginatedSessions.forEach((s) => {
+ const rawDate = new Date(String(s.startTime));
+ const title = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(rawDate);
+ let lastGroup = grouped[grouped.length - 1];
+ if (!lastGroup || lastGroup.title !== title) grouped.push({ title, sessions: [s] });
+ else lastGroup.sessions.push(s);
+ });
+ return grouped;
+ }, [paginatedSessions]);
+
+ if (isInitialLoading) {
+ return (
+ <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center">
+ <Loader2 className="animate-spin text-[#00FF41] mb-4" size={48} />
+ <span className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Entering Arena...</span>
+ </div>
+ );
+ }
+
+ // Render logic ordered to prioritize Auth screens over Error screens
+ if (authStage === 'splash') return <SplashScreen onLoginClick={() => setAuthStage('login')} onRegisterClick={() => setAuthStage('register')} />;
+ if (authStage === 'login') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><LoginScreen users={users} onLogin={handleLogin} onBack={() => setAuthStage('splash')} /></Suspense>;
+ if (authStage === 'register') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><RegisterScreen onRegister={handleRegister} onBack={() => setAuthStage('splash')} /></Suspense>;
+
+ if (fetchError && !sessions.length) {
+ return (
+ <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center p-8 text-center">
+ <WifiOff className="text-red-500 mb-6" size={64} />
+ <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter mb-4">Connection <span className="text-red-500">Failed</span></h2>
+ <button onClick={() => { setIsInitialLoading(true); fetchData(); }} className="px-8 py-4 bg-[#00FF41] text-[#000B29] font-black uppercase tracking-widest text-sm -skew-x-12">
+ <span className="skew-x-12 inline-block">Retry Connection</span>
+ </button>
+ </div>
+ );
+ }
+
+ if (!activeUser && isAuthenticated) {
+ return (
+ <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center p-8 text-center">
+ <Loader2 className="animate-spin text-[#00FF41] mb-6" size={48} />
+ <h2 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">Syncing <span className="text-[#00FF41]">Profile</span></h2>
+ <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest mb-6">Securing Arena Credentials</p>
+ <button onClick={() => window.location.reload()} className="flex items-center gap-2 text-gray-400 font-bold uppercase text-[10px] tracking-widest transition-colors">
+ <RefreshCcw size={14} /> Force Refresh
+ </button>
+ </div>
+ );
+ }
+
+ if (!activeUser) return null;
+
+ const renderContent = () => {
+ switch (activeTab) {
+ case 'leaderboard': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} /></Suspense>;
+ case 'stats': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} /></Suspense>;
+ case 'sessions':
+ default:
+ return (
+ <div className="space-y-6 animate-fade-in-up">
+ <section className="mb-12">
+ {upcomingSessions.length > 0 && (
+ <div className="flex justify-between items-center mb-6">
+ <h3 className="text-xl font-black italic uppercase tracking-tighter text-white m-0 flex items-center gap-3">
+ <span>Upcoming <span className="text-[#00FF41]">Sessions</span></span>
+ </h3>
+ <button
+ onClick={() => { triggerHaptic('medium'); setIsModalOpen(true); }}
+ className="bg-[#00FF41] text-[#000B29] px-4 py-2 rounded-none text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(0,255,65,0.3)] (255,255,255,0.4)] transition-all active:scale-95 flex items-center gap-2"
+ >
+ <Plus size={16} strokeWidth={4} />
+ <span className="hidden sm:inline">New Session</span>
+ </button>
+ </div>
+ )}
+ {upcomingSessions.length === 0 ? (
+ <div className="flex flex-col items-center justify-center py-4 relative group overflow-hidden" style={{ width: '100vw', marginLeft: 'calc(-50vw + 50%)' }}>
+ <div className="relative z-10 flex flex-col items-center w-full max-w-5xl mx-auto">
+ <div className="relative w-full max-w-full overflow-hidden mb-2 pointer-events-none transition-transform duration-700 ease-out flex items-center justify-center">
+ {/* Edge fade mask */}
+ <div className="absolute inset-0 z-20 pointer-events-none" style={{ background: 'linear-gradient(to right, #000B29 0%, transparent 20%, transparent 80%, #000B29 100%)' }}></div>
+
+ <style>
+ {`
+ @keyframes scrollRightToLeft {
+ 0% { transform: translateX(0); }
+ 100% { transform: translateX(-50%); }
+ }
+ .animate-marquee-row1 {
+ display: flex;
+ width: max-content;
+ animation: scrollRightToLeft 75s linear infinite;
+ }
+ .animate-marquee-row2 {
+ display: flex;
+ width: max-content;
+ animation: scrollRightToLeft 90s linear infinite;
+ }
+ `}
+ </style>
+
+ {(() => {
+ const renderMarqueeRow = (usersArray: User[], className: string, offset: number = 0) => (
+ <div className={className}>
+ {usersArray.map((user, idx) => {
+ const config = marqueeConfigs[(idx + offset) % marqueeConfigs.length];
+
+ const glowColor = (() => {
+ try {
+ const url = new URL(user.avatar);
+ const bg = url.searchParams.get('backgroundColor');
+ return bg ? `#${bg}` : getAvatarColor(user.id);
+ } catch {
+ return getAvatarColor(user.id);
+ }
+ })();
+
+ return (
+ <div
+ key={`${user.id}-${idx}`}
+ className={`rounded-full border-2 border-[#000B29] shrink-0 ${config.className}`}
+ style={{
+ animationDelay: config.delay,
+ animationDuration: config.duration,
+ backgroundColor: glowColor
+ }}
+ >
+ <img src={user.avatar} className="w-full h-full rounded-full object-cover" alt={user.name} />
+ </div>
+ );
+ })}
+ </div>
+ );
+
+ const fullArray1 = [...floatingUsersRow1, ...floatingUsersRow1, ...floatingUsersRow1, ...floatingUsersRow1];
+ const reversedArray2 = [...floatingUsersRow2].reverse();
+ const fullReversedArray2 = [...reversedArray2, ...reversedArray2, ...reversedArray2, ...reversedArray2];
+
+ return (
+ <div className="flex flex-col w-full -space-y-6 pt-4 pb-0">
+ {renderMarqueeRow(fullArray1, "animate-marquee-row1 items-center gap-8 pl-10 relative z-10", 0)}
+ {renderMarqueeRow(fullReversedArray2, "animate-marquee-row2 items-center gap-12 pr-12 relative z-20", 3)}
+ </div>
+ );
+ })()}
+ </div>
+ <h3 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">The Court is <span className="text-[#00FF41]">Yours</span></h3>
+ <p className="text-gray-400 font-medium text-xs uppercase tracking-widest mb-8 text-center max-w-[300px] leading-relaxed">No sessions have been created.<br />Be the first to claim the court.</p>
+ <button
+ onClick={() => { triggerHaptic('medium'); setIsModalOpen(true); }}
+ className="bg-[#00FF41] text-[#000B29] px-8 py-4 rounded-none -skew-x-12 text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(0,255,65,0.3)] (255,255,255,0.5)] transition-all active:scale-95 flex items-center gap-2 group/btn"
+ >
+ <span className="skew-x-12 flex items-center gap-2">
+ <Plus size={16} strokeWidth={4} className="group-hover/btn:rotate-90 transition-transform" />
+ Create Session
+ </span>
+ </button>
+ </div>
+ </div>
+ ) : (
+ <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 pb-4 -mx-4 px-4 scroll-px-4 after:content-[''] after:w-px after:shrink-0">
+ {paginatedSessions.map(session => (
+ <div key={session.id} className="w-[90vw] sm:w-[480px] shrink-0 snap-start">
+ <SessionCard session={session} currentUser={activeUser} allUsers={users} onDelete={handleDelete} onClick={setSelectedSessionId} />
+ </div>
+ ))}
+ </div>
+ )}
+
+ {/* Recent Battles */}
+ {recentSessions.length > 0 && (
+ <div className="space-y-4 mt-8 mb-4">
+ <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-3">
+ <span>Recent <span className="text-[#00FF41]">Battles</span></span>
+ </h3>
+ <div className="space-y-2">
+ {recentSessions.map(session => {
+ const { day, month } = getDateParts(session.startTime);
+ return (
+ <div key={session.id} onClick={() => { triggerHaptic('light'); setSelectedSessionId(session.id); }} className="cursor-pointer bg-[#001645] (0,255,65,0.1)] border border-transparent rounded-none p-3 transition-all group flex items-center gap-4">
+ <div className="flex flex-col items-center justify-center min-w-[40px] bg-[#000B29] rounded-none py-1.5 shrink-0 transition-colors border-r border-[#00FF41]/10">
+ <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 leading-none mb-1">{month}</span>
+ <span className="text-xl font-black text-white italic tracking-tighter leading-none">{day}</span>
+ </div>
+ <div className="min-w-0 flex-1">
+ <h4 className="text-sm font-black italic text-white transition-colors truncate mb-1 uppercase tracking-tight">{session.title || session.location}</h4>
+ <div className="flex items-center text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em]">
+ <span className="tabular-nums">{formatTime(session.startTime)}</span>
+ <span className="mx-2 opacity-30">•</span>
+ <span className="truncate">{session.location}</span>
+ </div>
+ </div>
+ </div>
+ );
+ })}
+ </div>
+ </div>
+ )}
+
+ </section>
+ </div>
+ );
+ }
+ };
+
+ return (
+ <>
+ <PullToRefresh onRefresh={fetchData}>
+ <div className="min-h-screen pb-24 bg-[#000B29] text-white">
+ <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
+ <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} onOpenHistory={() => setIsHistoryOpen(true)} onOpenActivity={() => setIsActivityOpen(true)} />
+ <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</main>
+ </div>
+ </PullToRefresh>
+
+ <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 transform ${toast?.visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0 pointer-events-none'}`}>
+ <div className={`backdrop-blur-md border px-6 py-3 rounded-full shadow-lg flex items-center gap-3 ${toast?.isError ? 'bg-red-500/90 border-red-500 text-white shadow-red-500/20' : 'bg-[#001645]/90 border-[#00FF41] text-white shadow-[0_0_20px_rgba(0,255,65,0.3)]'}`}>
+ {toast?.isError ? <Info className="text-white" size={20} /> : <CheckCircle className="text-[#00FF41]" size={20} />}
+ <span className="text-sm font-bold tracking-wide">{toast?.message}</span>
+ </div>
+ </div>
+
+ <BottomNav activeTab={activeTab} onTabChange={handleTabChange} currentUser={activeUser} />
+
+ <Suspense fallback={null}>
+ <CreateSessionModal
+ isOpen={isModalOpen}
+ onClose={() => { setIsModalOpen(false); setEditingSession(null); }}
+ onCreate={handleSaveSession}
+ initialData={editingSession}
+ />
+ </Suspense>
+ {selectedSession !== null ? (
+ <Suspense fallback={
+ <div className="fixed inset-0 z-[150] bg-[#000B29] flex items-center justify-center">
+ <Loader2 className="animate-spin text-[#00FF41]" size={48} />
+ </div>
+ }>
+ <SessionDetailModal
+ session={selectedSession}
+ currentUser={activeUser}
+ allUsers={users}
+ onClose={() => setSelectedSessionId(null)}
+ onJoin={handleJoin}
+ onLeave={handleLeave}
+ onDelete={handleDelete}
+ onStart={handleStartSession}
+ onEnd={handleEndSession}
+ onCheckInToggle={handleCheckInToggle}
+ onSkipTurn={handleSkipTurn}
+ onCourtAssignment={handleCourtAssignment}
+ onRecordMatchResult={handleRecordMatchResult}
+ onPlayerClick={setViewingPlayerId}
+ onRefresh={fetchData}
+ onEdit={handleEditSessionTrigger}
+ onQueueMatch={handleQueueMatch}
+ onPromoteMatch={handlePromoteMatch}
+ onDeleteQueuedMatch={handleDeleteQueuedMatch}
+ />
+ </Suspense>
+ ) : null}
+ <Suspense fallback={null}>
+ <PlayerProfileModal isOpen={!!viewingPlayerId} onClose={() => setViewingPlayerId(null)} userId={viewingPlayerId} allUsers={users} sessions={sessions} />
+ </Suspense>
+ <Suspense fallback={null}>
+ {isActivityOpen && activeUser && (
+ <ActivityLogModal currentUser={activeUser} sessions={sessions} onClose={() => setIsActivityOpen(false)} />
+ )}
+ </Suspense>
+ <Suspense fallback={null}>
+ {isHistoryOpen && (
+ <div className="fixed inset-0 z-[200] bg-[#000B29] overflow-y-auto animate-in fade-in duration-300">
+ <HistoryScreen
+ currentUser={activeUser}
+ sessions={sessions}
+ pastSessions={pastSessions}
+ isLoadingPast={isLoadingPast}
+ hasMorePast={hasMorePast}
+ onLoadMore={fetchPastSessions}
+ onBack={() => setIsHistoryOpen(false)}
+ onSessionClick={(id) => setSelectedSessionId(id)}
+ />
+ </div>
+ )}
+ </Suspense>
+ <Suspense fallback={null}>
+ {isProfileOpen && (
+ <div className="fixed inset-0 z-[200] bg-[#000B29] overflow-y-auto animate-in fade-in duration-300">
+ <div className="mx-auto min-h-screen relative w-full px-0 py-0">
+ {isSettingsOpen ? (
+ <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+ <SettingsScreen
+ currentUser={activeUser}
+ onUpdateUser={handleUpdateUser}
+ onDeleteAccount={handleDeleteAccount}
+ onBack={() => setIsSettingsOpen(false)}
+ />
+ </div>
+ ) : (
+ <Profile
+ user={activeUser}
+ sessions={sessions}
+ allUsers={users}
+ onOpenSettings={() => setIsSettingsOpen(true)}
+ onSessionClick={setSelectedSessionId}
+ onOpenTiers={() => setShowTiers(true)}
+ onOpenInstallGuide={() => setShowInstallGuide(true)}
+ onLogout={handleLogout}
+ onClose={() => setIsProfileOpen(false)}
+ />
+ )}
+ </div>
+ </div>
+ )}
+ </Suspense>
+ <Suspense fallback={null}>
+ <ArenaTiersModal isOpen={showTiers} onClose={() => setShowTiers(false)} user={activeUser} />
+ </Suspense>
+ <Suspense fallback={null}>
+ <InstallGuideModal isOpen={showInstallGuide} onClose={() => setShowInstallGuide(false)} />
+ </Suspense>
+ <Suspense fallback={null}>
+ <Analytics />
+ </Suspense>
+
+ {/* Global Syncing Overlay */}
+ {isSyncing && (
+ <div className="fixed inset-0 z-[1000] bg-[#000B29]/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-500">
+ <div className="relative">
+ <div className="absolute inset-0 bg-[#00FF41] blur-[60px] opacity-20 animate-pulse"></div>
+ <div className="relative bg-[#001645] border border-[#00FF41]/30 p-8 rounded-none shadow-[0_0_50px_rgba(0,255,65,0.15)] flex flex-col items-center">
+ <div className="w-16 h-16 relative mb-6">
+ <Loader2 className="animate-spin text-[#00FF41] absolute inset-0" size={64} strokeWidth={1.5} />
+ <Zap className="text-[#00FF41] absolute inset-1/2 -translate-x-1/2 -translate-y-1/2" size={24} fill="currentColor" />
+ </div>
+ <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter mb-2">Syncing <span className="text-[#00FF41]">Arena Stats</span></h2>
+ <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] animate-pulse">Updating Ranks & Points</p>
+
+ <div className="mt-8 flex gap-1">
+ {[0, 1, 2].map(i => (
+ <div key={i} className="w-1 h-1 bg-[#00FF41] rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }}></div>
+ ))}
+ </div>
+ </div>
+ </div>
+ </div>
+ )}
+ </>
+ );
 };
 
 export default App;

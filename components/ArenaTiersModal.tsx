@@ -50,12 +50,12 @@ const ArenaTiersModal: React.FC<ArenaTiersModalProps> = ({ isOpen, onClose, user
  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00FF41]">Progression</span>
  <h2 className="text-lg font-black italic uppercase text-white tracking-widest leading-none">Arena <span className="text-[#00FF41]">Tiers</span></h2>
  </div>
- <button onClick={onClose} className="p-2 text-gray-400 hover:text-white rounded-full bg-white/5 hover:bg-white/10 transition-colors"><X size={20} /></button>
+ <button onClick={onClose} className="p-2 text-gray-400 rounded-full bg-white/5 transition-colors"><X size={20} /></button>
  </div>
 
  <div className="flex-1 flex items-center justify-center p-4 bg-gradient-to-b from-[#001645] to-[#000B29] relative overflow-hidden min-h-[250px]">
  <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full opacity-10 filter blur-[80px] pointer-events-none transition-colors duration-500 ${currentTier.color.replace('text-', 'bg-')}`}></div>
- <button onClick={handlePrev} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 z-20 text-gray-500 hover:text-white bg-[#000B29]/50 hover:bg-[#000B29] shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-full transition-all active:scale-95"><ChevronLeft size={24} /></button>
+ <button onClick={handlePrev} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 z-20 text-gray-500 bg-[#000B29]/50 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-full transition-all active:scale-95"><ChevronLeft size={24} /></button>
  <div className="flex-1 flex flex-col items-center text-center px-12 relative z-10 animate-fade-in justify-center">
  <div className="mb-1"><span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500">Tier {currentPreviewIndex + 1} / {RANK_TIERS.length}</span></div>
  <h3 className={`text-2xl sm:text-3xl font-black italic uppercase tracking-tighter mb-1 whitespace-nowrap ${currentTier.color}`}>{currentTier.name}</h3>
@@ -77,12 +77,12 @@ const ArenaTiersModal: React.FC<ArenaTiersModalProps> = ({ isOpen, onClose, user
  {isCurrent && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#00FF41] text-[#000B29] text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-lg animate-bounce z-30 whitespace-nowrap">Current Rank</div>}
  </div>
  </div>
- <button onClick={handleNext} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 z-20 text-gray-500 hover:text-white bg-[#000B29]/50 hover:bg-[#000B29] shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-full transition-all active:scale-95"><ChevronRight size={24} /></button>
+ <button onClick={handleNext} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 z-20 text-gray-500 bg-[#000B29]/50 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-full transition-all active:scale-95"><ChevronRight size={24} /></button>
  </div>
 
  <div className="p-4 bg-[#000B29] border-t border-white/5 flex justify-center gap-2">
  {RANK_TIERS.map((_, idx) => (
- <div key={idx} onClick={() => setPreviewRank(RANK_TIERS[idx].id)} className={`w-1.5 h-1.5 rounded-full cursor-pointer transition-all ${idx === currentPreviewIndex ? 'bg-[#00FF41] w-4' : 'bg-gray-700 hover:bg-gray-500'}`} />
+ <div key={idx} onClick={() => setPreviewRank(RANK_TIERS[idx].id)} className={`w-1.5 h-1.5 rounded-full cursor-pointer transition-all ${idx === currentPreviewIndex ? 'bg-[#00FF41] w-4' : 'bg-gray-700 '}`} />
  ))}
  </div>
  </div>
