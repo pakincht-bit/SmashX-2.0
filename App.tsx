@@ -167,8 +167,8 @@ const App: React.FC = () => {
  setConnectionStatus('reconnecting');
  scheduleReconnection();
  } else if (status === 'CLOSED') {
- setConnectionStatus('disconnected');
- scheduleReconnection();
+ // Intentional close (e.g., cleanup) — do NOT reconnect
+ console.log('SX: Channel closed (intentional)');
  }
  });
 
