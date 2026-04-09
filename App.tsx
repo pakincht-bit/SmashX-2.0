@@ -9,7 +9,7 @@ import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import InstallBanner from './components/InstallBanner';
 import PullToRefresh from './components/PullToRefresh';
-import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users } from 'lucide-react';
+import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users, Wifi } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
 // OPTIMIZATION: Lazy-load heavy components to reduce initial bundle size
@@ -32,7 +32,10 @@ const SESSIONS_PER_PAGE = 10;
 const PAST_SESSIONS_PER_PAGE = 10;
 const INITIAL_LOAD_TIMEOUT = 35000;
 const FETCH_TIMEOUT = 30000;
+const SYNC_FETCH_TIMEOUT = 10000;
 const AUTO_END_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes grace period
+const MAX_RECONNECT_RETRIES = 5;
+const RECONNECT_BASE_DELAY_MS = 1000;
 
 const App: React.FC = () => {
  // Auth State
@@ -48,6 +51,15 @@ const App: React.FC = () => {
  const [isSyncing, setIsSyncing] = useState(false);
  const [fetchError, setFetchError] = useState<string | null>(null);
  const isInitializing = useRef(false);
+
+ // Realtime Health (realtime-sync skill)
+ const [connectionStatus, setConnectionStatus] = useState<'live' | 'reconnecting' | 'disconnected' | 'syncing'>('syncing');
+ const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+ const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
+ const channelRef = useRef<any>(null);
+ const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ const lastFetchRef = useRef<number>(0);
+ const mutatingRef = useRef<Set<string>>(new Set());
 
  // Infinite Scroll State
  const [visibleCount, setVisibleCount] = useState(SESSIONS_PER_PAGE);
@@ -91,15 +103,29 @@ const App: React.FC = () => {
  ]);
  };
 
- // --- Realtime Subscription + Auto-Refresh on Resume ---
- useEffect(() => {
- if (!isAuthenticated) return;
+ // --- Invalidate Service Worker session cache (offline-resilience skill) ---
+ const invalidateSessionCache = useCallback(() => {
+ if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+ navigator.serviceWorker.controller.postMessage({
+ type: 'INVALIDATE_SESSION_CACHE'
+ });
+ }
+ }, []);
 
+ // --- Realtime Channel Factory (realtime-sync skill) ---
+ const createRealtimeChannel = useCallback(() => {
  const channel = supabase.channel('public:all-changes')
  .on(
  'postgres_changes',
  { event: '*', schema: 'public', table: 'sessions' },
  (payload) => {
+ // Fetch guard: ignore events older than our last full fetch (realtime-sync skill §4)
+ const eventTime = payload.commit_timestamp ? new Date(payload.commit_timestamp).getTime() : Date.now();
+ if (eventTime < lastFetchRef.current) {
+ console.log('SX: Ignoring stale Realtime event (older than last fetch)');
+ return;
+ }
+
  if (payload.eventType === 'INSERT') {
  const newSession = mapSessionFromDB(payload.new);
  setSessions(prev => {
@@ -109,12 +135,8 @@ const App: React.FC = () => {
  } else if (payload.eventType === 'UPDATE') {
  setSessions(prev => prev.map(s => {
  if (s.id !== payload.new.id) return s;
+ // data-consistency skill: Server wins. Always. No local state preservation.
  const newSession = mapSessionFromDB(payload.new);
- // Preserve nextMatchups if missing/null in payload (handling incomplete updates or missing column)
- // This ensures the optimistic update persists locally until a valid non-null update comes in
- if ((payload.new.next_matchups === undefined || payload.new.next_matchups === null) && s.nextMatchups && s.nextMatchups.length > 0) {
- newSession.nextMatchups = s.nextMatchups;
- }
  return newSession;
  }));
  } else if (payload.eventType === 'DELETE') {
@@ -126,35 +148,138 @@ const App: React.FC = () => {
  'postgres_changes',
  { event: 'UPDATE', schema: 'public', table: 'profiles' },
  (payload) => {
- // Live-update user profiles (points, rankFrame, etc.) when match results are recorded
+ // Fetch guard
+ const eventTime = payload.commit_timestamp ? new Date(payload.commit_timestamp).getTime() : Date.now();
+ if (eventTime < lastFetchRef.current) return;
+
  const updated = mapProfileFromDB(payload.new);
  updated.rankFrame = getFrameByPoints(updated.points);
  setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
  }
  )
- .subscribe((status) => {
+ .subscribe((status, err) => {
  console.log('SX: Realtime channel status:', status);
+
+ if (status === 'SUBSCRIBED') {
+ setConnectionStatus('live');
+ } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+ console.error('SX: Channel error, will reconnect:', err?.message);
+ setConnectionStatus('reconnecting');
+ scheduleReconnection();
+ } else if (status === 'CLOSED') {
+ setConnectionStatus('disconnected');
+ scheduleReconnection();
+ }
  });
 
- // Auto-refresh when app returns from background (phone was locked/switched apps)
- // Mobile browsers disconnect WebSocket when backgrounded, so we need to catch up
- const handleVisibilityChange = () => {
- if (document.visibilityState === 'visible') {
- console.log('SX: App resumed from background — syncing data...');
- fetchData();
+ return channel;
+ }, []);
+
+ // --- Reconnection with exponential backoff (realtime-sync skill §2) ---
+ const scheduleReconnection = useCallback((attempt = 0) => {
+ // Clear any pending reconnection
+ if (reconnectTimeoutRef.current) {
+ clearTimeout(reconnectTimeoutRef.current);
+ }
+
+ if (attempt >= MAX_RECONNECT_RETRIES) {
+ console.error('SX: Max reconnection attempts reached');
+ setConnectionStatus('disconnected');
+ return;
+ }
+
+ const delay = Math.min(RECONNECT_BASE_DELAY_MS * Math.pow(2, attempt), 30000);
+ console.log(`SX: Reconnecting in ${delay}ms (attempt ${attempt + 1}/${MAX_RECONNECT_RETRIES})`);
+ setConnectionStatus('reconnecting');
+
+ reconnectTimeoutRef.current = setTimeout(async () => {
+ try {
+ // 1. Destroy old channel
+ if (channelRef.current) {
+ supabase.removeChannel(channelRef.current);
+ channelRef.current = null;
+ }
+ // 2. Invalidate SW session cache (offline-resilience skill §2)
+ invalidateSessionCache();
+ // 3. Create new channel (re-subscribe)
+ channelRef.current = createRealtimeChannel();
+ // 4. Full data refetch — server is always source of truth
+ setConnectionStatus('syncing');
+ await fetchData();
+ // Status will be set to 'live' by the subscribe callback
+ } catch (err) {
+ console.error('SX: Reconnection failed:', err);
+ scheduleReconnection(attempt + 1);
+ }
+ }, delay);
+ }, [createRealtimeChannel, invalidateSessionCache]);
+
+ // --- Realtime Subscription Lifecycle (realtime-sync skill §1) ---
+ useEffect(() => {
+ if (!isAuthenticated) return;
+
+ // Create the channel and store reference
+ channelRef.current = createRealtimeChannel();
+
+ // Enhanced visibility handler (realtime-sync skill §3):
+ // Every app resume = verify channel health + always fetch fresh data
+ const handleVisibilityChange = async () => {
+ if (document.visibilityState !== 'visible') return;
+
+ console.log('SX: App resumed — verifying channel health...');
+
+ // 1. Check if channel is still alive
+ const channelState = channelRef.current?.state;
+ const isHealthy = channelState === 'joined' || channelState === 'joining';
+
+ if (!isHealthy) {
+ // 2. Channel is dead — trigger full reconnection
+ console.log('SX: Channel unhealthy after resume, reconnecting...');
+ setConnectionStatus('reconnecting');
+ scheduleReconnection();
+ }
+
+ // 3. ALWAYS fetch fresh data regardless — even healthy channels may have missed events
+ setConnectionStatus('syncing');
+ await fetchData();
+ if (channelRef.current?.state === 'joined') {
+ setConnectionStatus('live');
  }
  };
  document.addEventListener('visibilitychange', handleVisibilityChange);
 
- return () => {
- supabase.removeChannel(channel);
- document.removeEventListener('visibilitychange', handleVisibilityChange);
+ // Offline detection (offline-resilience skill §5)
+ const handleOnline = () => {
+ console.log('SX: Network restored — syncing...');
+ setIsOffline(false);
+ scheduleReconnection(); // full reconnection on network restore
  };
- }, [isAuthenticated]);
+ const handleOffline = () => {
+ console.log('SX: Network lost');
+ setIsOffline(true);
+ setConnectionStatus('disconnected');
+ };
+ window.addEventListener('online', handleOnline);
+ window.addEventListener('offline', handleOffline);
+
+ return () => {
+ if (channelRef.current) {
+ supabase.removeChannel(channelRef.current);
+ channelRef.current = null;
+ }
+ if (reconnectTimeoutRef.current) {
+ clearTimeout(reconnectTimeoutRef.current);
+ }
+ document.removeEventListener('visibilitychange', handleVisibilityChange);
+ window.removeEventListener('online', handleOnline);
+ window.removeEventListener('offline', handleOffline);
+ };
+ }, [isAuthenticated, createRealtimeChannel, scheduleReconnection]);
 
  // --- Data Fetching ---
 
  const fetchData = async () => {
+ const fetchStarted = Date.now();
  console.log("SX: Fetching Arena Data...");
  setFetchError(null);
  try {
@@ -193,7 +318,7 @@ const App: React.FC = () => {
  setUsers(mappedUsers);
  }
 
- // Set initial active sessions to unblock UI
+ // Set active sessions — server is source of truth (data-consistency skill §1)
  if (activeSessionsRes.data) {
  const activeSessions = activeSessionsRes.data.map(mapSessionFromDB);
  setSessions(activeSessions);
@@ -205,9 +330,13 @@ const App: React.FC = () => {
  setPastSessions(recentPast);
  }
 
- // Unlock UI immediately — no history fetch needed!
- // Points are stored directly in profiles table.
+ // Mark fetch timestamp for event ordering (realtime-sync skill §4)
+ lastFetchRef.current = fetchStarted;
+ setLastSyncTime(new Date());
+
+ // Unlock UI immediately
  setIsInitialLoading(false);
+ setIsOffline(false); // Successful fetch = we're online
  console.log("SX: Data fetched (points from profiles, active sessions only)");
 
  } catch (error: any) {
@@ -487,9 +616,14 @@ const App: React.FC = () => {
 
  const handleJoin = useCallback(async (sessionId: string) => {
  if (!currentUser) return;
+ const lockKey = `join-${sessionId}`;
+ if (mutatingRef.current.has(lockKey)) return;
+
  const session = sessions.find(s => s.id === sessionId);
  if (!session || session.playerIds.includes(currentUser.id)) return;
 
+ mutatingRef.current.add(lockKey);
+ try {
  // 1. Optimistic Update
  const previousSessions = sessions;
  const updatedPlayerIds = [...session.playerIds, currentUser.id];
@@ -504,6 +638,9 @@ const App: React.FC = () => {
  console.error("Join failed", error);
  setSessions(previousSessions);
  showToast("Failed to join", true);
+ }
+ } finally {
+ mutatingRef.current.delete(lockKey);
  }
  }, [currentUser, sessions, showToast]);
 
@@ -547,9 +684,14 @@ const App: React.FC = () => {
  }, [sessions, selectedSessionId, showToast]);
 
  const handleCheckInToggle = useCallback(async (sessionId: string, playerId: string) => {
+ const lockKey = `checkin-${sessionId}-${playerId}`;
+ if (mutatingRef.current.has(lockKey)) return;
+
  const session = sessions.find(s => s.id === sessionId);
  if (!session) return;
 
+ mutatingRef.current.add(lockKey);
+ try {
  const previousSessions = sessions;
  const currentCheckedIn = session.checkedInPlayerIds || [];
  const isCheckingIn = !currentCheckedIn.includes(playerId);
@@ -578,6 +720,9 @@ const App: React.FC = () => {
  if (error) {
  setSessions(previousSessions);
  showToast("Update failed", true);
+ }
+ } finally {
+ mutatingRef.current.delete(lockKey);
  }
  }, [sessions, showToast]);
 
@@ -817,6 +962,9 @@ const App: React.FC = () => {
 
 
  const handleRecordMatchResult = useCallback(async (sessionId: string, courtIndex: number, winningTeamIndex: 1 | 2) => {
+ const lockKey = `match-${sessionId}-${courtIndex}`;
+ if (mutatingRef.current.has(lockKey)) return;
+ mutatingRef.current.add(lockKey);
  const session = sessions.find(s => s.id === sessionId);
  if (!session) return;
 
@@ -899,6 +1047,7 @@ const App: React.FC = () => {
  showToast("Failed to save match. Please refresh.", true);
  } finally {
  setIsSyncing(false);
+ mutatingRef.current.delete(lockKey);
  }
  }, [sessions, showToast]);
 
@@ -1156,11 +1305,46 @@ const App: React.FC = () => {
  }
  };
 
+ // Enhanced pull-to-refresh (offline-resilience skill §6)
+ const handlePullToRefresh = useCallback(async () => {
+ // 1. Invalidate SW session cache
+ invalidateSessionCache();
+
+ // 2. Verify Realtime channel health
+ const channelState = channelRef.current?.state;
+ if (channelState !== 'joined') {
+ scheduleReconnection();
+ }
+
+ // 3. Force fresh data fetch
+ await fetchData();
+ }, [invalidateSessionCache, scheduleReconnection]);
+
  return (
  <>
- <PullToRefresh onRefresh={fetchData}>
+ <PullToRefresh onRefresh={handlePullToRefresh}>
  <div className="min-h-screen pb-24 bg-[#000B29] text-white">
  <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
+ {/* Connection Status Indicator (realtime-sync skill §1) */}
+ {(connectionStatus === 'reconnecting' || connectionStatus === 'disconnected' || isOffline) && (
+ <div className={`sticky top-0 z-[60] flex items-center justify-center gap-2 py-1.5 px-4 text-[10px] font-black uppercase tracking-[0.15em] transition-all ${
+ isOffline || connectionStatus === 'disconnected'
+ ? 'bg-red-500/90 text-white'
+ : 'bg-yellow-500/90 text-[#000B29]'
+ }`}>
+ {isOffline || connectionStatus === 'disconnected' ? (
+ <><WifiOff size={12} /><span>Offline — Scores may not be current</span>
+ <button onClick={() => { scheduleReconnection(); }} className="ml-2 underline font-black">Retry</button></>
+ ) : (
+ <><Loader2 size={12} className="animate-spin" /><span>Reconnecting...</span></>
+ )}
+ </div>
+ )}
+ {connectionStatus === 'syncing' && (
+ <div className="sticky top-0 z-[60] flex items-center justify-center gap-2 py-1 px-4 bg-blue-500/80 text-white text-[10px] font-black uppercase tracking-[0.15em]">
+ <Loader2 size={12} className="animate-spin" /><span>Syncing Arena Data...</span>
+ </div>
+ )}
  <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} onOpenHistory={() => setIsHistoryOpen(true)} onOpenActivity={() => setIsActivityOpen(true)} />
  <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</main>
  </div>

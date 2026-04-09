@@ -1,9 +1,13 @@
 
-// SmashX Service Worker v2
-// Strategy: Cache-first for static assets, Stale-While-Revalidate for API calls.
-// This means the app opens INSTANTLY on return visits while refreshing data in the background.
+// SmashX Service Worker v3
+// Strategy:
+//   - Network-First for live session data (scores, assignments, check-ins)
+//   - Stale-While-Revalidate for profile data (acceptable to be slightly stale)
+//   - Cache-First for static assets (JS, CSS, fonts, images)
+//   - Network-First for HTML navigation
+// See: offline-resilience skill §1
 
-const CACHE_VERSION = 'smashx-v2';
+const CACHE_VERSION = 'smashx-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -41,6 +45,25 @@ self.addEventListener('activate', (event) => {
 });
 
 // ============================================
+// MESSAGE: Handle cache invalidation from App
+// (offline-resilience skill §2)
+// ============================================
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'INVALIDATE_SESSION_CACHE') {
+    console.log('SW: Invalidating session cache');
+    caches.open(API_CACHE).then(cache => {
+      cache.keys().then(keys => {
+        keys.forEach(key => {
+          if (key.url.includes('sessions')) {
+            cache.delete(key);
+          }
+        });
+      });
+    });
+  }
+});
+
+// ============================================
 // FETCH: Smart caching strategies
 // ============================================
 self.addEventListener('fetch', (event) => {
@@ -55,23 +78,46 @@ self.addEventListener('fetch', (event) => {
   // Skip WebSocket and realtime connections
   if (url.protocol === 'wss:' || url.pathname.includes('/realtime/')) return;
 
-  // ----- Strategy 1: Supabase API (Stale-While-Revalidate) -----
-  // Show cached data instantly, then refresh in background
+  // ----- Supabase API: Split by data type -----
   if (url.hostname.includes('supabase')) {
-    event.respondWith(
-      caches.open(API_CACHE).then(cache =>
-        cache.match(event.request).then(cached => {
-          const networkFetch = fetch(event.request).then(response => {
+    // Detect if this is live session data
+    const isSessionData = url.search.includes('sessions');
+
+    if (isSessionData) {
+      // NETWORK-FIRST for live session data (scores, assignments, check-ins)
+      // Never show stale scores — a spinner is better than a lie
+      event.respondWith(
+        fetch(event.request)
+          .then(response => {
             if (response.ok) {
-              cache.put(event.request, response.clone());
+              const clone = response.clone();
+              caches.open(API_CACHE).then(cache => cache.put(event.request, clone));
             }
             return response;
-          }).catch(() => cached); // If network fails, use cache
+          })
+          .catch(() => {
+            // Network failed — fall back to cache (better than nothing)
+            return caches.match(event.request);
+          })
+      );
+    } else {
+      // STALE-WHILE-REVALIDATE for profiles and other data
+      // Acceptable to be slightly stale; show cached instantly, refresh in background
+      event.respondWith(
+        caches.open(API_CACHE).then(cache =>
+          cache.match(event.request).then(cached => {
+            const networkFetch = fetch(event.request).then(response => {
+              if (response.ok) {
+                cache.put(event.request, response.clone());
+              }
+              return response;
+            }).catch(() => cached); // If network fails, use cache
 
-          return cached || networkFetch; // Return cached immediately if available
-        })
-      )
-    );
+            return cached || networkFetch; // Return cached immediately if available
+          })
+        )
+      );
+    }
     return;
   }
 
