@@ -84,21 +84,46 @@ self.addEventListener('fetch', (event) => {
     const isSessionData = url.search.includes('sessions');
 
     if (isSessionData) {
-      // NETWORK-FIRST for live session data (scores, assignments, check-ins)
-      // Never show stale scores — a spinner is better than a lie
+      // NETWORK-FIRST with 5s timeout for live session data
+      // Try network first for fresh scores, but fall back to cache quickly
+      // The Realtime channel will correct stale data within seconds
+      const NETWORK_TIMEOUT = 5000;
+
       event.respondWith(
-        fetch(event.request)
-          .then(response => {
-            if (response.ok) {
-              const clone = response.clone();
-              caches.open(API_CACHE).then(cache => cache.put(event.request, clone));
-            }
-            return response;
-          })
-          .catch(() => {
-            // Network failed — fall back to cache (better than nothing)
-            return caches.match(event.request);
-          })
+        new Promise((resolve) => {
+          let settled = false;
+
+          // Race: network vs timeout
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            // Network too slow — serve from cache
+            caches.match(event.request).then(cached => {
+              resolve(cached || fetch(event.request));
+            });
+          }, NETWORK_TIMEOUT);
+
+          fetch(event.request)
+            .then(response => {
+              if (settled) return; // Timeout already won
+              settled = true;
+              clearTimeout(timer);
+              if (response.ok) {
+                const clone = response.clone();
+                caches.open(API_CACHE).then(cache => cache.put(event.request, clone));
+              }
+              resolve(response);
+            })
+            .catch(() => {
+              if (settled) return;
+              settled = true;
+              clearTimeout(timer);
+              // Network failed — fall back to cache
+              caches.match(event.request).then(cached => {
+                resolve(cached || new Response('{}', { status: 503 }));
+              });
+            });
+        })
       );
     } else {
       // STALE-WHILE-REVALIDATE for profiles and other data

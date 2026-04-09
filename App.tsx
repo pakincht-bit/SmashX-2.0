@@ -30,9 +30,9 @@ const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ defa
 
 const SESSIONS_PER_PAGE = 10;
 const PAST_SESSIONS_PER_PAGE = 10;
-const INITIAL_LOAD_TIMEOUT = 35000;
-const FETCH_TIMEOUT = 30000;
-const SYNC_FETCH_TIMEOUT = 10000;
+const INITIAL_LOAD_TIMEOUT = 12000;
+const FETCH_TIMEOUT = 10000;
+const SYNC_FETCH_TIMEOUT = 8000;
 const AUTO_END_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes grace period
 const MAX_RECONNECT_RETRIES = 5;
 const RECONNECT_BASE_DELAY_MS = 1000;
