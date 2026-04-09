@@ -1111,6 +1111,21 @@ const App: React.FC = () => {
  return grouped;
  }, [paginatedSessions]);
 
+ // Enhanced pull-to-refresh (offline-resilience skill §6)
+ const handlePullToRefresh = useCallback(async () => {
+ // 1. Invalidate SW session cache
+ invalidateSessionCache();
+
+ // 2. Verify Realtime channel health
+ const channelState = channelRef.current?.state;
+ if (channelState !== 'joined') {
+ scheduleReconnection();
+ }
+
+ // 3. Force fresh data fetch
+ await fetchData();
+ }, [invalidateSessionCache, scheduleReconnection]);
+
  if (isInitialLoading) {
  return (
  <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center">
@@ -1304,21 +1319,6 @@ const App: React.FC = () => {
  );
  }
  };
-
- // Enhanced pull-to-refresh (offline-resilience skill §6)
- const handlePullToRefresh = useCallback(async () => {
- // 1. Invalidate SW session cache
- invalidateSessionCache();
-
- // 2. Verify Realtime channel health
- const channelState = channelRef.current?.state;
- if (channelState !== 'joined') {
- scheduleReconnection();
- }
-
- // 3. Force fresh data fetch
- await fetchData();
- }, [invalidateSessionCache, scheduleReconnection]);
 
  return (
  <>
