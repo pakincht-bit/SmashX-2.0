@@ -245,7 +245,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  return { ...prev, [activeTab]: newVal };
  });
  }}
- className={`flex flex-col items-center justify-center aspect-square rounded-none border-2 transition-all overflow-hidden bg-[#000B29] relative group ${isActive ? 'border-[#00FF41] shadow-[0_0_15px_rgba(0,255,65,0.4)] scale-105 z-10' : 'border-white/5 border opacity-70'}`}
+ className={`flex flex-col items-center justify-center w-full aspect-square rounded-none border-2 transition-all overflow-hidden bg-[#000B29] relative group ${isActive ? 'border-[#00FF41] shadow-[0_0_15px_rgba(0,255,65,0.4)] scale-105 z-20' : 'border-white/5 border opacity-70 hover:border-white/20'}`}
  >
  {isNullOption ? (
  <div className="w-full h-full flex items-center justify-center text-gray-500 text-[10px] font-bold uppercase tracking-widest">None</div>
@@ -254,10 +254,28 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  <div className="w-full h-full rounded-full border border-white/10 shadow-inner"style={{ backgroundColor: `#${optionLabel}` }}></div>
  </div>
  ) : (
- <img src={thumbUrl} alt={optionLabel} loading="lazy" className="w-full h-full object-cover scale-[1.3] translate-y-1 transition-transform" />
+ <>
+ <img 
+   src={thumbUrl} 
+   alt={optionLabel} 
+   loading="lazy" 
+   className="w-full h-full object-cover scale-[1.3] translate-y-1 transition-transform text-transparent"
+   onError={(e) => {
+     const target = e.target as HTMLImageElement;
+     target.style.display = 'none';
+     if (target.nextElementSibling) {
+       target.nextElementSibling.classList.remove('hidden');
+       target.nextElementSibling.classList.add('flex');
+     }
+   }}
+ />
+ <div className="hidden absolute inset-0 items-center justify-center p-1 text-center text-[10px] sm:text-[11px] font-black tracking-[0.1em] text-gray-400 uppercase bg-[#000B29] z-10 break-words leading-tight whitespace-pre-line pointer-events-none">
+   {optionLabel.replace(/([A-Za-z]+)(\d+)/, '$1\n$2')}
+ </div>
+ </>
  )}
  {isActive && (
- <div className="absolute top-1 right-1 bg-[#00FF41] text-[#000B29] rounded-full p-0.5">
+ <div className="absolute top-1 right-1 bg-[#00FF41] text-[#000B29] rounded-full p-0.5 z-30 shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
  <Check size={10} strokeWidth={4} />
  </div>
  )}
