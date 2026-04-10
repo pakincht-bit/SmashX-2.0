@@ -550,7 +550,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div>
 
  <div className="-mx-4 sm:-mx-6 flex flex-col">
- <div className="divide-y divide-[#002266]">
+ <div className="">
  {players.map(player => {
  const isCheckedIn = checkedInIds.includes(player.id);
  const currentCourt = getPlayerCourtIndex(player.id);
@@ -585,7 +585,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div>
 
  <div className="-mx-4 sm:-mx-6 flex flex-col">
- <div className="divide-y divide-[#002266]">
+ <div className="">
  {players.map((player) => (
  <div key={player.id} onClick={() => { triggerHaptic('light'); onPlayerClick?.(player.id); }} className="flex items-center justify-between py-3 px-4 sm:px-6 transition-colors cursor-pointer group">
  <div className="flex items-center gap-3">
@@ -843,7 +843,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div>
  <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-4">Win Rate</h4>
  <div className="-mx-4 sm:-mx-6 flex flex-col">
- <div className="divide-y divide-[#002266]">
+ <div className="">
  {sortedByWinRate.map(pid => {
  const user = usersMap.get(pid);
  if (!user) return null;
@@ -900,7 +900,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className="space-y-4">
  {sortedPlayerIds.length === 0 ? (<div className="text-center py-10 text-gray-500 font-bold text-sm">No matches played this session.</div>) : (
  <div className="-mx-4 sm:-mx-6 flex flex-col">
- <div className="divide-y divide-[#002266]">
+ <div className="">
  {sortedPlayerIds.map((pid, index) => {
  const user = usersMap.get(pid);
  if (!user) return null;

@@ -129,7 +129,7 @@ const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, is
  <div
  onClick={() => onPlayerClick?.(user.id)}
  className={`py-3 px-4 grid grid-cols-[28px_1fr_auto] gap-3 items-center transition-all relative group cursor-pointer
- ${isMe ? 'bg-[#00FF41]/10 border-y border-[#00FF41]/10 z-10' : ''}`}
+ ${isMe ? 'bg-[#00FF41]/10 z-10' : ''}`}
  >
  <div className={`font-black text-sm italic text-center ${rankColor}`}>
  {index + 1}
@@ -319,13 +319,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
  </div>
 
  {/* Table Header */}
- <div className="py-2 px-4 border-b border-[#002266] grid grid-cols-[28px_1fr_auto] gap-3">
+ <div className="py-2 px-4 grid grid-cols-[28px_1fr_auto] gap-3">
  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">#</span>
  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Player</span>
  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">{activeTab.headerLabel}</span>
  </div>
 
- <div className="divide-y divide-[#002266]">
+ <div>
  {sortedUsers.map((user, index) => (
  <LeaderboardRow
  key={user.id}

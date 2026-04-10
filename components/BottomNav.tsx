@@ -27,7 +27,7 @@ const BottomNav: React.FC<BottomNavProps> = React.memo(({ activeTab, onTabChange
  };
 
  return (
- <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-none">
+ <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pointer-events-none">
  <div className="max-w-md mx-auto relative pointer-events-auto">
  {/* Main Glass Container */}
  <div className="relative flex items-center justify-around h-16 bg-[#000B29]/75 backdrop-blur-2xl border border-white/10 rounded-[32px] shadow-[0_8px_32px_rgba(0,0,0,0.5),inset_0_0_0_1px_rgba(255,255,255,0.05)] overflow-hidden">
