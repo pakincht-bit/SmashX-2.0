@@ -41,7 +41,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
  const dataUrl = await toPng(cardRef.current, {
  cacheBust: true,
  pixelRatio: 3.5, // 3.5x higher resolution
- backgroundColor: null, // Transparent background
+ backgroundColor: undefined, // Transparent background
  style: {
  borderRadius: '0',
  }

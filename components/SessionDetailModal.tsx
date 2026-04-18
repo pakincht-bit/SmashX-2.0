@@ -198,7 +198,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  const isHost = session.hostId === currentUser.id;
  const isJoined = session.playerIds.includes(currentUser.id);
- const isFull = session.playerIds.length >= session.maxPlayers;
+  // Player limit removed — sessions accept unlimited players
  const isCurrentUserCheckedIn = (session.checkedInPlayerIds || []).includes(currentUser.id);
 
  const { month, day, weekday } = getDateParts(session.startTime);
@@ -1052,7 +1052,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <button onClick={() => setConfirmConfig({ isOpen: true, title: 'Leave Session', message: 'Are you sure?', action: () => { triggerHaptic('medium'); onLeave(session.id); onClose(); }, isDestructive: true, confirmLabel: 'Leave' })} className="w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] border border-gray-600 text-gray-300 transition-colors font-black uppercase tracking-widest text-sm"><span className="skew-x-[6deg] flex items-center"><LogOut size={16} className="mr-2" />Leave Session</span></button>
  )}
  </div>
- ) : <button onClick={() => { triggerHaptic('success'); onJoin(session.id); }} disabled={isFull || status === 'END'} className={`w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${isFull || status === 'END' ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] (0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{isFull ? 'Session Full' : (status === 'END' ? 'Session Ended' : 'Join Session')}</div></button>}
+ ) : <button onClick={() => { triggerHaptic('success'); onJoin(session.id); }} disabled={status === 'END'} className={`w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${status === 'END' ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{status === 'END' ? 'Session Ended' : 'Join Session'}</div></button>}
  </div>
  )}
  </div>
