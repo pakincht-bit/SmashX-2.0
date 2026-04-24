@@ -62,7 +62,7 @@ const AnnouncementBanner: React.FC<AnnouncementBannerProps> = ({ onPress }) => {
     <>
       <div 
         onClick={handleOpen}
-        className="sticky top-0 z-[59] w-full bg-[#000B29] border-b border-[#00FF41]/20 text-white cursor-pointer group overflow-hidden animate-in slide-in-from-top duration-500"
+        className="sticky top-0 z-[59] w-full bg-[#000B29] border-b border-[#00FF41]/20 text-white cursor-pointer group overflow-hidden animate-in slide-in-from-top duration-500 pt-[max(env(safe-area-inset-top),0px)]"
       >
         {/* Animated Background Shine */}
         <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-[#00FF41]/10 to-transparent skew-x-[-25deg] animate-[shine_4s_infinite]"></div>
@@ -102,7 +102,7 @@ const AnnouncementBanner: React.FC<AnnouncementBannerProps> = ({ onPress }) => {
           className="fixed inset-0 z-[1000] bg-[#000B29]/95 backdrop-blur-xl flex flex-col animate-in fade-in duration-200"
           onClick={handleClose}
         >
-          <div className="flex justify-end p-4 sm:p-6 shrink-0 z-10">
+          <div className="flex justify-end p-4 sm:p-6 pt-[max(env(safe-area-inset-top),16px)] sm:pt-[max(env(safe-area-inset-top),24px)] shrink-0 z-10">
             <button 
               onClick={handleClose}
               className="w-10 h-10 bg-[#001645] rounded-full flex items-center justify-center text-white border border-[#002266] active:scale-95 transition-transform"

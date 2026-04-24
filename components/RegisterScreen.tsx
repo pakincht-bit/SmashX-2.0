@@ -98,7 +98,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
 
 
  return (
- <div className={`fixed inset-0 z-50 bg-[#000B29] flex flex-col p-6 animate-fade-in-up overflow-hidden`}>
+ <div className={`fixed inset-0 z-50 bg-[#000B29] flex flex-col p-6 pt-[max(env(safe-area-inset-top),24px)] animate-fade-in-up overflow-hidden`}>
  <div className="flex items-center justify-between mb-4 relative z-20">
  <button onClick={handleBack} className="text-gray-400 transition-colors p-2 -ml-2">
  <ArrowLeft size={24} />

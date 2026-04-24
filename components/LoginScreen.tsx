@@ -32,7 +32,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLogin, onBack }) => 
  };
 
  return (
- <div className="fixed inset-0 z-50 bg-[#000B29] flex flex-col p-6 animate-fade-in-up overflow-y-auto">
+ <div className="fixed inset-0 z-50 bg-[#000B29] flex flex-col p-6 pt-[max(env(safe-area-inset-top),24px)] animate-fade-in-up overflow-y-auto">
  <button onClick={onBack} className="self-start text-gray-400 mb-4">
  <ArrowLeft size={24} />
  </button>
