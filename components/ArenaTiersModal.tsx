@@ -11,11 +11,11 @@ interface ArenaTiersModalProps {
 }
 
 export const RANK_TIERS = [
- { id: 'unpolished', min: 0, name: 'The Unpolished', range: '< 1,100', icon: <Mountain size={24} />, color: 'text-zinc-500' },
- { id: 'spark', min: 1100, name: 'The Spark', range: '1,100 - 1,299', icon: <Zap size={24} />, color: 'text-cyan-400' },
- { id: 'combustion', min: 1300, name: 'The Combustion', range: '1,300 - 1,599', icon: <Flame size={24} />, color: 'text-orange-500' },
- { id: 'void', min: 1600, name: 'The Void', range: '1,600 - 1,999', icon: <Orbit size={24} />, color: 'text-purple-600' },
- { id: 'ascended', min: 2000, name: 'The Ascended', range: '2,000+', icon: <Sun size={24} />, color: 'text-yellow-400' },
+ { id: 'unpolished', min: 0, name: 'The Cocoon', range: '< 1,100', icon: <Mountain size={24} />, color: 'text-zinc-500' },
+ { id: 'spark', min: 1100, name: 'The Chrysalis', range: '1,100 - 1,299', icon: <Zap size={24} />, color: 'text-cyan-400' },
+ { id: 'combustion', min: 1300, name: 'The Emergence', range: '1,300 - 1,599', icon: <Flame size={24} />, color: 'text-orange-500' },
+ { id: 'void', min: 1600, name: 'The Monarch', range: '1,600 - 1,999', icon: <Orbit size={24} />, color: 'text-purple-600' },
+ { id: 'ascended', min: 2000, name: 'The Emperor', range: '2,000+', icon: <Sun size={24} />, color: 'text-yellow-400' },
 ];
 
 const ArenaTiersModal: React.FC<ArenaTiersModalProps> = ({ isOpen, onClose, user }) => {
@@ -71,9 +71,7 @@ const ArenaTiersModal: React.FC<ArenaTiersModalProps> = ({ isOpen, onClose, user
  </div>
  )}
  </div>
- <div className={`absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-[#000B29] shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex items-center justify-center shadow-xl z-20 ${currentTier.color}`}>
- {React.cloneElement(currentTier.icon as React.ReactElement<any>, { size: 20 })}
- </div>
+
  {isCurrent && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#00FF41] text-[#000B29] text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-lg animate-bounce z-30 whitespace-nowrap">Current Rank</div>}
  </div>
  </div>

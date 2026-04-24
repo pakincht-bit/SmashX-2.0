@@ -41,18 +41,30 @@ When building or modifying components in SmashX, you MUST strictly adhere to the
 - **States:** Active states must always use `active:scale-95` and `transition-all`.
 - **Haptics:** Always wrap user interactions with `triggerHaptic()` (e.g., `triggerHaptic('light')` for navigation/clicks, `triggerHaptic('medium')` for major actions, `triggerHaptic('success')` for joining).
 
-## 6. Subpage / Modal Navigation Headers
-- When creating full-screen subpages or modals (like Profile, Activity Log, History, Settings), the sticky top header must follow a left-aligned structure, never centered with spacers.
-- Use this exact structure:
+## 6. Subpage / Modal Navigation Headers & Page Structure
+- When creating full-screen subpages or modals (like Profile, Activity Log, History, Settings), you MUST wrap the entire component in a standardized full-page layout so the sticky top header correctly spans edge-to-edge.
+- Use this exact standard page structure:
   ```tsx
-  <div className="flex items-center gap-3 sticky top-0 bg-[#000B29]/90 backdrop-blur z-50 py-3 px-4 sm:px-6 border-b border-[#002266] w-full shrink-0">
-      <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors active:scale-95">
-          <ArrowLeft size={20} />
-      </button>
-      <div className="flex items-center flex-1">
-          <h2 className="text-lg font-black italic uppercase text-white tracking-wider">Title <span className="text-[#00FF41]">Accent</span></h2>
+  return (
+    <div className="relative w-full min-h-screen bg-[#000B29] text-white overflow-y-auto pb-20 font-sans">
+      {/* Sticky Navigation Header */}
+      <div className="sticky top-0 z-50 w-full bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)] shrink-0">
+        <div className="flex items-center gap-3 py-3 px-4 sm:px-6">
+          <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white rounded-full transition-colors active:scale-95">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="flex items-center flex-1">
+            <h2 className="text-lg font-black italic uppercase text-white tracking-wider">Title <span className="text-[#00FF41]">Accent</span></h2>
+          </div>
+        </div>
       </div>
-  </div>
+
+      {/* Main Content Container */}
+      <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-8 md:pt-12 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)]">
+        {/* Component contents go here */}
+      </div>
+    </div>
+  );
   ```
 
 ## 7. Reusable Component Library (Strict Enforcement)

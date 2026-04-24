@@ -269,41 +269,56 @@
       animation: valueUpdate 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
-    /* === STATIC RANK FRAMES (Battery-Optimized) === */
-    /* No animations, no SVG filters, no pseudo-element rotation */
-    /* Just colored borders with a subtle box-shadow glow */
-
-    .rank-base {
+    /* === IMAGE-BASED RANK FRAMES === */
+    .rank-unpolished, .rank-spark, .rank-combustion, .rank-void, .rank-ascended, .rank-champion {
       position: relative;
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
     }
 
-    .rank-unpolished {
-      border: 2px solid #52525b;
+    .rank-unpolished::after, 
+    .rank-spark::after, 
+    .rank-combustion::after, 
+    .rank-void::after, 
+    .rank-ascended::after, 
+    .rank-champion::after {
+      content: '';
+      position: absolute;
+      /* Base positioning properties */
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      pointer-events: none;
+      z-index: 10;
     }
 
-    /* Spark: Cyan glow */
-    .rank-spark {
-      border: 2px solid #22d3ee;
-      box-shadow: 0 0 8px rgba(34, 211, 238, 0.5), 0 0 2px rgba(34, 211, 238, 0.3);
+    /* Regular rank frames need a larger scale to fit the avatar */
+    .rank-unpolished::after, 
+    .rank-spark::after, 
+    .rank-combustion::after, 
+    .rank-void::after, 
+    .rank-ascended::after {
+      top: -24%;
+      left: -24%;
+      right: -24%;
+      bottom: -24%;
     }
 
-    /* Combustion: Amber/Fire glow */
-    .rank-combustion {
-      border: 2px solid #f59e0b;
-      box-shadow: 0 0 10px rgba(245, 158, 11, 0.5), 0 0 3px rgba(249, 115, 22, 0.4);
+    /* Champion frame is drawn tighter and only needs -16% */
+    .rank-champion::after {
+      top: -16%;
+      left: -16%;
+      right: -16%;
+      bottom: -16%;
     }
 
-    /* Void: Rainbow/Purple glow */
-    .rank-void {
-      border: 2px solid #a855f7;
-      box-shadow: 0 0 10px rgba(168, 85, 247, 0.5), 0 0 4px rgba(236, 72, 153, 0.3);
-    }
-
-    /* Ascended: White/Bright glow */
-    .rank-ascended {
-      border: 2px solid #ffffff;
-      box-shadow: 0 0 12px rgba(255, 255, 255, 0.6), 0 0 4px rgba(255, 255, 255, 0.3);
-    }
+    .rank-unpolished::after { background-image: url('/frame/unpolished.svg?v=2'); }
+    .rank-spark::after { background-image: url('/frame/spark.svg?v=2'); }
+    .rank-combustion::after { background-image: url('/frame/combustion.svg?v=2'); }
+    .rank-void::after { background-image: url('/frame/void.svg?v=2'); }
+    .rank-ascended::after { background-image: url('/frame/ascended.svg?v=2'); }
+    .rank-champion::after { background-image: url('/frame/champion.svg?v=4'); }
     /* Floating avatar animation for SessionCard */
     @keyframes sessionCardFloat {
       0% { transform: translateY(0px); }

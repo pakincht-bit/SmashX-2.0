@@ -50,9 +50,14 @@ export const SKIN_COLORS = [
  { name: 'Ethereal', hex: 'dee1f5' },
 ];
 
+import { getRankFrameClass } from '../utils';
+
 interface AvatarBuilderProps {
  initialOptions?: Partial<AvatarOptions>;
  onUrlChange: (url: string) => void;
+ unlockedFrames?: string[];
+ currentFrame?: string;
+ onFrameChange?: (frame: string) => void;
 }
 
 // Arrays extracted from schema analysis
@@ -140,7 +145,7 @@ export const generateRandomOptions = (): AvatarOptions => {
  };
 };
 
-const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChange }) => {
+const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChange, unlockedFrames, currentFrame, onFrameChange }) => {
  const [options, setOptions] = useState<AvatarOptions>(() => {
  if (initialOptions) {
  return {
@@ -160,7 +165,10 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  return generateRandomOptions();
  });
 
- const [activeTab, setActiveTab] = useState<typeof CATEGORIES[number]['id']>('hair');
+ type CategoryId = typeof CATEGORIES[number]['id'] | 'frame';
+ const dynamicCategories = unlockedFrames ? [{ id: 'frame' as CategoryId, label: 'Frame', options: unlockedFrames }, ...CATEGORIES] : CATEGORIES;
+
+ const [activeTab, setActiveTab] = useState<CategoryId>(unlockedFrames ? 'frame' : 'hair');
  const bgUrl = useMemo(() => buildAvatarUrl(options), [options]);
 
  // Report URL changes up to parent
@@ -180,10 +188,11 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  <div className="relative group mb-6">
  <div className="absolute -inset-6 bg-[#00FF41]/10 blur-3xl rounded-full opacity-30 transition-opacity"></div>
  <div
- className="relative w-48 h-48 rounded-full border-4 border-white/5 shadow-2xl overflow-hidden transition-all duration-300"
- style={{ backgroundColor: `#${options.backgroundColor}` }}
+ className={`relative w-48 h-48 rounded-full border-4 border-white/5 shadow-2xl transition-all duration-300 ${currentFrame && currentFrame !== 'none' ? getRankFrameClass(currentFrame) : ''}`}
  >
+ <div className="w-full h-full rounded-full overflow-hidden" style={{ backgroundColor: `#${options.backgroundColor}` }}>
  <img src={bgUrl} alt="Avatar Preview"className="w-full h-full object-cover transition-transform duration-300 ease-out"/>
+ </div>
  </div>
 
  <button
@@ -199,7 +208,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  <div className="w-full bg-[#001645] border border-[#002266] shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-none p-4 space-y-4 relative overflow-hidden">
  {/* Tabs */}
  <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar px-1 -mx-1"style={{ scrollbarWidth: 'none' }}>
- {CATEGORIES.map(cat => (
+ {dynamicCategories.map(cat => (
  <button
  key={cat.id}
  type="button"
@@ -214,15 +223,24 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
 
  {/* Grid/Scroll of Feature Thumbnails */}
  <div className="grid grid-cols-4 sm:grid-cols-5 gap-0 p-1 max-h-[200px] overflow-y-auto no-scrollbar" style={{ scrollbarWidth: 'none' }}>
- {CATEGORIES.find(c => c.id === activeTab)?.options.map((optionLabel) => {
+ {dynamicCategories.find(c => c.id === activeTab)?.options.map((optionLabel) => {
  const isNullOption = optionLabel === 'none';
+ const isFrameTab = activeTab === 'frame';
  const isColorTab = activeTab === 'hairColor' || activeTab === 'skinColor' || activeTab === 'backgroundColor';
- const currentVal = Array.isArray(options[activeTab]) ? (options[activeTab] as string[])[0] || 'none' : options[activeTab] as string;
+ 
+ const currentVal = isFrameTab
+   ? (currentFrame || 'none')
+   : Array.isArray(options[activeTab as keyof AvatarOptions]) 
+     ? (options[activeTab as keyof AvatarOptions] as string[])[0] || 'none' 
+     : options[activeTab as keyof AvatarOptions] as string;
+     
  const isActive = currentVal === optionLabel;
 
  // Construct preview URL for THIS option by cloning options (for shape thumbnails)
  let thumbUrl = '';
- if (!isColorTab && !isNullOption) {
+ if (isFrameTab && !isNullOption) {
+ thumbUrl = `/frame/${optionLabel}.svg`;
+ } else if (!isFrameTab && !isColorTab && !isNullOption) {
  const previewOptions = { ...options };
  if (activeTab === 'features' || activeTab === 'glasses' || activeTab === 'earrings') {
  previewOptions[activeTab] = isNullOption ? [] : [optionLabel];
@@ -238,12 +256,16 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  key={optionLabel}
  type="button"
  onClick={() => {
+ if (isFrameTab) {
+ onFrameChange?.(optionLabel);
+ } else {
  setOptions(prev => {
  const newVal = activeTab === 'features' || activeTab === 'glasses' || activeTab === 'earrings'
  ? (isNullOption ? [] : [optionLabel])
  : optionLabel;
  return { ...prev, [activeTab]: newVal };
  });
+ }
  }}
  className={`flex flex-col items-center justify-center w-full min-h-[72px] aspect-square rounded-none border-2 transition-all overflow-hidden bg-[#000B29] relative group ${isActive ? 'border-[#00FF41] shadow-[0_0_15px_rgba(0,255,65,0.4)] scale-105 z-20' : 'border-white/5 border opacity-70 hover:border-white/20'}`}
  >
@@ -259,7 +281,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
    src={thumbUrl} 
    alt={optionLabel} 
    loading="lazy" 
-   className="w-full h-full object-cover scale-[1.3] translate-y-1 transition-transform text-transparent"
+   className={`w-full h-full object-cover transition-transform ${isFrameTab ? 'scale-90 opacity-80 group-hover:opacity-100 group-hover:scale-100' : 'scale-[1.3] translate-y-1 text-transparent'}`}
    onError={(e) => {
      const target = e.target as HTMLImageElement;
      target.style.display = 'none';

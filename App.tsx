@@ -9,6 +9,7 @@ import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import InstallBanner from './components/InstallBanner';
 import PullToRefresh from './components/PullToRefresh';
+import AnnouncementBanner from './components/AnnouncementBanner';
 import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users, Wifi } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
@@ -153,7 +154,7 @@ const App: React.FC = () => {
  if (eventTime < lastFetchRef.current) return;
 
  const updated = mapProfileFromDB(payload.new);
- updated.rankFrame = getFrameByPoints(updated.points);
+ updated.rankFrame = updated.specialFrame || getFrameByPoints(updated.points);
  setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
  }
  )
@@ -314,7 +315,6 @@ const App: React.FC = () => {
  if (profilesRes.data) {
  const mappedUsers = profilesRes.data.map(mapProfileFromDB);
  // Derive rank_frame from stored points (canonical source)
- mappedUsers.forEach((u: User) => { u.rankFrame = getFrameByPoints(u.points); });
  setUsers(mappedUsers);
  }
 
@@ -509,7 +509,8 @@ const App: React.FC = () => {
  await supabase.from('profiles').update({
  name: updatedUser.name,
  avatar: updatedUser.avatar,
- rank_frame: updatedUser.rankFrame
+ rank_frame: updatedUser.rankFrame,
+ special_frame: updatedUser.specialFrame
  }).eq('id', updatedUser.id);
  }, []);
 
@@ -1035,7 +1036,6 @@ const App: React.FC = () => {
 
  if (!profileError && updatedProfiles) {
  const mappedUsers = updatedProfiles.map(mapProfileFromDB);
- mappedUsers.forEach((u: User) => { u.rankFrame = getFrameByPoints(u.points); });
  setUsers(mappedUsers);
  }
 
@@ -1325,6 +1325,7 @@ const App: React.FC = () => {
  <PullToRefresh onRefresh={handlePullToRefresh}>
  <div className="min-h-screen pb-24 bg-[#000B29] text-white">
  <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
+ <AnnouncementBanner />
  {/* Connection Status Indicator (realtime-sync skill §1) */}
  {(connectionStatus === 'reconnecting' || connectionStatus === 'disconnected' || isOffline) && (
  <div className={`sticky top-0 z-[60] flex items-center justify-center gap-2 py-1.5 px-4 text-[10px] font-black uppercase tracking-[0.15em] transition-all ${
@@ -1425,14 +1426,12 @@ const App: React.FC = () => {
  <div className="fixed inset-0 z-[200] bg-[#000B29] overflow-y-auto animate-in fade-in duration-300">
  <div className="mx-auto min-h-screen relative w-full px-0 py-0">
  {isSettingsOpen ? (
- <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
  <SettingsScreen
  currentUser={activeUser}
  onUpdateUser={handleUpdateUser}
  onDeleteAccount={handleDeleteAccount}
  onBack={() => setIsSettingsOpen(false)}
  />
- </div>
  ) : (
  <Profile
  user={activeUser}

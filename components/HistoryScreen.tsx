@@ -65,7 +65,7 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({
  </div>
  </div>
 
- <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-6 md:pt-8 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)]">
+ <div className="relative z-10 w-full max-w-xl mx-auto px-4 pt-6 md:pt-8 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)]">
  {playerSessions.length === 0 ? (
  <div className="text-center py-12 flex flex-col items-center">
  <div className="w-16 h-16 rounded-full bg-[#001645] flex items-center justify-center mb-4">

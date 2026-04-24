@@ -33,11 +33,11 @@ const PlayerProfileModal: React.FC<PlayerProfileModalProps> = ({ isOpen, onClose
 
  const rankInfo = useMemo(() => {
  const p = user?.points || 1000;
- if (p >= 2000) return { name: 'The Ascended', color: 'text-yellow-400', dot: 'bg-yellow-400 shadow-[0_0_8px_gold]' };
- if (p >= 1600) return { name: 'The Void', color: 'text-purple-500', dot: 'bg-purple-900 shadow-[0_0_8px_#581c87]' };
- if (p >= 1300) return { name: 'The Combustion', color: 'text-orange-500', dot: 'bg-orange-600' };
- if (p >= 1100) return { name: 'The Spark', color: 'text-cyan-400', dot: 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' };
- return { name: 'The Unpolished', color: 'text-gray-500', dot: 'bg-gray-700' };
+ if (p >= 2000) return { name: 'The Emperor', color: 'text-yellow-400', dot: 'bg-yellow-400 shadow-[0_0_8px_gold]' };
+ if (p >= 1600) return { name: 'The Monarch', color: 'text-purple-500', dot: 'bg-purple-900 shadow-[0_0_8px_#581c87]' };
+ if (p >= 1300) return { name: 'The Emergence', color: 'text-orange-500', dot: 'bg-orange-600' };
+ if (p >= 1100) return { name: 'The Chrysalis', color: 'text-cyan-400', dot: 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' };
+ return { name: 'The Cocoon', color: 'text-gray-500', dot: 'bg-gray-700' };
  }, [user]);
 
  if (!isOpen || !user) return null;

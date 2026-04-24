@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { ArrowLeft, Save, User as UserIcon, Sparkles, Trash2, AlertTriangle, LogOut } from 'lucide-react';
-import { getRankFrameClass, triggerHaptic } from '../utils';
+import { getRankFrameClass, triggerHaptic, getUnlockedFrames } from '../utils';
 import ConfirmationModal from './ConfirmationModal';
 import AvatarBuilder, { AvatarOptions } from './AvatarBuilder';
 
@@ -59,31 +59,44 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
 
  const initialOptions = parseCurrentSettings();
  const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar);
+ const [selectedFrame, setSelectedFrame] = useState(currentUser.rankFrame || 'unpolished');
+ const unlockedFrames = getUnlockedFrames(currentUser.points, currentUser.specialFrame);
 
  const handleSave = (e: React.FormEvent) => {
  e.preventDefault();
  onUpdateUser({
  ...currentUser,
- avatar: avatarUrl
+ avatar: avatarUrl,
+ rankFrame: selectedFrame,
+ specialFrame: selectedFrame !== 'none' ? selectedFrame : undefined
  });
  onBack();
  };
 
  return (
- <div className="space-y-6 animate-fade-in-up pb-32">
+ <div className="relative w-full min-h-screen bg-[#000B29] text-white overflow-y-auto pb-20 font-sans">
  {/* Sticky Navigation Header */}
- <div className="sticky top-0 z-20 w-full mb-6 -mt-4 bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)]">
- <div className="flex items-center gap-3 py-3 px-1">
- <button onClick={onBack} className="p-2 -ml-2 text-gray-400 rounded-full transition-colors">
+ <div className="sticky top-0 z-50 w-full bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)]">
+ <div className="flex items-center gap-3 py-3 px-4 sm:px-6">
+ <button onClick={() => { triggerHaptic('light'); onBack(); }} className="p-2 -ml-2 text-gray-400 rounded-full transition-colors active:scale-95">
  <ArrowLeft size={20} />
  </button>
- <h2 className="text-lg font-black italic uppercase text-white tracking-wider flex-1">Profile <span className="text-[#00FF41]">Settings</span></h2>
+ <div className="flex items-center flex-1">
+ <h2 className="text-lg font-black italic uppercase text-white tracking-wider">Profile <span className="text-[#00FF41]">Settings</span></h2>
+ </div>
  </div>
  </div>
 
- <form onSubmit={handleSave} className="space-y-10">
+ <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-8 md:pt-12 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)]">
+ <form onSubmit={handleSave} className="space-y-10 w-full">
  {/* Identity Customization Section */}
- <AvatarBuilder initialOptions={initialOptions} onUrlChange={setAvatarUrl} />
+ <AvatarBuilder 
+   initialOptions={initialOptions} 
+   onUrlChange={setAvatarUrl} 
+   unlockedFrames={unlockedFrames}
+   currentFrame={selectedFrame}
+   onFrameChange={setSelectedFrame}
+ />
 
 
 
@@ -132,6 +145,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
  }}
  onCancel={() => setIsDeleteConfirmOpen(false)}
  />
+ </div>
  </div>
  );
 };

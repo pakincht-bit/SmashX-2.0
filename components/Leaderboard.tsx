@@ -51,7 +51,7 @@ const StatCard = React.memo<StatCardProps>(({ title, user, value, icon, colorCla
  <div className={`text-[8px] font-black uppercase tracking-widest ${colorClass} mb-2 text-center h-5 flex items-center justify-center leading-tight`}>{title}</div>
 
  <div className="relative mb-3">
- <div className={`rounded-full transition-all duration-500 overflow-hidden ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
+ <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
  <img
  src={user.avatar}
  className={`w-10 h-10 rounded-full border border-[#000B29] object-cover`}

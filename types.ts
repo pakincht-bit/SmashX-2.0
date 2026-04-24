@@ -7,6 +7,7 @@ export interface User {
   wins: number; // Total career wins
   losses: number; // Total career losses
   rankFrame?: string; // 'none' | 'bronze' | 'silver' | 'gold' | 'platinum' | 'ruby' | 'god'
+  specialFrame?: string; // 'champion' or any future custom frames
   password?: string;
 }
 

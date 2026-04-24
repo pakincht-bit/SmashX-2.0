@@ -40,9 +40,22 @@ export const getFrameByPoints = (points: number): string => {
   return 'unpolished';
 };
 
+export const getUnlockedFrames = (points: number, currentSpecialFrame?: string): string[] => {
+  const frames = ['none', 'unpolished'];
+  if (points >= 1100) frames.push('spark');
+  if (points >= 1300) frames.push('combustion');
+  if (points >= 1600) frames.push('void');
+  if (points >= 2000) frames.push('ascended');
+  
+  if (currentSpecialFrame && currentSpecialFrame !== 'none' && !frames.includes(currentSpecialFrame)) {
+    frames.push(currentSpecialFrame);
+  }
+  return frames;
+};
+
 export const getRankFrameClass = (frame: string | undefined): string => {
   const base = "ring-offset-2 ring-offset-[#000B29]";
-  switch (frame) {
+  switch (frame?.toLowerCase()) {
     case 'unpolished':
       return `${base} rank-unpolished`;
     case 'spark':
@@ -53,6 +66,8 @@ export const getRankFrameClass = (frame: string | undefined): string => {
       return `${base} rank-void rank-base`;
     case 'ascended':
       return `${base} rank-ascended rank-base`;
+    case 'champion':
+      return `${base} rank-champion rank-base`;
     default:
       return 'ring-0';
   }
@@ -94,22 +109,36 @@ export const getNextTierProgress = (points: number) => {
   const progress = Math.min(100, Math.max(0, (progressInTier / totalInTier) * 100));
   const remaining = nextTier.min - points;
 
+  const tierNames: Record<string, string> = {
+    unpolished: 'Cocoon',
+    spark: 'Chrysalis',
+    combustion: 'Emergence',
+    void: 'Monarch',
+    ascended: 'Emperor'
+  };
+
   return {
     progress,
     remaining,
-    nextTierName: nextTier.id.charAt(0).toUpperCase() + nextTier.id.slice(1)
+    nextTierName: tierNames[nextTier.id] || nextTier.id.charAt(0).toUpperCase() + nextTier.id.slice(1)
   };
 };
 
-export const mapProfileFromDB = (dbProfile: any): User => ({
-  id: dbProfile.id,
-  name: dbProfile.name,
-  avatar: dbProfile.avatar,
-  points: dbProfile.points || dbProfile.mmr || 1000,
-  wins: dbProfile.wins || 0,
-  losses: dbProfile.losses || 0,
-  rankFrame: dbProfile.rank_frame || 'none',
-});
+export const mapProfileFromDB = (dbProfile: any): User => {
+  const points = dbProfile.points || dbProfile.mmr || 1000;
+  const specialFrame = dbProfile.special_frame ? dbProfile.special_frame.toLowerCase() : undefined;
+  
+  return {
+    id: dbProfile.id,
+    name: dbProfile.name,
+    avatar: dbProfile.avatar,
+    points,
+    wins: dbProfile.wins || 0,
+    losses: dbProfile.losses || 0,
+    rankFrame: specialFrame || getFrameByPoints(points),
+    specialFrame,
+  };
+};
 
 export const mapSessionFromDB = (dbSession: any): Session => ({
   id: dbSession.id,

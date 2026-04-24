@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { User, Session } from '../types';
 import { Settings, Trophy, ChevronRight, LogOut, ArrowLeft } from 'lucide-react';
 import { getAvatarColor, getNextTierProgress, triggerHaptic, getWinRateColor, getRankFrameClass } from '../utils';
 import { Button } from './ui/Button';
+import { RANK_TIERS } from './ArenaTiersModal';
 
 interface ProfileProps {
  user: User;
@@ -17,6 +18,33 @@ interface ProfileProps {
 }
 
 const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSettings, onOpenTiers, onLogout, onClose }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [currentTierIndex, setCurrentTierIndex] = useState(0);
+
+  useEffect(() => {
+    const p = user.points;
+    let currentId = 'unpolished';
+    if (p >= 2000) currentId = 'ascended';
+    else if (p >= 1600) currentId = 'void';
+    else if (p >= 1300) currentId = 'combustion';
+    else if (p >= 1100) currentId = 'spark';
+
+    const index = RANK_TIERS.findIndex(t => t.id === currentId);
+    setCurrentTierIndex(index !== -1 ? index : 0);
+
+    const timeoutId = setTimeout(() => {
+      if (scrollContainerRef.current) {
+        const activeEl = scrollContainerRef.current.querySelector(`[data-tier-index="${index !== -1 ? index : 0}"]`) as HTMLElement;
+        if (activeEl) {
+          const container = scrollContainerRef.current;
+          const scrollLeft = activeEl.offsetLeft - (container.offsetWidth / 2) + (activeEl.offsetWidth / 2);
+          container.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
+        }
+      }
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [user.points]);
+
  const stats = useMemo(() => {
  const wins = user.wins;
  const losses = user.losses;
@@ -43,11 +71,11 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
  const rankInfo = useMemo(() => {
  const p = user.points;
  const baseClass = "text-[10px] font-bold uppercase tracking-[0.2em]";
- if (p >= 2000) return { name: 'The Ascended', color: `text-yellow-400 ${baseClass}`, dot: 'bg-yellow-400 shadow-[0_0_12px_gold]' };
- if (p >= 1600) return { name: 'The Void', color: `text-purple-400 ${baseClass}`, dot: 'bg-purple-500 shadow-[0_0_12px_#a855f7]' };
- if (p >= 1300) return { name: 'The Combustion', color: `text-orange-400 ${baseClass}`, dot: 'bg-orange-500 shadow-[0_0_12px_#f97316]' };
- if (p >= 1100) return { name: 'The Spark', color: `text-cyan-400 ${baseClass}`, dot: 'bg-cyan-400 shadow-[0_0_12px_#22d3ee]' };
- return { name: 'The Unpolished', color: `text-gray-400 ${baseClass}`, dot: 'bg-gray-500' };
+ if (p >= 2000) return { name: 'The Emperor', color: `text-yellow-400 ${baseClass}`, dot: 'bg-yellow-400 shadow-[0_0_12px_gold]' };
+ if (p >= 1600) return { name: 'The Monarch', color: `text-purple-400 ${baseClass}`, dot: 'bg-purple-500 shadow-[0_0_12px_#a855f7]' };
+ if (p >= 1300) return { name: 'The Emergence', color: `text-orange-400 ${baseClass}`, dot: 'bg-orange-500 shadow-[0_0_12px_#f97316]' };
+ if (p >= 1100) return { name: 'The Chrysalis', color: `text-cyan-400 ${baseClass}`, dot: 'bg-cyan-400 shadow-[0_0_12px_#22d3ee]' };
+ return { name: 'The Cocoon', color: `text-gray-400 ${baseClass}`, dot: 'bg-gray-500' };
  }, [user.points]);
 
 
@@ -102,98 +130,95 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
  {/* Name and Rank */}
  <div className="flex flex-col items-center justify-center text-center">
  <h1 className="text-2xl font-black text-white italic tracking-tighter truncate max-w-[280px] mb-1 leading-none">{user.name}</h1>
- <span className="text-xs font-black uppercase tracking-[0.2em] italic text-gray-400">Rank #{rank}</span>
- </div>
- </div>
-
- {/* Clickable Progress Row Card */}
- <div
- onClick={() => { triggerHaptic('light'); onOpenTiers(); }}
- className="w-full relative p-5 px-6 mb-6 bg-[#001645] rounded-none border border-white/5 cursor-pointer group active:scale-95 transition-all shadow-[0_8px_24px_rgba(0,0,0,0.4)] (0,255,65,0.15)] flex flex-col gap-4"
- >
- <style>{`
- @keyframes pan-stripes {
- 0% { transform: translateX(-40px); }
- 100% { transform: translateX(0); }
- }
- .cyber-gauge-container {
- position: relative;
- overflow: hidden;
- }
- .cyber-gauge-pattern {
- position: absolute;
- top: 0;
- left: 0;
- right: -40px;
- bottom: 0;
- background-image: repeating-linear-gradient(
- -45deg,
- rgba(0,0,0,0.3),
- rgba(0,0,0,0.3) 10px,
- transparent 10px,
- transparent 20px
- );
- animation: pan-stripes 2s linear infinite;
- will-change: transform;
- }
- `}</style>
- <div className="flex justify-between items-center w-full">
- <div className="flex items-center gap-3">
- <div className={`w-2 h-2 rounded-full ${rankInfo.dot}`}></div>
- <div className="flex flex-col">
- <span className={`${rankInfo.color} text-xs leading-none mb-1`}>{rankInfo.name}</span>
- <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 italic leading-none">
- Next: {rankProgression.nextTierName}
- </span>
- </div>
- </div>
  <div className="flex items-center gap-2">
- <span className="text-sm font-black uppercase tracking-widest text-[#00FF41]">
- {rankProgression.remaining} RP
- </span>
- <ChevronRight size={18} className="text-gray-500 transition-all" />
- </div>
- </div>
- <div className="w-full h-[14px] bg-[#000B29] rounded-full overflow-hidden shadow-[inset_0_2px_8px_rgba(0,0,0,0.8)] relative z-0">
- <div
- className="h-full bg-gradient-to-r from-[#00A82B] to-[#00FF41] cyber-gauge-container transition-all duration-1000 ease-out relative shadow-[0_0_15px_rgba(0,255,65,0.4)]"
- style={{ width: `${Math.max(1, rankProgression.progress)}%` }}
- >
- <div className="cyber-gauge-pattern pointer-events-none"></div>
- <div className="absolute right-0 top-0 bottom-0 w-1 bg-white blur-[1px] opacity-90 z-10 pointer-events-none"></div>
+ <span className="text-xs font-black uppercase tracking-[0.2em] italic text-gray-400">Rank #{rank}</span>
+ <span className="text-[10px] text-[#00FF41]">•</span>
+ <span className="text-xs font-black uppercase tracking-[0.2em] italic text-[#00FF41]">{user.points} RP</span>
  </div>
  </div>
  </div>
 
- {/* Static Stats Overview */}
- <div className="w-full mb-12 relative">
- <div className="grid grid-cols-2 gap-1 relative z-10">
- {/* Played */}
- <div className="bg-[#001030] rounded-none p-4 flex flex-col justify-center items-center relative overflow-hidden">
- <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Played</span>
- <span className="text-4xl tabular-nums font-black italic tracking-tighter text-white">{stats.played}</span>
- </div>
- {/* W-L */}
- <div className="bg-[#001030] rounded-none p-4 flex flex-col justify-center items-center relative overflow-hidden">
- <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">W-L</span>
- <div className="flex items-center text-4xl font-black italic tracking-tighter leading-none">
- <span className="text-green-500">{stats.wins}</span>
- <span className="text-gray-600 mx-1.5">-</span>
- <span className="text-red-500">{stats.losses}</span>
- </div>
- </div>
- {/* Total Points */}
- <div className="bg-[#001030] rounded-none p-4 flex flex-col justify-center items-center relative overflow-hidden">
- <span className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] mb-1">Points</span>
- <span className="text-4xl tabular-nums font-black italic tracking-tighter text-[#00FF41]">{user.points}</span>
- </div>
- {/* Win Rate */}
- <div className="bg-[#001030] rounded-none p-4 flex flex-col justify-center items-center relative overflow-hidden">
- <span className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] mb-1">Win Rate</span>
- <span className={`text-4xl tabular-nums font-black italic tracking-tighter ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
- </div>
- </div>
- </div>
+        {/* Static Stats Overview */}
+        <div className="w-full mb-8 relative">
+          <div className="grid grid-cols-3 gap-1 relative z-10">
+            {/* Played */}
+            <div className="bg-[#001030] rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Played</span>
+              <span className="text-2xl sm:text-4xl tabular-nums font-black italic tracking-tighter text-white">{stats.played}</span>
+            </div>
+            {/* W-L */}
+            <div className="bg-[#001030] rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">W-L</span>
+              <div className="flex items-center text-2xl sm:text-4xl font-black italic tracking-tighter leading-none">
+                <span className="text-green-500">{stats.wins}</span>
+                <span className="text-gray-600 mx-1">/</span>
+                <span className="text-red-500">{stats.losses}</span>
+              </div>
+            </div>
+            {/* Win Rate */}
+            <div className="bg-[#001030] rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Win Rate</span>
+              <span className={`text-2xl sm:text-4xl tabular-nums font-black italic tracking-tighter ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Rank Progression Timeline */}
+        <div className="w-full mb-12 relative">
+          <div className="flex justify-between items-end relative z-10 mb-4">
+            <div className="flex flex-col">
+              <h3 className="text-lg font-black italic uppercase text-white tracking-widest leading-none">Progress<span className="text-[#00FF41]">ion</span></h3>
+            </div>
+          </div>
+
+          {/* Edge-to-edge scroll container */}
+          <div className="w-[calc(100%+48px)] sm:w-[calc(100%+64px)] -ml-6 sm:-ml-8 overflow-x-auto hide-scrollbar snap-x snap-mandatory" ref={scrollContainerRef}>
+            <div className="flex items-start min-w-max relative gap-32 pb-4 pt-4 px-6 sm:px-8">
+              {/* Connecting Background Line */}
+              <div className="absolute top-[52px] left-[60px] sm:left-[68px] right-[60px] sm:right-[68px] h-1 bg-[#001645] z-0 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)] rounded-full">
+                {/* Active Progress Line */}
+                <div 
+                  className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#00A82B] to-[#00FF41] z-0 transition-all duration-1000 shadow-[0_0_10px_#00FF41] rounded-full"
+                  style={{ width: `${(currentTierIndex / (Math.max(1, RANK_TIERS.length - 1))) * 100}%` }} 
+                />
+              </div>
+
+              {RANK_TIERS.map((tier, idx) => {
+                const isReached = user.points >= tier.min;
+                const isCurrent = idx === currentTierIndex;
+                
+                return (
+                  <div key={tier.id} data-tier-index={idx} className="relative z-10 flex flex-col items-center snap-center w-[72px]">
+                    {/* Avatar Frame */}
+                    <div className={`w-[72px] h-[72px] rounded-full p-1 relative transition-all duration-500 bg-[#001030] shadow-lg ${getRankFrameClass(tier.id)} ${!isReached ? 'opacity-40 grayscale' : ''} ${isCurrent ? 'scale-110 shadow-[0_0_30px_rgba(0,255,65,0.3)] ring-2 ring-[#00FF41] ring-offset-2 ring-offset-[#001645]' : ''}`}>
+                      <img 
+                        src={user.avatar} 
+                        className="w-full h-full rounded-full border-2 border-[#000B29] object-cover bg-black"
+                        style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                        alt={tier.name}
+                      />
+                      {isCurrent && (
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#00FF41] text-[#000B29] text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-lg z-30 whitespace-nowrap">
+                          Current
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tier Info */}
+                    <div className={`mt-5 flex flex-col items-center text-center w-32 ${isCurrent ? 'scale-110' : ''} transition-transform`}>
+                      <span className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isReached ? tier.color : 'text-gray-600'}`}>
+                        {tier.name}
+                      </span>
+                      <span className="text-[9px] font-mono font-bold text-gray-500 tracking-widest">
+                        {tier.range} RP
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
 
 
