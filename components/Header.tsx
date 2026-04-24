@@ -37,7 +37,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
  }, [allUsers, currentUser]);
 
  return (
- <header className="sticky top-0 z-40 w-full bg-[#000B29]/90 backdrop-blur-md border-b border-white/5 pt-[env(safe-area-inset-top)]">
+ <header className="w-full">
  <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative">
  
  {/* Left Block: Profile + History Toggle */}

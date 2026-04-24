@@ -62,7 +62,7 @@ const AnnouncementBanner: React.FC<AnnouncementBannerProps> = ({ onPress }) => {
     <>
       <div 
         onClick={handleOpen}
-        className="sticky top-0 z-[59] w-full bg-[#000B29] border-b border-[#00FF41]/20 text-white cursor-pointer group overflow-hidden animate-in slide-in-from-top duration-500 pt-[max(env(safe-area-inset-top),0px)]"
+        className="w-full bg-[#000B29] border-b border-[#00FF41]/20 text-white cursor-pointer group overflow-hidden animate-in slide-in-from-top duration-500"
       >
         {/* Animated Background Shine */}
         <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-[#00FF41]/10 to-transparent skew-x-[-25deg] animate-[shine_4s_infinite]"></div>

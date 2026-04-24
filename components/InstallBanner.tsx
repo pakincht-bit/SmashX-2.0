@@ -30,7 +30,7 @@ const InstallBanner: React.FC<InstallBannerProps> = ({ onOpenGuide }) => {
  return (
  <div 
  onClick={() => { triggerHaptic('medium'); onOpenGuide(); }}
- className="sticky top-0 z-[60] w-full bg-[#00FF41] text-[#000B29] cursor-pointer group overflow-hidden animate-in slide-in-from-top duration-500 pt-[env(safe-area-inset-top)]"
+ className="w-full bg-[#00FF41] text-[#000B29] cursor-pointer group overflow-hidden animate-in slide-in-from-top duration-500"
  >
  {/* Animated Background Pulse */}
  <div className="absolute inset-0 bg-white opacity-0 transition-opacity duration-300"></div>

@@ -1324,29 +1324,31 @@ const App: React.FC = () => {
  <>
  <PullToRefresh onRefresh={handlePullToRefresh}>
  <div className="min-h-screen pb-24 bg-[#000B29] text-white">
- <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
- <AnnouncementBanner />
- {/* Connection Status Indicator (realtime-sync skill §1) */}
- {(connectionStatus === 'reconnecting' || connectionStatus === 'disconnected' || isOffline) && (
- <div className={`sticky top-0 z-[60] flex items-center justify-center gap-2 py-1.5 px-4 text-[10px] font-black uppercase tracking-[0.15em] transition-all ${
- isOffline || connectionStatus === 'disconnected'
- ? 'bg-red-500/90 text-white'
- : 'bg-yellow-500/90 text-[#000B29]'
- }`}>
- {isOffline || connectionStatus === 'disconnected' ? (
- <><WifiOff size={12} /><span>Offline — Scores may not be current</span>
- <button onClick={() => { scheduleReconnection(); }} className="ml-2 underline font-black">Retry</button></>
- ) : (
- <><Loader2 size={12} className="animate-spin" /><span>Reconnecting...</span></>
- )}
- </div>
- )}
- {connectionStatus === 'syncing' && (
- <div className="sticky top-0 z-[60] flex items-center justify-center gap-2 py-1 px-4 bg-blue-500/80 text-white text-[10px] font-black uppercase tracking-[0.15em]">
- <Loader2 size={12} className="animate-spin" /><span>Syncing Arena Data...</span>
- </div>
- )}
- <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} onOpenHistory={() => setIsHistoryOpen(true)} onOpenActivity={() => setIsActivityOpen(true)} />
+        <div className="sticky top-0 z-[60] flex flex-col w-full bg-[#000B29]/90 backdrop-blur-md pt-[env(safe-area-inset-top)] border-b border-white/5">
+          <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
+          <AnnouncementBanner />
+          {/* Connection Status Indicator (realtime-sync skill §1) */}
+          {(connectionStatus === 'reconnecting' || connectionStatus === 'disconnected' || isOffline) && (
+            <div className={`flex items-center justify-center gap-2 py-1.5 px-4 text-[10px] font-black uppercase tracking-[0.15em] transition-all ${
+              isOffline || connectionStatus === 'disconnected'
+                ? 'bg-red-500/90 text-white'
+                : 'bg-yellow-500/90 text-[#000B29]'
+            }`}>
+              {isOffline || connectionStatus === 'disconnected' ? (
+                <><WifiOff size={12} /><span>Offline — Scores may not be current</span>
+                <button onClick={() => { scheduleReconnection(); }} className="ml-2 underline font-black">Retry</button></>
+              ) : (
+                <><Loader2 size={12} className="animate-spin" /><span>Reconnecting...</span></>
+              )}
+            </div>
+          )}
+          {connectionStatus === 'syncing' && (
+            <div className="flex items-center justify-center gap-2 py-1 px-4 bg-blue-500/80 text-white text-[10px] font-black uppercase tracking-[0.15em]">
+              <Loader2 size={12} className="animate-spin" /><span>Syncing Arena Data...</span>
+            </div>
+          )}
+          <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} onOpenHistory={() => setIsHistoryOpen(true)} onOpenActivity={() => setIsActivityOpen(true)} />
+        </div>
  <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</main>
  </div>
  </PullToRefresh>
