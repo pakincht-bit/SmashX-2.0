@@ -9,7 +9,6 @@ import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import InstallBanner from './components/InstallBanner';
 import PullToRefresh from './components/PullToRefresh';
-import AnnouncementBanner from './components/AnnouncementBanner';
 import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users, Wifi } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
@@ -1170,7 +1169,7 @@ const App: React.FC = () => {
  const renderContent = () => {
  switch (activeTab) {
  case 'leaderboard': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} /></Suspense>;
- case 'stats': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} /></Suspense>;
+ case 'stats': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} onPlayerClick={setViewingPlayerId} /></Suspense>;
  case 'sessions':
  default:
  return (
@@ -1295,12 +1294,12 @@ const App: React.FC = () => {
  const { day, month } = getDateParts(session.startTime);
  return (
  <div key={session.id} onClick={() => { triggerHaptic('light'); setSelectedSessionId(session.id); }} className="cursor-pointer bg-[#001645] (0,255,65,0.1)] border border-transparent rounded-none p-3 transition-all group flex items-center gap-4">
- <div className="flex flex-col items-center justify-center min-w-[40px] bg-[#000B29] rounded-none py-1.5 shrink-0 transition-colors border-r border-[#00FF41]/10">
+ <div className="flex flex-col items-center justify-center min-w-[40px] bg-[#000B29] rounded-none py-1.5 shrink-0 transition-colors">
  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 leading-none mb-1">{month}</span>
- <span className="text-xl font-black text-white italic tracking-tighter leading-none">{day}</span>
+ <span className="text-xl font-black text-white tracking-tighter leading-none">{day}</span>
  </div>
  <div className="min-w-0 flex-1">
- <h4 className="text-sm font-black italic text-white transition-colors truncate mb-1 uppercase tracking-tight">{session.title || session.location}</h4>
+ <h4 className="text-sm font-black text-white transition-colors truncate mb-1 uppercase tracking-tight">{session.title || session.location}</h4>
  <div className="flex items-center text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em]">
  <span className="tabular-nums">{formatTime(session.startTime)}</span>
  <span className="mx-2 opacity-30">•</span>
@@ -1326,7 +1325,6 @@ const App: React.FC = () => {
  <div className="min-h-screen pb-24 bg-[#000B29] text-white">
         <div className="sticky top-0 z-[60] flex flex-col w-full bg-[#000B29]/90 backdrop-blur-md pt-[env(safe-area-inset-top)] border-b border-white/5">
           <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
-          <AnnouncementBanner />
           {/* Connection Status Indicator (realtime-sync skill §1) */}
           {(connectionStatus === 'reconnecting' || connectionStatus === 'disconnected' || isOffline) && (
             <div className={`flex items-center justify-center gap-2 py-1.5 px-4 text-[10px] font-black uppercase tracking-[0.15em] transition-all ${
