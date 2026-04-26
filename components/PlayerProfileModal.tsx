@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { User, Session } from '../types';
-import { X, Trophy, Target, History, Calendar } from 'lucide-react';
+import { X, Trophy, Target, History, Calendar, Users, Swords } from 'lucide-react';
 import { getAvatarColor, getRankFrameClass, getWinRateColor, getDateParts, formatTime } from '../utils';
 
 interface PlayerProfileModalProps {
@@ -40,11 +40,13 @@ const PlayerProfileModal: React.FC<PlayerProfileModalProps> = ({ isOpen, onClose
  return { name: 'The Cocoon', color: 'text-gray-500', dot: 'bg-gray-700' };
  }, [user]);
 
+
+
  if (!isOpen || !user) return null;
 
  return (
- <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
- <div className="w-full max-w-md bg-[#001645] shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-none overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col animate-in zoom-in slide-in-from-bottom-8 duration-300 relative">
+ <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/90 backdrop-blur-[2px] animate-in fade-in duration-300">
+ <div className="w-full max-w-md bg-[#001030] shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-none overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col animate-in zoom-in slide-in-from-bottom-8 duration-300 relative">
 
  {/* Close Button */}
  <button
@@ -54,69 +56,60 @@ const PlayerProfileModal: React.FC<PlayerProfileModalProps> = ({ isOpen, onClose
  <X size={20} />
  </button>
 
- {/* Profile Card Content */}
  <div className="relative p-6 overflow-hidden">
- {/* Background Glow */}
- <div className="absolute top-0 right-0 w-64 h-64 bg-[#00FF41] rounded-full filter blur-[120px] opacity-10 -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col items-center justify-center w-full pb-6">
+            <div className="relative mb-4">
+                <div className={`absolute inset-0 ${rankInfo.dot} blur-[16px] opacity-20 transition-opacity duration-700 rounded-full`}></div>
+                <div className={`w-28 h-28 relative rounded-full bg-[#001030] shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-transform ${getRankFrameClass(user.rankFrame)}`}>
+                    <img
+                        src={user.avatar}
+                        className="w-full h-full rounded-full object-cover border-[3px] border-[#000B29]"
+                        style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                        alt={user.name}
+                    />
+                </div>
+            </div>
 
- <div className="relative z-10 flex flex-row items-center gap-6 mb-8">
- <div className="relative shrink-0">
- <div className={`w-24 h-24 rounded-full p-1 shadow-lg transition-all duration-500 ${getRankFrameClass(user.rankFrame)}`}>
- <img
- src={user.avatar}
- className="w-full h-full rounded-full border-4 border-[#000B29] object-cover relative z-10"
- style={{ backgroundColor: getAvatarColor(user.avatar) }}
- alt={user.name}
- />
- </div>
- </div>
+            <div className="flex flex-col items-center justify-center text-center">
+                <h2 className="text-2xl font-black text-white italic tracking-tighter truncate max-w-[280px] mb-1 leading-none">{user.name}</h2>
+                <div className="flex items-center gap-3">
+                    <span className="text-gray-400"><span className="text-[9px] font-black uppercase tracking-[0.2em] italic">Rank </span><span className="text-sm font-black italic text-white">#{rank}</span></span>
+                    <span className="text-[10px] text-[#00FF41]">•</span>
+                    <span className="text-[#00FF41]"><span className="text-sm font-black italic">{user.points}</span> <span className="text-[9px] font-black uppercase tracking-[0.2em] italic">pts</span></span>
+                </div>
+            </div>
+        </div>
 
- <div className="flex flex-col items-start min-w-0 flex-1">
- <span className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] italic mb-1 leading-none">Rank #{rank}</span>
- <h2 className="text-3xl font-black text-white italic tracking-tighter mb-0.5 truncate w-full">
- {user.name}
- </h2>
+        {/* Stats Grid */}
+        <div className="w-full relative z-10 mt-2">
+          <div className="grid grid-cols-3 gap-1 relative z-10">
+            {/* Played */}
+            <div className="bg-[#001030] rounded-none p-3 flex flex-col justify-center items-center relative overflow-hidden">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Played</span>
+              <span className="text-2xl tabular-nums font-black italic tracking-tighter text-white">{stats.played}</span>
+            </div>
+            {/* W-L */}
+            <div className="bg-[#001030] rounded-none p-3 flex flex-col justify-center items-center relative overflow-hidden">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">W-L</span>
+              <div className="flex items-center text-2xl font-black italic tracking-tighter">
+                <span className="text-green-500">{stats.wins}</span>
+                <span className="text-gray-600 mx-1.5">/</span>
+                <span className="text-red-500">{stats.losses}</span>
+              </div>
+            </div>
+            {/* Win Rate */}
+            <div className="bg-[#001030] rounded-none p-3 flex flex-col justify-center items-center relative overflow-hidden">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Win Rate</span>
+              <span className={`text-2xl tabular-nums font-black italic tracking-tighter ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
+            </div>
+          </div>
+        </div>
 
- <div className={`flex items-center gap-2 px-1 mb-2 ${rankInfo.color}`}>
- <span className="text-[10px] font-black uppercase tracking-[0.25em] italic">
- {rankInfo.name}
- </span>
- </div>
- </div>
 
- </div>
-
- {/* Stats Grid */}
- <div className="relative z-10 grid grid-cols-4 gap-2 mt-2 pt-6 border-t border-white/5">
- <div className="flex flex-col items-center justify-center py-2">
- <span className="text-lg font-black text-[#00FF41] font-mono leading-none">{user.points}</span>
- <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Points</span>
- </div>
-
- <div className="flex flex-col items-center justify-center py-2 border-l border-white/5">
- <span className="text-lg font-black text-white font-mono leading-none">{stats.played}</span>
- <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Played</span>
- </div>
-
- <div className="flex flex-col items-center justify-center py-2 border-l border-white/5">
- <div className="text-lg font-black italic leading-none flex items-center">
- <span className="text-green-500">{stats.wins}</span>
- <span className="text-gray-600 mx-[2px]">-</span>
- <span className="text-red-500">{stats.losses}</span>
- </div>
- <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">W-L</span>
- </div>
-
- <div className="flex flex-col items-center justify-center py-2 border-l border-white/5">
- <span className={`text-lg font-black font-mono leading-none ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
- <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">WR</span>
- </div>
- </div>
-
- </div>
- </div>
- </div>
- );
+      </div>
+    </div>
+  </div>
+  );
 };
 
 export default PlayerProfileModal;

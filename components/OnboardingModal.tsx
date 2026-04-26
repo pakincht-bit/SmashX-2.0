@@ -14,22 +14,22 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, user
  {
  icon: <Shield className="text-blue-400"size={24} />,
  title:"Base Rating",
- value:"1,000 RP",
- desc:"Every player starts with 1,000 Ranking Points as their baseline power.",
+ value:"1,000 pts",
+ desc:"Every player starts with 1,000 pts as their baseline power.",
  badgeClass:"text-gray-400 bg-gray-400/10"
  },
  {
  icon: <TrendingUp className="text-[#00FF41]"size={24} />,
  title:"Victory",
- value:"+25 RP",
- desc:"Securing a win in any match increases your ranking by 25 points.",
+ value:"+25 pts",
+ desc:"Securing a win in any match increases your ranking by 25 pts.",
  badgeClass:"text-[#00FF41] bg-[#00FF41]/10"
  },
  {
  icon: <TrendingDown className="text-red-500"size={24} />,
  title:"Defeat",
- value:"-25 RP",
- desc:"Losing a match results in a 25 point deduction from your total RP.",
+ value:"-25 pts",
+ desc:"Losing a match results in a 25 pts deduction from your total.",
  badgeClass:"text-red-500 bg-red-500/10"
  }
  ];

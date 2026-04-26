@@ -52,3 +52,4 @@ Start by understanding the current project context, then ask questions one at a 
 - **Explore alternatives** - Always propose 2-3 approaches before settling
 - **Incremental validation** - Present design in sections, validate each
 - **Be flexible** - Go back and clarify when something doesn't make sense
+- **Performance & Scalability Check** - For any new UI or feature, proactively identify and warn the user about potential performance bottlenecks (e.g., heavy synchronous computations, large render trees, excessive network requests) that could degrade the app's responsiveness or scalability.

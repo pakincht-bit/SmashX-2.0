@@ -133,7 +133,7 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
  <div className="flex items-center gap-2">
  <span className="text-xs font-black uppercase tracking-[0.2em] italic text-gray-400">Rank #{rank}</span>
  <span className="text-[10px] text-[#00FF41]">•</span>
- <span className="text-xs font-black uppercase tracking-[0.2em] italic text-[#00FF41]">{user.points} RP</span>
+ <span className="text-xs font-black uppercase tracking-[0.2em] italic text-[#00FF41]">{user.points} pts</span>
  </div>
  </div>
  </div>
@@ -149,9 +149,9 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
             {/* W-L */}
             <div className="bg-[#001030] rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">W-L</span>
-              <div className="flex items-center text-2xl sm:text-4xl font-black italic tracking-tighter leading-none">
+              <div className="flex items-center text-2xl sm:text-4xl font-black italic tracking-tighter">
                 <span className="text-green-500">{stats.wins}</span>
-                <span className="text-gray-600 mx-1">/</span>
+                <span className="text-gray-600 mx-1.5">/</span>
                 <span className="text-red-500">{stats.losses}</span>
               </div>
             </div>
@@ -197,11 +197,6 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
                         style={{ backgroundColor: getAvatarColor(user.avatar) }}
                         alt={tier.name}
                       />
-                      {isCurrent && (
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#00FF41] text-[#000B29] text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-lg z-30 whitespace-nowrap">
-                          Current
-                        </div>
-                      )}
                     </div>
 
                     {/* Tier Info */}
@@ -210,7 +205,7 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
                         {tier.name}
                       </span>
                       <span className="text-[9px] font-mono font-bold text-gray-500 tracking-widest">
-                        {tier.range} RP
+                        {tier.range} pts
                       </span>
                     </div>
                   </div>

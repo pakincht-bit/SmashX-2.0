@@ -130,7 +130,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
  {/* Main Stats Grid */}
  <div className="grid grid-cols-3 gap-2 w-full z-10 mb-4">
  <div className="flex flex-col items-center justify-center bg-[#001645]/80 border border-[#002266] backdrop-blur-sm rounded-none py-3 relative overflow-hidden">
- <span className="text-gray-500 text-[8px] font-black mb-1 uppercase tracking-widest relative z-10">Points</span>
+ <span className="text-gray-500 text-[8px] font-black mb-1 uppercase tracking-widest relative z-10">Pts</span>
  <span className={`text-xl sm:text-2xl font-black italic tracking-tighter leading-none relative z-10 ${isPositive ? 'text-[#00FF41]' : 'text-red-500'}`}>
  {isPositive ? '+' : ''}{stats.pointsChange}
  </span>

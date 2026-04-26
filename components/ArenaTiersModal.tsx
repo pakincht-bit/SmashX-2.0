@@ -59,7 +59,7 @@ const ArenaTiersModal: React.FC<ArenaTiersModalProps> = ({ isOpen, onClose, user
  <div className="flex-1 flex flex-col items-center text-center px-12 relative z-10 animate-fade-in justify-center">
  <div className="mb-1"><span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500">Tier {currentPreviewIndex + 1} / {RANK_TIERS.length}</span></div>
  <h3 className={`text-2xl sm:text-3xl font-black italic uppercase tracking-tighter mb-1 whitespace-nowrap ${currentTier.color}`}>{currentTier.name}</h3>
- <div className="flex items-center gap-2 mb-4"><div className={`px-3 py-1 rounded bg-[#000B29] border border-white/10 text-white text-[10px] font-bold font-mono uppercase tracking-widest`}>{currentTier.range} RP</div></div>
+ <div className="flex items-center gap-2 mb-4"><div className={`px-3 py-1 rounded bg-[#000B29] border border-white/10 text-white text-[10px] font-bold font-mono uppercase tracking-widest`}>{currentTier.range} pts</div></div>
  <div className="relative group mt-2">
  <div className={`w-32 h-32 rounded-full p-1.5 transition-all duration-500 shadow-[0_0_60px_rgba(0,0,0,0.6)] preview-active ${getRankFrameClass(currentTier.id)}`}>
  <img src={user.avatar} className="w-full h-full rounded-full border-4 border-[#000B29] object-cover relative z-10"style={{ backgroundColor: getAvatarColor(user.avatar) }} alt="Preview"/>

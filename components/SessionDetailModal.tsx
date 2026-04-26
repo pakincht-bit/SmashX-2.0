@@ -566,7 +566,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  {isCheckedIn && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#00FF41] rounded-full border-2 border-[#000B29] flex items-center justify-center"><Check size={8} className="text-[#000B29] stroke-[4]" /></div>}
  </div>
  <div>
- <div className="text-sm font-bold text-white flex items-center transition-colors">{player.name} <span className="ml-2 text-[10px] font-mono text-yellow-500 font-bold">{player.points} Points</span> {isPlaying && (<span className="ml-2 text-[10px] text-[#000B29] bg-[#00FF41] font-black px-1.5 rounded uppercase tracking-wider animate-pulse"> Court {currentCourt + 1} </span>)} </div>
+ <div className="text-sm font-bold text-white flex items-center transition-colors">{player.name} <span className="ml-2 text-[10px] font-mono text-yellow-500 font-bold">{player.points} pts</span> {isPlaying && (<span className="ml-2 text-[10px] text-[#000B29] bg-[#00FF41] font-black px-1.5 rounded uppercase tracking-wider animate-pulse"> Court {currentCourt + 1} </span>)} </div>
  <div className="flex items-center gap-2 mt-1">
  {isCheckedIn ? (<div className="flex items-center gap-2 py-0.5"><span className="text-[10px] font-bold text-gray-300">{s.played} Played</span><span className="text-[10px] text-gray-500">•</span><span className="text-[10px] font-bold"><span className="text-green-400">{s.wins}W</span> / <span className="text-red-400">{s.losses}L</span></span></div>) : (<span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Not Checked In</span>)}
  </div>
@@ -594,7 +594,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </div>
  <div>
  <div className="text-sm font-bold text-white flex items-center transition-colors">{player.name} {player.id === currentUser.id && <span className="ml-2 text-[10px] text-[#00FF41] bg-[#00FF41]/10 px-1.5 rounded uppercase tracking-wider">You</span>}</div>
- <div className="flex items-center gap-2 mt-0.5"><span className="text-[10px] font-mono text-yellow-500 font-bold">{player.points} Points</span></div>
+ <div className="flex items-center gap-2 mt-0.5"><span className="text-[10px] font-mono text-yellow-500 font-bold">{player.points} pts</span></div>
  </div>
  </div>
  {player.id === session.hostId && (<div className="bg-[#00FF41] text-[#000B29] text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider -skew-x-12"> <span className="skew-x-12 inline-block">Host</span> </div>)}
@@ -741,7 +741,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className={`rounded-full ${getRankFrameClass(hotUser.rankFrame).replace('ring-4', 'ring-2')}`}>
  <img src={hotUser.avatar} className="w-12 h-12 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(hotUser.avatar) }} />
  </div>
- <div className="absolute -top-1 -right-1 text-sm">🔥</div>
+ <div className="absolute -top-1 -right-1 text-sm z-20">🔥</div>
  </div>
  <div className="flex-1 min-w-0">
  <div className="text-sm font-bold text-white">{hotUser.name}</div>
@@ -762,7 +762,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className={`rounded-full ${getRankFrameClass(coldUser.rankFrame).replace('ring-4', 'ring-2')}`}>
  <img src={coldUser.avatar} className="w-12 h-12 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(coldUser.avatar) }} />
  </div>
- <div className="absolute -top-1 -right-1 text-sm">🥶</div>
+ <div className="absolute -top-1 -right-1 text-sm z-20">🥶</div>
  </div>
  <div className="flex-1 min-w-0">
  <div className="text-sm font-bold text-white">{coldUser.name}</div>
@@ -918,7 +918,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
  <img src={user.avatar} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
  </div>
- {index === 0 && <div className="absolute -top-1 -right-1 text-[8px] bg-yellow-500 text-black px-1 rounded-full font-black">MVP</div>}
+ {index === 0 && <div className="absolute -top-1 -right-1 text-[8px] bg-yellow-500 text-black px-1 rounded-full font-black z-20 shadow-md">MVP</div>}
  </div>
  <div>
  <div className="text-sm font-bold flex items-center">{user.name}{user.id === currentUser.id && <span className="ml-2 text-[8px] text-[#00FF41] bg-[#00FF41]/10 px-1 rounded uppercase tracking-wider">You</span>}</div>
@@ -930,7 +930,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  {s.pointsChange > 0 ? <TrendingUp size={12} className="mr-1" /> : (s.pointsChange < 0 ? <TrendingDown size={12} className="mr-1" /> : null)}
  {s.pointsChange > 0 ? '+' : ''}{s.pointsChange}
  </div>
- <div className="text-[9px] text-gray-400 uppercase font-bold tracking-wider">Points Change</div>
+ <div className="text-[9px] text-gray-400 uppercase font-bold tracking-wider">Pts Change</div>
  </div>
  </div>
  );
@@ -1077,21 +1077,21 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"><div className="bg-[#000B29] text-gray-500 text-[10px] font-black w-8 h-8 flex items-center justify-center rounded-full shadow-lg">VS</div></div>
  <div className="grid grid-cols-2 gap-8">
  <div className="text-center">
- <div className="mb-2 flex flex-col items-center"> <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Blue Team</span> <span className="text-[9px] font-mono text-gray-500">{tempStats.t1Avg > 0 ? `${tempStats.t1Avg} RP` : '0 RP'}</span> </div>
+ <div className="mb-2 flex flex-col items-center"> <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Blue Team</span> <span className="text-[9px] font-mono text-gray-500">{tempStats.t1Avg > 0 ? `${tempStats.t1Avg} pts` : '0 pts'}</span> </div>
  <div className="space-y-2"> {[0, 1].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 border rounded transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#001645] border-blue-500/30 ' : 'border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center gap-2 text-left w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-6 h-6 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-[10px] font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
  </div>
  <div className="text-center">
- <div className="mb-2 flex flex-col items-center"> <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Red Team</span> <span className="text-[9px] font-mono text-gray-500">{tempStats.t2Avg > 0 ? `${tempStats.t2Avg} RP` : '0 RP'}</span> </div>
+ <div className="mb-2 flex flex-col items-center"> <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Red Team</span> <span className="text-[9px] font-mono text-gray-500">{tempStats.t2Avg > 0 ? `${tempStats.t2Avg} pts` : '0 pts'}</span> </div>
  <div className="space-y-2"> {[2, 3].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 border rounded transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#001645] border-red-500/30 ' : 'border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center flex-row-reverse gap-2 text-right w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-8 h-8 rounded-full border-red-500 object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-[10px] font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
  </div>
  </div>
- {tempStats && selectedCount === 4 && <div className="absolute bottom-1 left-0 right-0 text-center pointer-events-none"><span className={`text-[9px] font-black px-1.5 py-0.5 rounded backdrop-blur ${tempStats.diff < 50 ? 'bg-[#00FF41]/20 text-[#00FF41]' : 'bg-yellow-500/20 text-yellow-500'}`}>RP Diff: {tempStats.diff}</span></div>}
+ {tempStats && selectedCount === 4 && <div className="absolute bottom-1 left-0 right-0 text-center pointer-events-none"><span className={`text-[9px] font-black px-1.5 py-0.5 rounded backdrop-blur ${tempStats.diff < 50 ? 'bg-[#00FF41]/20 text-[#00FF41]' : 'bg-yellow-500/20 text-yellow-500'}`}>Pts Diff: {tempStats.diff}</span></div>}
  </div>
 
  </div>
  <div className="p-4 overflow-y-auto flex-1">
  <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-3 flex items-center">Available Players</h4>
- <div className="space-y-2">{checkedInIds.filter(pid => { if (tempSelectedPlayers.includes(pid)) return false; const currentCourt = getPlayerCourtIndex(pid); if (currentCourt !== null && currentCourt !== editingCourt && !isQueueingMatch) return false; return true; }).sort((a, b) => { const aPlayed = (playerStats[a] || { played: 0 }).played; const bPlayed = (playerStats[b] || { played: 0 }).played; return aPlayed - bPlayed; }).map(playerId => { const user = allUsers.find(u => u.id === playerId); if (!user) return null; const pStats = playerStats[playerId] || { played: 0 }; return (<button key={playerId} onClick={() => handleSelectAvailablePlayer(playerId)} className="w-full flex items-center justify-between p-3 rounded-none border bg-[#000B29] border-[#002266] transition-all group"><div className="flex items-center gap-3"><div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}><img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} /></div><div className="text-left"><span className="text-sm font-bold text-white block">{user.name}</span><div className="flex items-center gap-2"><span className="text-[10px] text-yellow-500 font-mono font-bold">{user.points} RP</span><span className="text-[10px] text-gray-500 font-bold">•</span><span className="text-[10px] text-blue-400 font-bold">{pStats.played} Played</span></div></div></div><div className="w-6 h-6 rounded-full bg-[#00FF41]/10 flex items-center justify-center transition-colors"><Plus size={14} className="text-[#00FF41] " /></div></button>); })}</div>
+ <div className="space-y-2">{checkedInIds.filter(pid => { if (tempSelectedPlayers.includes(pid)) return false; const currentCourt = getPlayerCourtIndex(pid); if (currentCourt !== null && currentCourt !== editingCourt && !isQueueingMatch) return false; return true; }).sort((a, b) => { const aPlayed = (playerStats[a] || { played: 0 }).played; const bPlayed = (playerStats[b] || { played: 0 }).played; return aPlayed - bPlayed; }).map(playerId => { const user = allUsers.find(u => u.id === playerId); if (!user) return null; const pStats = playerStats[playerId] || { played: 0 }; return (<button key={playerId} onClick={() => handleSelectAvailablePlayer(playerId)} className="w-full flex items-center justify-between p-3 rounded-none border bg-[#000B29] border-[#002266] transition-all group"><div className="flex items-center gap-3"><div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}><img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} /></div><div className="text-left"><span className="text-sm font-bold text-white block">{user.name}</span><div className="flex items-center gap-2"><span className="text-[10px] text-yellow-500 font-mono font-bold">{user.points} pts</span><span className="text-[10px] text-gray-500 font-bold">•</span><span className="text-[10px] text-blue-400 font-bold">{pStats.played} Played</span></div></div></div><div className="w-6 h-6 rounded-full bg-[#00FF41]/10 flex items-center justify-center transition-colors"><Plus size={14} className="text-[#00FF41] " /></div></button>); })}</div>
  </div>
  <div className="p-4 bg-[#000B29] border-t border-[#002266] flex gap-3">
  <button onClick={() => { triggerHaptic('light'); setEditingCourt(null); setIsQueueingMatch(false); }} className="py-3.5 px-3 border border-[#002266] text-gray-400 transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg]"><span className="skew-x-[6deg] inline-block">Cancel</span></button>

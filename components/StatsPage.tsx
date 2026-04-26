@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { User, Session } from '../types';
 import { Trophy, Activity, Swords, Users, ChevronRight, Loader2 } from 'lucide-react';
-import { getAvatarColor, getNextTierProgress, getWinRateColor, triggerHaptic, mapSessionFromDB } from '../utils';
+import { getAvatarColor, getNextTierProgress, getWinRateColor, triggerHaptic, mapSessionFromDB, getRankFrameClass } from '../utils';
 import { supabase } from '../services/supabaseClient';
 
 interface StatsPageProps {
@@ -9,13 +9,15 @@ interface StatsPageProps {
     allUsers: User[];
     sessions: Session[];
     onOpenTiers: () => void;
+    onPlayerClick?: (userId: string) => void;
 }
 
-const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, onOpenTiers }) => {
+const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, onOpenTiers, onPlayerClick }) => {
     const rankProgression = useMemo(() => getNextTierProgress(currentUser.points), [currentUser.points]);
 
     const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(sessions);
     const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
+    const [encounterTab, setEncounterTab] = useState<'teammates' | 'opponents'>('teammates');
 
     useEffect(() => {
         const fetchAllTimeHistory = async () => {
@@ -42,7 +44,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
     // 2. Global Analytics Computation
     const {
         duoPartner, frequentDuo, archNemesis, easyTarget,
-        last10Matches, currentStreak, maxWinStreak
+        last10Matches, currentStreak, maxWinStreak, allPlayerStats
     } = useMemo(() => {
         const stats: Record<string, { playedWith: number, wonWith: number, playedAgainst: number, lostAgainst: number }> = {};
 
@@ -164,6 +166,18 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
             return u ? { user: u, stat: data.stat, winRate: data.winRate } : null;
         };
 
+        const allPlayerStats = Object.entries(stats)
+            .map(([id, stat]) => {
+                const user = allUsers.find(u => u.id === id);
+                return { user, stat };
+            })
+            .filter(item => item.user != null)
+            .sort((a, b) => {
+                const totalA = a.stat.playedWith + a.stat.playedAgainst;
+                const totalB = b.stat.playedWith + b.stat.playedAgainst;
+                return totalB - totalA;
+            });
+
         return {
             duoPartner: getPlayerObj(bestDuo),
             frequentDuo: getPlayerObj(freqDuo),
@@ -171,12 +185,13 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
             easyTarget: getPlayerObj(bestTarget),
             last10Matches: last10,
             currentStreak: { count: curStr, type: isWinStreak ? 'W' : 'L' },
-            maxWinStreak: maxWStr
+            maxWinStreak: maxWStr,
+            allPlayerStats
         };
     }, [allTimeSessions, currentUser.id, allUsers]);
 
     return (
-        <div className="animate-fade-in-up space-y-8 pb-32">
+        <div className="animate-fade-in-up space-y-8 pb-20">
             {isLoadingData ? (
                 <div className="flex flex-col items-center justify-center py-32 min-h-[50vh] animate-pulse">
                     <Loader2 className="animate-spin text-[#00FF41] mb-6" size={40} />
@@ -241,7 +256,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
                             {/* Frequent Duo */}
-                            <div className="bg-gradient-to-r from-blue-500/10 to-transparent border-l-2 border-l-blue-500/50 rounded-none p-3.5 flex items-center justify-between relative overflow-hidden gap-2">
+                            <div onClick={() => frequentDuo && onPlayerClick?.(frequentDuo.user.id)} className={`bg-gradient-to-r from-blue-500/10 to-transparent border-l-2 border-l-blue-500/50 rounded-none p-3.5 flex items-center justify-between relative overflow-hidden gap-2 ${frequentDuo ? 'cursor-pointer active:bg-blue-500/20 transition-colors' : ''}`}>
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
                                 <div className="flex items-center gap-3 relative z-10">
@@ -279,7 +294,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                             </div>
 
                             {/* Duo Partner */}
-                            <div className="bg-gradient-to-r from-[#00FF41]/10 to-transparent border-l-2 border-l-[#00FF41]/50 rounded-none p-3.5 flex items-center justify-between relative overflow-hidden gap-2">
+                            <div onClick={() => duoPartner && onPlayerClick?.(duoPartner.user.id)} className={`bg-gradient-to-r from-[#00FF41]/10 to-transparent border-l-2 border-l-[#00FF41]/50 rounded-none p-3.5 flex items-center justify-between relative overflow-hidden gap-2 ${duoPartner ? 'cursor-pointer active:bg-[#00FF41]/20 transition-colors' : ''}`}>
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#00FF41]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
                                 <div className="flex items-center gap-3 relative z-10">
@@ -317,7 +332,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                             </div>
 
                             {/* Easy Target */}
-                            <div className="bg-gradient-to-r from-orange-500/10 to-transparent border-l-2 border-l-orange-500/50 rounded-none p-3.5 flex items-center justify-between relative overflow-hidden gap-2">
+                            <div onClick={() => easyTarget && onPlayerClick?.(easyTarget.user.id)} className={`bg-gradient-to-r from-orange-500/10 to-transparent border-l-2 border-l-orange-500/50 rounded-none p-3.5 flex items-center justify-between relative overflow-hidden gap-2 ${easyTarget ? 'cursor-pointer active:bg-orange-500/20 transition-colors' : ''}`}>
                                 <div className="absolute bottom-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl translate-y-1/2 translate-x-1/2"></div>
 
                                 <div className="flex items-center gap-3 relative z-10">
@@ -355,7 +370,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                             </div>
 
                             {/* Arch Nemesis */}
-                            <div className="bg-gradient-to-r from-red-500/10 to-transparent border-l-2 border-l-red-500/50 rounded-none p-3.5 flex items-center justify-between relative overflow-hidden gap-2">
+                            <div onClick={() => archNemesis && onPlayerClick?.(archNemesis.user.id)} className={`bg-gradient-to-r from-red-500/10 to-transparent border-l-2 border-l-red-500/50 rounded-none p-3.5 flex items-center justify-between relative overflow-hidden gap-2 ${archNemesis ? 'cursor-pointer active:bg-red-500/20 transition-colors' : ''}`}>
                                 <div className="absolute bottom-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl translate-y-1/2 translate-x-1/2"></div>
 
                                 <div className="flex items-center gap-3 relative z-10">
@@ -391,6 +406,78 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    </section>
+
+                    {/* Player Encounters Section */}
+                    <section className="-mx-4 sm:-mx-6 space-y-2 mt-8">
+                        <div className="flex border-b border-navy-border w-full">
+                            <button 
+                                onClick={() => setEncounterTab('teammates')}
+                                className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${encounterTab === 'teammates' ? 'text-neon-primary border-neon-primary' : 'text-gray-500 border-transparent'}`}
+                            >
+                                Teammates
+                            </button>
+                            <button 
+                                onClick={() => setEncounterTab('opponents')}
+                                className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${encounterTab === 'opponents' ? 'text-orange-500 border-orange-500' : 'text-gray-500 border-transparent'}`}
+                            >
+                                Opponents
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-0">
+                            {allPlayerStats
+                                .filter(p => encounterTab === 'teammates' ? p.stat.playedWith > 0 : p.stat.playedAgainst > 0)
+                                .sort((a, b) => {
+                                    if (encounterTab === 'teammates') {
+                                        const winRateA = a.stat.wonWith / a.stat.playedWith;
+                                        const winRateB = b.stat.wonWith / b.stat.playedWith;
+                                        if (winRateB !== winRateA) return winRateB - winRateA;
+                                        return b.stat.playedWith - a.stat.playedWith;
+                                    } else {
+                                        const winRateA = (a.stat.playedAgainst - a.stat.lostAgainst) / a.stat.playedAgainst;
+                                        const winRateB = (b.stat.playedAgainst - b.stat.lostAgainst) / b.stat.playedAgainst;
+                                        if (winRateB !== winRateA) return winRateB - winRateA;
+                                        return b.stat.playedAgainst - a.stat.playedAgainst;
+                                    }
+                                })
+                                .map(p => {
+                                    const total = encounterTab === 'teammates' ? p.stat.playedWith : p.stat.playedAgainst;
+                                    const wins = encounterTab === 'teammates' ? p.stat.wonWith : (p.stat.playedAgainst - p.stat.lostAgainst);
+                                    const losses = encounterTab === 'teammates' ? (p.stat.playedWith - p.stat.wonWith) : p.stat.lostAgainst;
+                                    const winRate = total > 0 ? ((wins / total) * 100).toFixed(0) : '0';
+                                    
+                                    return (
+                                        <div key={p.user!.id} onClick={() => onPlayerClick?.(p.user!.id)} className={`py-3 px-4 sm:px-6 flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors group ${encounterTab === 'teammates' ? 'bg-blue-500/[0.08]' : 'bg-orange-500/[0.08]'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`relative shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(p.user!.rankFrame).replace('ring-4', 'ring-2')}`}>
+                                                    <img src={p.user!.avatar} alt={p.user!.name} className="w-10 h-10 rounded-full border border-navy-border object-cover shrink-0 relative z-10" style={{ backgroundColor: getAvatarColor(p.user!.avatar) }} />
+                                                </div>
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-sm font-bold text-white leading-none mb-1 truncate">{p.user!.name}</span>
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{total} Matches</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-3 shrink-0">
+                                                <div className="text-right flex items-center">
+                                                    <span className="text-xs font-bold text-neon-primary mr-1">{wins}W</span>
+                                                    <span className="text-[10px] font-bold text-gray-600 mx-0.5">/</span>
+                                                    <span className="text-xs font-bold text-red-500 ml-1">{losses}L</span>
+                                                </div>
+                                                <div className="bg-navy-base border border-navy-border px-2 py-1 flex items-center justify-center min-w-[48px]">
+                                                    <span className={`text-sm font-black italic ${parseInt(winRate) >= 50 ? 'text-neon-primary' : 'text-orange-500'}`}>{winRate}%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {allPlayerStats.filter(p => encounterTab === 'teammates' ? p.stat.playedWith > 0 : p.stat.playedAgainst > 0).length === 0 && (
+                                    <div className="text-center py-8 px-4 sm:px-6">
+                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">No {encounterTab} found</span>
+                                    </div>
+                                )}
                         </div>
                     </section>
                 </>

@@ -117,7 +117,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
  <h3 className="text-sm font-black uppercase tracking-widest text-red-500">Danger Zone</h3>
  </div>
  <p className="text-xs text-gray-400 font-medium mb-6 leading-relaxed">
- Deleting your account is permanent. All RP, match history, and profile data will be purged.
+ Deleting your account is permanent. All pts, match history, and profile data will be purged.
  </p>
  <button
  type="button"

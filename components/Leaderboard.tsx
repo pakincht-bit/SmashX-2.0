@@ -158,13 +158,13 @@ const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, is
  </>
  ) : sortMode === 'matches' ? (
  <>
- <span className="font-bold uppercase tracking-wider text-[#00FF41]">{user.points} Pts</span>
+ <span className="font-bold uppercase tracking-wider text-[#00FF41]">{user.points} pts</span>
  <span className="text-[#002266] font-bold">•</span>
  <span className={`font-black uppercase tracking-wider ${getWinRateColor(s.winRate)}`}>{s.winRate}% WR</span>
  </>
  ) : (
  <>
- <span className="font-bold uppercase tracking-wider text-[#00FF41]">{user.points} Pts</span>
+ <span className="font-bold uppercase tracking-wider text-[#00FF41]">{user.points} pts</span>
  <span className="text-[#002266] font-bold">•</span>
  <span className="font-bold uppercase tracking-wider text-gray-400">{s.wins}W - {s.losses}L</span>
  </>
