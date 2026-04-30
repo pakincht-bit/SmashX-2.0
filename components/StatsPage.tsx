@@ -12,11 +12,20 @@ interface StatsPageProps {
     onPlayerClick?: (userId: string) => void;
 }
 
+// Module-level cache for all-time sessions (offline-resilience pattern)
+let globalAllTimeSessions: Session[] | null = null;
+let globalAllTimeSessionsUserId: string | null = null;
+let globalAllTimeSessionsFetchTime: number = 0;
+
 const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, onOpenTiers, onPlayerClick }) => {
     const rankProgression = useMemo(() => getNextTierProgress(currentUser.points), [currentUser.points]);
 
-    const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(sessions);
-    const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
+    const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(
+        globalAllTimeSessions && globalAllTimeSessionsUserId === currentUser.id ? globalAllTimeSessions : sessions
+    );
+    const [isLoadingData, setIsLoadingData] = useState<boolean>(
+        !globalAllTimeSessions || globalAllTimeSessionsUserId !== currentUser.id
+    );
     const [encounterTab, setEncounterTab] = useState<'teammates' | 'opponents'>('teammates');
     const [encounterSort, setEncounterSort] = useState<{ col: 'gp' | 'w' | 'l' | 'wr'; dir: 'desc' | 'asc' }>({ col: 'gp', dir: 'desc' });
 
@@ -26,7 +35,16 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
 
     useEffect(() => {
         const fetchAllTimeHistory = async () => {
-            setIsLoadingData(true);
+            const now = Date.now();
+            const hasValidCache = globalAllTimeSessions && 
+                                  globalAllTimeSessionsUserId === currentUser.id && 
+                                  (now - globalAllTimeSessionsFetchTime < 5 * 60 * 1000);
+
+            if (hasValidCache) return;
+
+            if (!globalAllTimeSessions || globalAllTimeSessionsUserId !== currentUser.id) {
+                setIsLoadingData(true);
+            }
             try {
                 const { data, error } = await supabase
                     .from('sessions')
@@ -34,7 +52,11 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                     .contains('player_ids', [currentUser.id]);
 
                 if (data && !error) {
-                    setAllTimeSessions(data.map(mapSessionFromDB));
+                    const mapped = data.map(mapSessionFromDB);
+                    setAllTimeSessions(mapped);
+                    globalAllTimeSessions = mapped;
+                    globalAllTimeSessionsUserId = currentUser.id;
+                    globalAllTimeSessionsFetchTime = Date.now();
                 }
             } catch (err) {
                 console.error("StatsPage: failed to fetch all time history", err);
@@ -46,6 +68,14 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
         fetchAllTimeHistory();
     }, [currentUser.id]);
 
+    // Merge cached all-time sessions with live incoming sessions from App.tsx
+    const mergedSessions = useMemo(() => {
+        const sessionMap = new Map<string, Session>();
+        allTimeSessions.forEach(s => sessionMap.set(s.id, s));
+        sessions.forEach(s => sessionMap.set(s.id, s));
+        return Array.from(sessionMap.values());
+    }, [allTimeSessions, sessions]);
+
     // 2. Global Analytics Computation
     const {
         duoPartner, frequentDuo, archNemesis, easyTarget,
@@ -55,7 +85,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
 
         let allMyMatches: { match: any, won: boolean, timestamp: Date }[] = [];
 
-        allTimeSessions.forEach(session => {
+        mergedSessions.forEach(session => {
             if (!session.matches) return;
             session.matches.forEach(match => {
                 const isTeam1 = match.team1Ids.includes(currentUser.id);
@@ -193,7 +223,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
             maxWinStreak: maxWStr,
             allPlayerStats
         };
-    }, [allTimeSessions, currentUser.id, allUsers]);
+    }, [mergedSessions, currentUser.id, allUsers]);
 
     return (
         <div className="animate-fade-in-up space-y-8 pb-20">
