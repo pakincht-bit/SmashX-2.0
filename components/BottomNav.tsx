@@ -14,7 +14,7 @@ const BottomNav: React.FC<BottomNavProps> = React.memo(({ activeTab, onTabChange
  const tabs = useMemo(() => [
  { id: 'sessions', label: 'Arena', icon: Calendar },
  { id: 'leaderboard', label: 'Ranks', icon: Trophy },
- { id: 'stats', label: 'Analytics', icon: Activity },
+ { id: 'stats', label: 'Stats', icon: Activity },
  ], []);
 
  const activeIndex = tabs.findIndex(t => t.id === activeTab);

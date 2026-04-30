@@ -621,7 +621,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  No <span className="text-gray-600">Data</span> Yet
  </h3>
  <p className="text-xs font-bold text-gray-400 text-center max-w-[200px] uppercase tracking-wide">
- Play some matches to see session analytics.
+ Play some matches to see session stats.
  </p>
  </div>
  );
@@ -1022,7 +1022,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  onClick={() => { triggerHaptic('light'); setActiveTab('analytics'); }}
  className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'analytics' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}
  >
- Analytics
+ Stats
  </button>
  </div>
  )}

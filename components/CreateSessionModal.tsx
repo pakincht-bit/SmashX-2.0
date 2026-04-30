@@ -102,7 +102,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  if (!isOpen) return null;
 
  return (
- <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-[#000B29]/80 backdrop-blur-sm">
+ <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-[#000B29]/80 backdrop-blur-sm">
  <div className="bg-[#001645] rounded-none shadow-[0_8px_32px_rgba(0,0,0,0.4)] shadow-[0_0_50px_rgba(0,0,0,0.5)] w-full max-w-md overflow-hidden animate-fade-in-up">
  
  <div className="bg-[#000B29] p-6 flex justify-between items-center border-b border-white/5">

@@ -18,6 +18,11 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
     const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(sessions);
     const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
     const [encounterTab, setEncounterTab] = useState<'teammates' | 'opponents'>('teammates');
+    const [encounterSort, setEncounterSort] = useState<{ col: 'gp' | 'w' | 'l' | 'wr'; dir: 'desc' | 'asc' }>({ col: 'gp', dir: 'desc' });
+
+    const handleEncounterSort = (col: 'gp' | 'w' | 'l' | 'wr') => {
+        setEncounterSort(prev => prev.col === col ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' });
+    };
 
     useEffect(() => {
         const fetchAllTimeHistory = async () => {
@@ -427,20 +432,44 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                         </div>
 
                         <div className="flex flex-col gap-0">
+                            {/* Column Headers */}
+                            {allPlayerStats.filter(p => encounterTab === 'teammates' ? p.stat.playedWith > 0 : p.stat.playedAgainst > 0).length > 0 && (
+                                <div className="flex items-center justify-between py-2 px-4 sm:px-6 border-b border-navy-border">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 flex-1">Player</span>
+                                    <div className="flex items-center shrink-0">
+                                        {([['gp', 'M', 'w-10'], ['w', 'W', 'w-10'], ['l', 'L', 'w-10'], ['wr', 'WR%', 'w-12']] as const).map(([key, label, width]) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => handleEncounterSort(key)}
+                                                className={`text-[9px] font-black uppercase tracking-widest ${width} text-center transition-colors flex items-center justify-center gap-0.5 ${encounterSort.col === key ? 'text-white' : 'text-gray-600'}`}
+                                            >
+                                                {label}
+                                                {encounterSort.col === key && (
+                                                    <span className="text-[8px]">{encounterSort.dir === 'desc' ? '▼' : '▲'}</span>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             {allPlayerStats
                                 .filter(p => encounterTab === 'teammates' ? p.stat.playedWith > 0 : p.stat.playedAgainst > 0)
                                 .sort((a, b) => {
-                                    if (encounterTab === 'teammates') {
-                                        const winRateA = a.stat.wonWith / a.stat.playedWith;
-                                        const winRateB = b.stat.wonWith / b.stat.playedWith;
-                                        if (winRateB !== winRateA) return winRateB - winRateA;
-                                        return b.stat.playedWith - a.stat.playedWith;
-                                    } else {
-                                        const winRateA = (a.stat.playedAgainst - a.stat.lostAgainst) / a.stat.playedAgainst;
-                                        const winRateB = (b.stat.playedAgainst - b.stat.lostAgainst) / b.stat.playedAgainst;
-                                        if (winRateB !== winRateA) return winRateB - winRateA;
-                                        return b.stat.playedAgainst - a.stat.playedAgainst;
-                                    }
+                                    const isTeam = encounterTab === 'teammates';
+                                    const getVal = (p: typeof a) => {
+                                        const total = isTeam ? p.stat.playedWith : p.stat.playedAgainst;
+                                        const wins = isTeam ? p.stat.wonWith : (p.stat.playedAgainst - p.stat.lostAgainst);
+                                        const losses = isTeam ? (p.stat.playedWith - p.stat.wonWith) : p.stat.lostAgainst;
+                                        const wr = total > 0 ? wins / total : 0;
+                                        switch (encounterSort.col) {
+                                            case 'gp': return total;
+                                            case 'w': return wins;
+                                            case 'l': return losses;
+                                            case 'wr': return wr;
+                                        }
+                                    };
+                                    const diff = getVal(b) - getVal(a);
+                                    return encounterSort.dir === 'desc' ? diff : -diff;
                                 })
                                 .map(p => {
                                     const total = encounterTab === 'teammates' ? p.stat.playedWith : p.stat.playedAgainst;
@@ -449,26 +478,19 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                                     const winRate = total > 0 ? ((wins / total) * 100).toFixed(0) : '0';
                                     
                                     return (
-                                        <div key={p.user!.id} onClick={() => onPlayerClick?.(p.user!.id)} className={`py-3 px-4 sm:px-6 flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors group ${encounterTab === 'teammates' ? 'bg-blue-500/[0.08]' : 'bg-orange-500/[0.08]'}`}>
-                                            <div className="flex items-center gap-3">
+                                        <div key={p.user!.id} onClick={() => onPlayerClick?.(p.user!.id)} className={`py-3 px-4 sm:px-6 flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors group ${encounterTab === 'teammates' ? 'bg-blue-500/[0.08]' : 'bg-orange-500/[0.10]'}`}>
+                                            <div className="flex items-center gap-3 flex-1 min-w-0">
                                                 <div className={`relative shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(p.user!.rankFrame).replace('ring-4', 'ring-2')}`}>
                                                     <img src={p.user!.avatar} alt={p.user!.name} className="w-10 h-10 rounded-full border border-navy-border object-cover shrink-0 relative z-10" style={{ backgroundColor: getAvatarColor(p.user!.avatar) }} />
                                                 </div>
-                                                <div className="flex flex-col min-w-0">
-                                                    <span className="text-sm font-bold text-white leading-none mb-1 truncate">{p.user!.name}</span>
-                                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{total} Matches</span>
-                                                </div>
+                                                <span className="text-sm font-bold text-white leading-none truncate">{p.user!.name}</span>
                                             </div>
                                             
-                                            <div className="flex items-center gap-3 shrink-0">
-                                                <div className="text-right flex items-center">
-                                                    <span className="text-xs font-bold text-neon-primary mr-1">{wins}W</span>
-                                                    <span className="text-[10px] font-bold text-gray-600 mx-0.5">/</span>
-                                                    <span className="text-xs font-bold text-red-500 ml-1">{losses}L</span>
-                                                </div>
-                                                <div className="bg-navy-base border border-navy-border px-2 py-1 flex items-center justify-center min-w-[48px]">
-                                                    <span className={`text-sm font-black italic ${parseInt(winRate) >= 50 ? 'text-neon-primary' : 'text-orange-500'}`}>{winRate}%</span>
-                                                </div>
+                                            <div className="flex items-center shrink-0">
+                                                <span className="text-xs font-bold text-white w-10 text-center">{total}</span>
+                                                <span className="text-xs font-bold text-neon-primary w-10 text-center">{wins}</span>
+                                                <span className="text-xs font-bold text-red-500 w-10 text-center">{losses}</span>
+                                                <span className={`text-xs font-black italic w-12 text-center ${parseInt(winRate) >= 50 ? 'text-neon-primary' : 'text-orange-500'}`}>{winRate}%</span>
                                             </div>
                                         </div>
                                     );

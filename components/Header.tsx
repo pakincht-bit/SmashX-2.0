@@ -82,17 +82,6 @@ const Header: React.FC<HeaderProps> = React.memo(({
  >
  <Calendar size={18} className="" />
  </button>
- <button
- onClick={(e) => {
- e.stopPropagation();
- triggerHaptic('light');
- onOpenHistory?.();
- }}
- className="p-2 sm:p-2.5 rounded-full transition-all shrink-0 bg-[#000B29]/50 text-gray-400 border border-transparent "
- title="Battle History"
- >
- <History size={18} className="" />
- </button>
  {showCreateButton && (
  <button
  onClick={() => {

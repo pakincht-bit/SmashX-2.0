@@ -1062,7 +1062,30 @@ const App: React.FC = () => {
 
  // OPTIMIZATION: Memoize selectedSession to avoid .find() on every render
  // Search allSessions (active + past) so past session details can be viewed
- const selectedSession = useMemo(() => allSessions.find(s => s.id === selectedSessionId) || null, [allSessions, selectedSessionId]);
+ const [fetchedSession, setFetchedSession] = useState<Session | null>(null);
+
+ useEffect(() => {
+ if (!selectedSessionId) { setFetchedSession(null); return; }
+ // If already in allSessions, no need to fetch
+ if (allSessions.some(s => s.id === selectedSessionId)) { setFetchedSession(null); return; }
+ // Fetch from Supabase for older sessions not in local state
+ let cancelled = false;
+ (async () => {
+ try {
+ const { data, error } = await supabase.from('sessions').select('*').eq('id', selectedSessionId).single();
+ if (!cancelled && data && !error) {
+ setFetchedSession(mapSessionFromDB(data));
+ }
+ } catch (e) {
+ console.error('Failed to fetch session:', e);
+ }
+ })();
+ return () => { cancelled = true; };
+ }, [selectedSessionId, allSessions]);
+
+ const selectedSession = useMemo(() => {
+ return allSessions.find(s => s.id === selectedSessionId) || fetchedSession || null;
+ }, [allSessions, selectedSessionId, fetchedSession]);
 
  const upcomingSessions = useMemo(() => {
  const now = new Date();
@@ -1402,23 +1425,7 @@ const App: React.FC = () => {
  </Suspense>
  <Suspense fallback={null}>
  {isActivityOpen && activeUser && (
- <ActivityLogModal currentUser={activeUser} sessions={sessions} onClose={() => setIsActivityOpen(false)} />
- )}
- </Suspense>
- <Suspense fallback={null}>
- {isHistoryOpen && (
- <div className="fixed inset-0 z-[200] bg-[#000B29] overflow-y-auto animate-in fade-in duration-300">
- <HistoryScreen
- currentUser={activeUser}
- sessions={sessions}
- pastSessions={pastSessions}
- isLoadingPast={isLoadingPast}
- hasMorePast={hasMorePast}
- onLoadMore={fetchPastSessions}
- onBack={() => setIsHistoryOpen(false)}
- onSessionClick={(id) => setSelectedSessionId(id)}
- />
- </div>
+ <ActivityLogModal currentUser={activeUser} sessions={sessions} onClose={() => setIsActivityOpen(false)} onSessionClick={(id) => { setSelectedSessionId(id); }} />
  )}
  </Suspense>
  <Suspense fallback={null}>

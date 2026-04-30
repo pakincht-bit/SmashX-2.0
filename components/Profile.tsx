@@ -131,9 +131,9 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
  <div className="flex flex-col items-center justify-center text-center">
  <h1 className="text-2xl font-black text-white italic tracking-tighter truncate max-w-[280px] mb-1 leading-none">{user.name}</h1>
  <div className="flex items-center gap-2">
- <span className="text-xs font-black uppercase tracking-[0.2em] italic text-gray-400">Rank #{rank}</span>
+ <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400">Rank #{rank}</span>
  <span className="text-[10px] text-[#00FF41]">•</span>
- <span className="text-xs font-black uppercase tracking-[0.2em] italic text-[#00FF41]">{user.points} pts</span>
+ <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-[#00FF41]">{user.points} pts</span>
  </div>
  </div>
  </div>
@@ -142,13 +142,13 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
         <div className="w-full mb-8 relative">
           <div className="grid grid-cols-3 gap-1 relative z-10">
             {/* Played */}
-            <div className="bg-[#001030] rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Played</span>
+            <div className="rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Played</span>
               <span className="text-2xl sm:text-4xl tabular-nums font-black italic tracking-tighter text-white">{stats.played}</span>
             </div>
             {/* W-L */}
-            <div className="bg-[#001030] rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">W-L</span>
+            <div className="rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">W-L</span>
               <div className="flex items-center text-2xl sm:text-4xl font-black italic tracking-tighter">
                 <span className="text-green-500">{stats.wins}</span>
                 <span className="text-gray-600 mx-1.5">/</span>
@@ -156,8 +156,8 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
               </div>
             </div>
             {/* Win Rate */}
-            <div className="bg-[#001030] rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Win Rate</span>
+            <div className="rounded-none p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Win Rate</span>
               <span className={`text-2xl sm:text-4xl tabular-nums font-black italic tracking-tighter ${getWinRateColor(stats.winRate)}`}>{stats.winRate}%</span>
             </div>
           </div>
@@ -201,10 +201,10 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
 
                     {/* Tier Info */}
                     <div className={`mt-5 flex flex-col items-center text-center w-32 ${isCurrent ? 'scale-110' : ''} transition-transform`}>
-                      <span className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isReached ? tier.color : 'text-gray-600'}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${isReached ? tier.color : 'text-gray-600'}`}>
                         {tier.name}
                       </span>
-                      <span className="text-[9px] font-mono font-bold text-gray-500 tracking-widest">
+                      <span className="text-[9px] font-mono font-medium text-gray-500 tracking-widest">
                         {tier.range} pts
                       </span>
                     </div>
