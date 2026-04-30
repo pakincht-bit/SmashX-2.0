@@ -99,7 +99,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
 
 
- const [activeTab, setActiveTab] = useState<'scoreboard' | 'analytics'>('scoreboard');
+  const [selectedTab, setSelectedTab] = useState<'live' | 'players' | 'history' | 'scoreboard' | 'analytics' | null>(null);
+  const [playerSort, setPlayerSort] = useState<{ col: 'played' | 'wins' | 'losses' | null; dir: 'desc' | 'asc' }>({ col: null, dir: 'desc' });
 
  // Watch for session updates from other users to ensure local modals are consistent with live state
  useEffect(() => {
@@ -217,6 +218,16 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  return 'OPEN';
  };
  const status = getSessionStatus();
+
+ let activeTab = selectedTab;
+ if (!activeTab) {
+   if (status === 'END') activeTab = 'scoreboard';
+   else if (status === 'PLAYING') activeTab = 'live';
+   else activeTab = 'players';
+ }
+ if (status === 'OPEN' && activeTab !== 'players') activeTab = 'players';
+ if (status === 'PLAYING' && !['live', 'players', 'history'].includes(activeTab)) activeTab = 'live';
+ if (status === 'END' && !['scoreboard', 'analytics', 'history'].includes(activeTab)) activeTab = 'scoreboard';
 
  const now = new Date();
  const startTimeObj = new Date(session.startTime);
@@ -506,7 +517,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className="w-1/2 p-2 flex flex-col justify-center gap-2 items-center">
  {hasPlayers ? (
  team1.map(u => (
- <div key={u.id} className="flex items-center gap-2 bg-[#000B29]/90 px-2 py-1 rounded-full border border-blue-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
+ <div key={u.id} className="flex items-center gap-2 bg-[#000B29]/90 px-2 py-1 rounded-none border border-blue-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
  <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(u.rankFrame).replace('ring-4', 'ring-2')}`}>
  <img src={u.avatar} className="w-8 h-8 rounded-full border border-blue-500 object-cover" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
  </div>
@@ -523,7 +534,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className="w-1/2 p-2 flex flex-col justify-center gap-2 items-center">
  {hasPlayers ? (
  team2.map(u => (
- <div key={u.id} className="flex items-center flex-row-reverse gap-2 bg-[#000B29]/90 px-2 py-1 rounded-full border border-red-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
+ <div key={u.id} className="flex items-center flex-row-reverse gap-2 bg-[#000B29]/90 px-2 py-1 rounded-none border border-red-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
  <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(u.rankFrame).replace('ring-4', 'ring-2')}`}>
  {/* Fix: Changed user.avatar to u.avatar to fix ReferenceError */}
  <img src={u.avatar} className="w-8 h-8 rounded-full border border-red-500 object-cover" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
@@ -546,40 +557,194 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </div>
  );
 
- const renderCheckInList = () => (
- <div>
+  const renderMatchHistory = () => (
+    <div className="space-y-3 pt-2">
+    {(session.matches || []).length === 0 ? (
+      <div className="flex flex-col items-center justify-center py-16 animate-in slide-in-from-bottom-4 duration-500">
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-[#00FF41] blur-2xl opacity-10 rounded-full"></div>
+          <div className="w-20 h-20 bg-[#001645] rounded-none flex items-center justify-center relative shadow-xl transform -rotate-6">
+            <Swords size={40} className="text-gray-500" />
+          </div>
+        </div>
+        <h3 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">
+          No <span className="text-gray-600">Matches</span> Yet
+        </h3>
+        <p className="text-xs font-bold text-gray-400 text-center max-w-[200px] uppercase tracking-wide">
+          Play some matches to see history.
+        </p>
+      </div>
+    ) : (
+      (session.matches || []).slice().reverse().map((match, i) => {
+        const team1 = match.team1Ids.map(id => usersMap.get(id)).filter(Boolean) as User[];
+        const team2 = match.team2Ids.map(id => usersMap.get(id)).filter(Boolean) as User[];
+        return (
+          <div key={i} className="bg-[#001645] rounded-none overflow-hidden">
+            {/* Match number header */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-[#000B29]">
+              <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Match {(session.matches || []).length - i}</span>
+              <span className="text-[9px] font-mono text-gray-600 tabular-nums">±{match.pointsChange} pts</span>
+            </div>
+            {/* Court-style split layout */}
+            <div className="flex items-stretch relative min-h-[60px]">
+              {/* Blue side */}
+              <div className={`w-1/2 p-2.5 flex flex-col justify-center gap-1.5 relative overflow-hidden transition-all duration-300 ${match.winningTeamIndex === 1 ? 'bg-gradient-to-br from-[#00FF41]/15 to-[#001645] border-l-2 border-l-[#00FF41]/50' : ''}`}>
+                {match.winningTeamIndex === 1 && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-[3rem] font-black text-[#00FF41]/[0.04] uppercase tracking-tighter leading-none select-none">WIN</span>
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5 relative z-10">
+                  {team1.map(p => (
+                    <div key={p.id} className="flex items-center gap-2">
+                      <div className={`shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
+                        <img src={p.avatar} className={`rounded-full object-cover ${match.winningTeamIndex === 1 ? 'w-8 h-8 border-2 border-[#00FF41]' : 'w-7 h-7 border border-[#001645]'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
+                      </div>
+                      <span className={`text-xs font-bold truncate leading-tight ${match.winningTeamIndex === 1 ? 'text-white' : 'text-gray-400'}`}>
+                        {p.name.split(' ')[0]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
- <div className="-mx-4 sm:-mx-6 flex flex-col">
- <div className="">
- {players.map(player => {
- const isCheckedIn = checkedInIds.includes(player.id);
- const currentCourt = getPlayerCourtIndex(player.id);
- const isPlaying = currentCourt !== null;
- const s = playerStats[player.id] || { played: 0, wins: 0, losses: 0 };
- return (
- <div key={player.id} className={`flex items-center justify-between py-3 px-4 sm:px-6 transition-all ${isCheckedIn ? '' : ' opacity-60'}`}>
- <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { triggerHaptic('light'); onPlayerClick?.(player.id); }}>
- <div className="relative">
- <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
- <img src={player.avatar} alt={player.name} className={`w-10 h-10 rounded-full border border-[#000B29] object-cover`} style={{ backgroundColor: getAvatarColor(player.avatar) }} />
- </div>
- {isCheckedIn && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#00FF41] rounded-full border-2 border-[#000B29] flex items-center justify-center"><Check size={8} className="text-[#000B29] stroke-[4]" /></div>}
- </div>
- <div>
- <div className="text-sm font-bold text-white flex items-center transition-colors">{player.name} <span className="ml-2 text-[10px] font-mono text-yellow-500 font-bold">{player.points} pts</span> {isPlaying && (<span className="ml-2 text-[10px] text-[#000B29] bg-[#00FF41] font-black px-1.5 rounded uppercase tracking-wider animate-pulse"> Court {currentCourt + 1} </span>)} </div>
- <div className="flex items-center gap-2 mt-1">
- {isCheckedIn ? (<div className="flex items-center gap-2 py-0.5"><span className="text-[10px] font-bold text-gray-300">{s.played} Played</span><span className="text-[10px] text-gray-500">•</span><span className="text-[10px] font-bold"><span className="text-green-400">{s.wins}W</span> / <span className="text-red-400">{s.losses}L</span></span></div>) : (<span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Not Checked In</span>)}
- </div>
- </div>
- </div>
- {isHost && (<button onClick={() => { triggerHaptic(isCheckedIn ? 'light' : 'success'); onCheckInToggle(session.id, player.id); }} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border transition-colors ${isCheckedIn ? 'bg-transparent border-transparent text-gray-500 ' : 'bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41] '}`} > {isCheckedIn ? 'Undo' : 'Check In'} </button>)}
- </div>
- );
- })}
- </div>
- </div>
- </div>
- );
+              {/* Center VS */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
+                <div className="bg-[#000B29] text-white/40 text-[8px] font-black w-6 h-6 flex items-center justify-center rounded-full border border-white/10 shadow-xl">VS</div>
+              </div>
+              <div className="absolute inset-0 flex justify-center pointer-events-none"><div className="w-px h-full bg-white/5"></div></div>
+
+              {/* Red side */}
+              <div className={`w-1/2 p-2.5 flex flex-col justify-center gap-1.5 relative overflow-hidden transition-all duration-300 ${match.winningTeamIndex === 2 ? 'bg-gradient-to-bl from-[#00FF41]/15 to-[#001645] border-r-2 border-r-[#00FF41]/50' : ''}`}>
+                {match.winningTeamIndex === 2 && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-[3rem] font-black text-[#00FF41]/[0.04] uppercase tracking-tighter leading-none select-none">WIN</span>
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5 relative z-10">
+                  {team2.map(p => (
+                    <div key={p.id} className="flex items-center flex-row-reverse gap-2">
+                      <div className={`shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
+                        <img src={p.avatar} className={`rounded-full object-cover ${match.winningTeamIndex === 2 ? 'w-8 h-8 border-2 border-[#00FF41]' : 'w-7 h-7 border border-[#001645]'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
+                      </div>
+                      <span className={`text-xs font-bold truncate leading-tight ${match.winningTeamIndex === 2 ? 'text-white' : 'text-gray-400'}`}>
+                        {p.name.split(' ')[0]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })
+    )}
+  </div>
+  );
+
+  const renderCheckInList = () => {
+    const handleSort = (col: 'played' | 'wins' | 'losses') => {
+      triggerHaptic('light');
+      setPlayerSort(prev => prev.col === col ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' });
+    };
+
+    const sortPlayers = (playersToSort: User[]) => {
+      if (!playerSort.col) return playersToSort;
+      return [...playersToSort].sort((a, b) => {
+        const sA = playerStats[a.id] || { played: 0, wins: 0, losses: 0 };
+        const sB = playerStats[b.id] || { played: 0, wins: 0, losses: 0 };
+        const diff = sB[playerSort.col!] - sA[playerSort.col!];
+        return playerSort.dir === 'desc' ? diff : -diff;
+      });
+    };
+
+    const checkedInPlayers = sortPlayers(players.filter(p => checkedInIds.includes(p.id)));
+    const notCheckedInPlayers = sortPlayers(players.filter(p => !checkedInIds.includes(p.id)));
+
+    const renderSortableHeader = (label: string, col: 'played' | 'wins' | 'losses') => (
+      <button onClick={() => handleSort(col)} className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-10 text-center flex items-center justify-center gap-0.5 group">
+        <span className="group-active:text-[#00FF41] transition-colors">{label}</span>
+        {playerSort.col === col && (
+          <span className="text-white text-[8px]">{playerSort.dir === 'desc' ? '▼' : '▲'}</span>
+        )}
+      </button>
+    );
+
+    const renderPlayerRow = (player: User, isCheckedIn: boolean) => {
+      const currentCourt = getPlayerCourtIndex(player.id);
+      const isPlaying = currentCourt !== null;
+      const s = playerStats[player.id] || { played: 0, wins: 0, losses: 0 };
+      return (
+        <div key={player.id} className={`flex items-center justify-between py-3 px-4 sm:px-6 transition-all ${isCheckedIn ? '' : ' opacity-60'}`}>
+          <div className="flex items-center gap-3 cursor-pointer group flex-1 min-w-0" onClick={() => { triggerHaptic('light'); onPlayerClick?.(player.id); }}>
+            <div className="relative shrink-0">
+              <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
+                <img src={player.avatar} alt={player.name} className={`w-10 h-10 rounded-full border border-[#000B29] object-cover`} style={{ backgroundColor: getAvatarColor(player.avatar) }} />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0 pr-2">
+              <div className="text-sm font-bold text-white flex items-center transition-colors truncate">
+                {player.name} 
+                {isPlaying && (<span className="ml-2 text-[10px] text-[#000B29] bg-[#00FF41] font-black px-1.5 rounded uppercase tracking-wider animate-pulse shrink-0"> Court {currentCourt + 1} </span>)} 
+              </div>
+              <div className="text-[10px] font-mono text-yellow-500 font-bold mt-0.5">{player.points} pts</div>
+            </div>
+          </div>
+          <div className="flex items-center shrink-0">
+            <>
+              <span className="text-xs font-mono font-bold w-10 text-center text-gray-400">{s.played}</span>
+              <span className="text-xs font-mono font-bold w-10 text-center text-[#00FF41]">{s.wins}</span>
+              <span className="text-xs font-mono font-bold w-10 text-center text-red-500">{s.losses}</span>
+            </>
+            {isHost && (
+              <button onClick={() => { triggerHaptic(isCheckedIn ? 'light' : 'success'); onCheckInToggle(session.id, player.id); }} className={`ml-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border transition-colors w-[68px] ${isCheckedIn ? 'bg-transparent border-transparent text-gray-500 ' : 'bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41] '}`} >
+                {isCheckedIn ? 'Undo' : 'Check In'}
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div>
+        <div className="-mx-4 sm:-mx-6 flex flex-col space-y-4">
+          {checkedInPlayers.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between px-4 sm:px-6 py-2 border-b border-[#002266] bg-[#000B29]/50">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#00FF41] flex-1">Checked In ({checkedInPlayers.length})</h4>
+                <div className="flex items-center shrink-0">
+                  {renderSortableHeader('M', 'played')}
+                  {renderSortableHeader('W', 'wins')}
+                  {renderSortableHeader('L', 'losses')}
+                  {isHost && <div className="w-[68px] ml-2"></div>}
+                </div>
+              </div>
+              <div className="">
+                {checkedInPlayers.map(p => renderPlayerRow(p, true))}
+              </div>
+            </div>
+          )}
+          {notCheckedInPlayers.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between px-4 sm:px-6 py-2 border-b border-[#002266] bg-[#000B29]/50 mt-4">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 flex-1">Not Checked In ({notCheckedInPlayers.length})</h4>
+                <div className="flex items-center shrink-0">
+                  {renderSortableHeader('M', 'played')}
+                  {renderSortableHeader('W', 'wins')}
+                  {renderSortableHeader('L', 'losses')}
+                  {isHost && <div className="w-[68px] ml-2"></div>}
+                </div>
+              </div>
+              <div className="">
+                {notCheckedInPlayers.map(p => renderPlayerRow(p, false))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
  const renderNormalPlayerList = () => (
  <div>
@@ -899,38 +1064,48 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  {/* Session Rankings */}
  <div className="space-y-4">
  {sortedPlayerIds.length === 0 ? (<div className="text-center py-10 text-gray-500 font-bold text-sm">No matches played this session.</div>) : (
- <div className="-mx-4 sm:-mx-6 flex flex-col">
+ <div className="-mx-4 sm:-mx-6 flex flex-col gap-0">
+ <div className="flex items-center justify-between py-2 px-4 sm:px-6 border-b border-[#002266] bg-[#000B29]/50">
+ <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 flex-1 ml-9">Player</span>
+ <div className="flex items-center shrink-0">
+ <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-10 text-center">M</span>
+ <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-10 text-center">W</span>
+ <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-10 text-center">L</span>
+ <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-12 text-center">+/-</span>
+ </div>
+ </div>
  <div className="">
  {sortedPlayerIds.map((pid, index) => {
  const user = usersMap.get(pid);
  if (!user) return null;
  const s = stats[pid];
- let rankStyle = "";
+ let rankStyle = "border-b border-[#001645] last:border-0";
  let rankBadge = <span className="text-gray-500 font-mono text-xs w-6 text-center">{index + 1}</span>;
- if (index === 0) { rankStyle = "bg-[#000B29]"; rankBadge = <span className="text-yellow-500 font-black text-xs w-6 text-center">1</span>; }
- else if (index === 1) { rankStyle = "bg-[#000B29]"; rankBadge = <span className="text-gray-300 font-black text-xs w-6 text-center">2</span>; }
- else if (index === 2) { rankStyle = "bg-[#000B29]"; rankBadge = <span className="text-orange-700 font-black text-xs w-6 text-center">3</span>; }
+ if (index === 0) { rankStyle = "bg-[#000B29] border-b border-[#001645] last:border-0"; rankBadge = <span className="text-yellow-500 font-black text-xs w-6 text-center">1</span>; }
+ else if (index === 1) { rankStyle = "bg-[#000B29] border-b border-[#001645] last:border-0"; rankBadge = <span className="text-gray-300 font-black text-xs w-6 text-center">2</span>; }
+ else if (index === 2) { rankStyle = "bg-[#000B29] border-b border-[#001645] last:border-0"; rankBadge = <span className="text-orange-700 font-black text-xs w-6 text-center">3</span>; }
  return (
- <div key={pid} onClick={() => { triggerHaptic('light'); onPlayerClick?.(pid); }} className={`flex items-center justify-between py-3 px-4 sm:px-6 ${rankStyle} transition-all cursor-pointer `}>
- <div className="flex items-center gap-3">
+ <div key={pid} onClick={() => { triggerHaptic('light'); onPlayerClick?.(pid); }} className={`flex items-center justify-between py-3 px-4 sm:px-6 ${rankStyle} transition-all cursor-pointer group hover:bg-white/5`}>
+ <div className="flex items-center gap-3 flex-1 min-w-0">
  {rankBadge}
- <div className="relative">
+ <div className="relative shrink-0">
  <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
  <img src={user.avatar} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
  </div>
  {index === 0 && <div className="absolute -top-1 -right-1 text-[8px] bg-yellow-500 text-black px-1 rounded-full font-black z-20 shadow-md">MVP</div>}
  </div>
- <div>
- <div className="text-sm font-bold flex items-center">{user.name}{user.id === currentUser.id && <span className="ml-2 text-[8px] text-[#00FF41] bg-[#00FF41]/10 px-1 rounded uppercase tracking-wider">You</span>}</div>
- <div className="flex items-center gap-3 mt-1"><span className="text-[10px] font-bold text-green-400 flex items-center bg-green-900/20 px-1.5 rounded"><Plus size={8} className="mr-0.5" />{s.wins} W</span><span className="text-[10px] font-bold text-red-400 flex items-center bg-red-900/20 px-1.5 rounded"><Minus size={8} className="mr-0.5" />{s.losses} L</span></div>
+ <div className="text-sm font-bold text-white leading-none truncate flex items-center">
+    {user.name}
+    {user.id === currentUser.id && <span className="ml-2 text-[8px] text-[#00FF41] bg-[#00FF41]/10 px-1 rounded uppercase tracking-wider font-bold">You</span>}
  </div>
  </div>
- <div className="text-right">
- <div className={`text-xs font-mono font-black flex items-center justify-end ${s.pointsChange >= 0 ? 'text-[#00FF41]' : 'text-red-500'}`}>
- {s.pointsChange > 0 ? <TrendingUp size={12} className="mr-1" /> : (s.pointsChange < 0 ? <TrendingDown size={12} className="mr-1" /> : null)}
- {s.pointsChange > 0 ? '+' : ''}{s.pointsChange}
- </div>
- <div className="text-[9px] text-gray-400 uppercase font-bold tracking-wider">Pts Change</div>
+ <div className="flex items-center shrink-0">
+ <span className="text-xs font-bold text-white w-10 text-center">{s.wins + s.losses}</span>
+ <span className="text-xs font-bold text-[#00FF41] w-10 text-center">{s.wins}</span>
+ <span className="text-xs font-bold text-red-500 w-10 text-center">{s.losses}</span>
+ <span className={`text-xs font-mono font-black w-12 text-center flex items-center justify-center ${s.pointsChange >= 0 ? 'text-[#00FF41]' : 'text-red-500'}`}>
+    {s.pointsChange > 0 ? '+' : ''}{s.pointsChange}
+ </span>
  </div>
  </div>
  );
@@ -1010,23 +1185,35 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </div>
  )}
 
- {status === 'END' && (
- <div className="flex border-b border-[#002266] w-full px-4 mt-2">
- <button
- onClick={() => { triggerHaptic('light'); setActiveTab('scoreboard'); }}
- className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'scoreboard' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}
- >
- Scoreboard
- </button>
- <button
- onClick={() => { triggerHaptic('light'); setActiveTab('analytics'); }}
- className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'analytics' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}
- >
- Stats
- </button>
- </div>
+ {status !== 'OPEN' && (
+   <div className="flex border-b border-[#002266] w-full px-4 mt-2">
+     {status === 'PLAYING' && (
+       <>
+         <button onClick={() => { triggerHaptic('light'); setSelectedTab('live'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'live' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>Court</button>
+         <button onClick={() => { triggerHaptic('light'); setSelectedTab('players'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'players' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>Players</button>
+         <button onClick={() => { triggerHaptic('light'); setSelectedTab('history'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'history' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>History</button>
+       </>
+     )}
+     {status === 'END' && (
+       <>
+         <button onClick={() => { triggerHaptic('light'); setSelectedTab('scoreboard'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'scoreboard' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>Scoreboard</button>
+         <button onClick={() => { triggerHaptic('light'); setSelectedTab('analytics'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'analytics' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>Stats</button>
+         <button onClick={() => { triggerHaptic('light'); setSelectedTab('history'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'history' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>History</button>
+       </>
+     )}
+   </div>
  )}
- <div className="p-4 sm:p-6 space-y-6"> {status === 'PLAYING' ? <>{renderNextMatchups()}{renderLiveCourts()}{renderCheckInList()}</> : status === 'END' ? (activeTab === 'scoreboard' ? renderScoreboard() : renderAnalytics()) : renderNormalPlayerList()} </div>
+ <div className="p-4 sm:p-6 space-y-6">
+   {status === 'PLAYING' ? (
+     activeTab === 'live' ? <>{renderLiveCourts()}{renderNextMatchups()}</> :
+     activeTab === 'players' ? renderCheckInList() :
+     activeTab === 'history' ? renderMatchHistory() : null
+   ) : status === 'END' ? (
+     activeTab === 'scoreboard' ? renderScoreboard() :
+     activeTab === 'analytics' ? renderAnalytics() :
+     activeTab === 'history' ? renderMatchHistory() : null
+   ) : renderNormalPlayerList()}
+ </div>
  </PullToRefresh>
 
  {/* Fixed Action Bar at Bottom */}
@@ -1069,130 +1256,185 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
 
  {editingCourt !== null && (
- <div className="fixed inset-0 z-[160] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
- <div className="bg-[#001645] w-full max-w-md rounded-none overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
- <div className="p-4 border-b border-[#002266] flex justify-between items-center bg-[#000B29]"> <h3 className="text-white font-bold uppercase tracking-wider flex items-center gap-2"> {isQueueingMatch ? 'Queue Next Match' : `Assign Court ${editingCourt + 1}`} </h3> </div>
- <div className="bg-[#00123a] p-4 border-b border-[#002266]">
- <div className="bg-[#000B29] rounded-none p-3 relative overflow-hidden">
- <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"><div className="bg-[#000B29] text-gray-500 text-[10px] font-black w-8 h-8 flex items-center justify-center rounded-full shadow-lg">VS</div></div>
- <div className="grid grid-cols-2 gap-8">
+  <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => { setEditingCourt(null); setIsQueueingMatch(false); }}>
+  <div className="relative bg-[#000B29] w-full h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+  <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[#002266] bg-[#000B29] shrink-0">
+    <h3 className="text-white font-black italic uppercase tracking-wider text-xl flex items-center gap-2"> {isQueueingMatch ? 'Queue Next Match' : `Assign Court ${editingCourt + 1}`} </h3>
+    <button onClick={() => { triggerHaptic('light'); setEditingCourt(null); setIsQueueingMatch(false); }} className="p-1 text-gray-400 active:scale-95 transition-all">
+      <X size={20} />
+    </button>
+  </div>
+ <div className="bg-[#00123a] border-b border-[#002266]">
+ <div className="bg-[#000B29] rounded-none p-6 relative overflow-hidden">
+ <div className="absolute inset-0 flex pointer-events-none">
+   <div className="w-1/2 h-full relative bg-gradient-to-br from-blue-900/60 to-blue-900/20 overflow-hidden">
+     <span className="absolute top-2 left-2 text-[4rem] font-black text-blue-500/10 leading-none select-none">BLUE</span>
+   </div>
+   <div className="w-1/2 h-full relative bg-gradient-to-bl from-red-900/60 to-red-900/20 overflow-hidden">
+     <span className="absolute top-2 right-2 text-[4rem] font-black text-red-500/10 leading-none select-none">RED</span>
+   </div>
+ </div>
+ <div className="absolute inset-0 flex justify-center pointer-events-none"><div className="w-px h-full bg-white/5"></div></div>
+ <div className="absolute inset-3 border border-white/5 opacity-50 pointer-events-none"></div>
+
+
+ <div className="grid grid-cols-2 gap-8 relative z-10">
  <div className="text-center">
- <div className="mb-2 flex flex-col items-center"> <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Blue Team</span> <span className="text-[9px] font-mono text-gray-500">{tempStats.t1Avg > 0 ? `${tempStats.t1Avg} pts` : '0 pts'}</span> </div>
- <div className="space-y-2"> {[0, 1].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 border rounded transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#001645] border-blue-500/30 ' : 'border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center gap-2 text-left w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-6 h-6 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-[10px] font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
+ <div className="mb-3 flex flex-col items-center"> <span className="text-sm font-black font-mono text-white tracking-wide drop-shadow-md">{tempStats.t1Avg > 0 ? `${tempStats.t1Avg} pts` : '0 pts'}</span> </div>
+ <div className="space-y-2"> {[0, 1].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 rounded-none transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#000B29]/90 backdrop-blur-sm border border-blue-500/50 shadow-lg' : 'border border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center gap-2 text-left w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-xs font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
  </div>
  <div className="text-center">
- <div className="mb-2 flex flex-col items-center"> <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Red Team</span> <span className="text-[9px] font-mono text-gray-500">{tempStats.t2Avg > 0 ? `${tempStats.t2Avg} pts` : '0 pts'}</span> </div>
- <div className="space-y-2"> {[2, 3].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 border rounded transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#001645] border-red-500/30 ' : 'border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center flex-row-reverse gap-2 text-right w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-8 h-8 rounded-full border-red-500 object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-[10px] font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
+ <div className="mb-3 flex flex-col items-center"> <span className="text-sm font-black font-mono text-white tracking-wide drop-shadow-md">{tempStats.t2Avg > 0 ? `${tempStats.t2Avg} pts` : '0 pts'}</span> </div>
+ <div className="space-y-2"> {[2, 3].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 rounded-none transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#000B29]/90 backdrop-blur-sm border border-red-500/50 shadow-lg' : 'border border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center flex-row-reverse gap-2 text-right w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-xs font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
  </div>
- </div>
- {tempStats && selectedCount === 4 && <div className="absolute bottom-1 left-0 right-0 text-center pointer-events-none"><span className={`text-[9px] font-black px-1.5 py-0.5 rounded backdrop-blur ${tempStats.diff < 50 ? 'bg-[#00FF41]/20 text-[#00FF41]' : 'bg-yellow-500/20 text-yellow-500'}`}>Pts Diff: {tempStats.diff}</span></div>}
  </div>
 
  </div>
- <div className="p-4 overflow-y-auto flex-1">
- <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-3 flex items-center">Available Players</h4>
- <div className="space-y-2">{checkedInIds.filter(pid => { if (tempSelectedPlayers.includes(pid)) return false; const currentCourt = getPlayerCourtIndex(pid); if (currentCourt !== null && currentCourt !== editingCourt && !isQueueingMatch) return false; return true; }).sort((a, b) => { const aPlayed = (playerStats[a] || { played: 0 }).played; const bPlayed = (playerStats[b] || { played: 0 }).played; return aPlayed - bPlayed; }).map(playerId => { const user = allUsers.find(u => u.id === playerId); if (!user) return null; const pStats = playerStats[playerId] || { played: 0 }; return (<button key={playerId} onClick={() => handleSelectAvailablePlayer(playerId)} className="w-full flex items-center justify-between p-3 rounded-none border bg-[#000B29] border-[#002266] transition-all group"><div className="flex items-center gap-3"><div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}><img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} /></div><div className="text-left"><span className="text-sm font-bold text-white block">{user.name}</span><div className="flex items-center gap-2"><span className="text-[10px] text-yellow-500 font-mono font-bold">{user.points} pts</span><span className="text-[10px] text-gray-500 font-bold">•</span><span className="text-[10px] text-blue-400 font-bold">{pStats.played} Played</span></div></div></div><div className="w-6 h-6 rounded-full bg-[#00FF41]/10 flex items-center justify-center transition-colors"><Plus size={14} className="text-[#00FF41] " /></div></button>); })}</div>
+
  </div>
- <div className="p-4 bg-[#000B29] border-t border-[#002266] flex gap-3">
- <button onClick={() => { triggerHaptic('light'); setEditingCourt(null); setIsQueueingMatch(false); }} className="py-3.5 px-3 border border-[#002266] text-gray-400 transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg]"><span className="skew-x-[6deg] inline-block">Cancel</span></button>
- <button onClick={handleRandomize} className="flex-1 py-3.5 border border-blue-500/30 bg-blue-500/10 text-blue-500 transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg]"><span className="skew-x-[6deg] flex items-center justify-center gap-2"><Dices size={14} /> Random</span></button>
- <button onClick={saveCourtAssignment} disabled={!canStartMatch} className={`flex-1 py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all ${canStartMatch ? (isQueueingMatch ? 'bg-[#003399] text-white' : 'bg-[#00FF41] text-[#000B29]') : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}><span className="skew-x-[6deg] flex items-center">{canStartMatch && (isQueueingMatch ? <ListPlus size={14} className="mr-2" /> : <Play size={14} className="mr-2 fill-current" />)}{isQueueingMatch ? 'Queue Match' : 'Start Match'}</span></button>
- </div>
- </div>
- </div>
+  <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+    <div className="flex items-center justify-between mb-2 px-1">
+      <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Available Players</h4>
+      <div className="flex items-center shrink-0 pr-[32px]">
+        <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-10 text-center">M</span>
+        <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-10 text-center">W</span>
+        <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-10 text-center">L</span>
+      </div>
+    </div>
+    <div className="space-y-2">
+      {checkedInIds.filter(pid => { 
+        if (tempSelectedPlayers.includes(pid)) return false; 
+        const currentCourt = getPlayerCourtIndex(pid); 
+        if (currentCourt !== null && currentCourt !== editingCourt && !isQueueingMatch) return false; 
+        return true; 
+      }).sort((a, b) => { 
+        const aPlayed = (playerStats[a] || { played: 0 }).played; 
+        const bPlayed = (playerStats[b] || { played: 0 }).played; 
+        return aPlayed - bPlayed; 
+      }).map(playerId => { 
+        const user = allUsers.find(u => u.id === playerId); 
+        if (!user) return null; 
+        const pStats = playerStats[playerId] || { played: 0, wins: 0, losses: 0 }; 
+        return (
+          <button key={playerId} onClick={() => handleSelectAvailablePlayer(playerId)} className="w-full flex items-center justify-between p-3 rounded-none bg-[#001645] transition-all group">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className={`relative shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
+                <img src={user.avatar} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
+              </div>
+              <div className="flex-1 min-w-0 pr-2 text-left">
+                <span className="text-sm font-bold text-white block truncate">{user.name}</span>
+                <div className="text-[10px] font-mono text-yellow-500 font-bold mt-0.5">{user.points} pts</div>
+              </div>
+            </div>
+            <div className="flex items-center shrink-0">
+              <span className="text-xs font-mono font-bold w-10 text-center text-gray-400">{pStats.played}</span>
+              <span className="text-xs font-mono font-bold w-10 text-center text-[#00FF41]">{pStats.wins}</span>
+              <span className="text-xs font-mono font-bold w-10 text-center text-red-500">{pStats.losses}</span>
+              <div className="w-6 h-6 rounded-full bg-[#00FF41]/10 flex items-center justify-center transition-colors ml-2 shrink-0">
+                <Plus size={14} className="text-[#00FF41] " />
+              </div>
+            </div>
+          </button>
+        ); 
+      })}
+    </div>
+  </div>
+  <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] flex gap-3 shrink-0">
+  <button onClick={handleRandomize} className="flex-1 py-3.5 border border-blue-500/30 bg-blue-500/10 text-blue-500 transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg]"><span className="skew-x-[6deg] flex items-center justify-center gap-2"><Dices size={14} /> Random</span></button>
+  <button onClick={saveCourtAssignment} disabled={!canStartMatch} className={`flex-[2] py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all ${canStartMatch ? (isQueueingMatch ? 'bg-[#003399] text-white' : 'bg-[#00FF41] text-[#000B29]') : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}><span className="skew-x-[6deg] flex items-center">{canStartMatch && (isQueueingMatch ? <ListPlus size={14} className="mr-2" /> : <Play size={14} className="mr-2 fill-current" />)}{isQueueingMatch ? 'Queue Match' : 'Start Match'}</span></button>
+  </div>
+  <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
+  </div>
+  </div>
  )}
 
 
- {finishingGameCourt !== null && (<div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200"> <div className="bg-[#001645] w-full max-sm:max-w-xs max-w-sm rounded-none overflow-hidden shadow-2xl flex flex-col"> <div className="bg-[#000B29] p-4 border-b border-[#002266] flex justify-between items-center"><h3 className="text-white font-bold uppercase tracking-wider">Match Result</h3><button onClick={() => { triggerHaptic('light'); setFinishingGameCourt(null); }} className="p-1 text-gray-400 "><X size={20} /></button></div>
- <div className="p-6">
- <p className="text-center text-gray-400 text-xs font-bold uppercase tracking-wider mb-6">Who won the match?</p>
+ {finishingGameCourt !== null && (<div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => { setFinishingGameCourt(null); setPendingWinner(null); }}>
+ <div className="relative bg-[#000B29] w-full flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300 border-t border-[#002266]" onClick={e => e.stopPropagation()}>
+ <div className="bg-[#00123a] p-4 border-b border-[#002266] flex justify-between items-center"><h3 className="text-white font-black italic uppercase tracking-wider text-xl flex items-center gap-2">Match Result</h3><button onClick={() => { triggerHaptic('light'); setFinishingGameCourt(null); setPendingWinner(null); }} className="p-1 text-gray-400 active:scale-95 transition-all"><X size={20} /></button></div>
+ <div className="relative overflow-hidden flex flex-col">
+  <div className="relative flex min-h-[180px]">
+    {/* Blue Team — entire left half is tappable */}
+    <button
+    onClick={() => { triggerHaptic('light'); setPendingWinner(1); }}
+    className={`w-1/2 relative flex flex-col items-center justify-center gap-2 p-4 transition-all overflow-hidden ${pendingWinner === 1 ? 'bg-gradient-to-br from-blue-600/90 to-blue-900/70 shadow-[inset_0_0_30px_rgba(37,99,235,0.3)]' : 'bg-gradient-to-br from-blue-900/60 to-blue-900/20'}`}
+    >
+    <span className="absolute top-2 left-2 text-[4rem] font-black text-blue-500/10 leading-none select-none">BLUE</span>
+    {pendingWinner === 1 && (
+    <div className="absolute top-3 right-3 bg-white text-blue-600 rounded-full p-0.5 shadow-sm animate-in zoom-in duration-200 z-20">
+    <Check size={12} strokeWidth={4} />
+    </div>
+    )}
+    <div className="w-full flex flex-col justify-center gap-2 items-center relative z-10">
+    {getTeamsForCourt(finishingGameCourt).team1.map(p => (
+    <div key={p.id} className="flex items-center gap-2 bg-[#000B29]/90 px-2 py-1 rounded-none border border-blue-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
+    <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
+    <img src={p.avatar} className={`w-8 h-8 rounded-full border object-cover ${pendingWinner === 1 ? 'border-white' : 'border-blue-500'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
+    </div>
+    <span className="text-[10px] font-bold text-white truncate">{p.name.split(' ')[0]}</span>
+    </div>
+    ))}
+    </div>
+    </button>
 
- <div className="grid grid-cols-2 gap-4 mb-6">
- {/* Blue Team Selection */}
- <button
- onClick={() => { triggerHaptic('light'); setPendingWinner(1); }}
- className={`relative p-4 rounded-none flex flex-col items-center gap-3 transition-all overflow-hidden group
- ${pendingWinner === 1
- ? 'bg-blue-600 border border-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.5)] scale-[1.02]'
- : 'bg-[#000B29] border border-blue-500/30 '
- }`}
- >
- {pendingWinner === 1 && (
- <div className="absolute top-2 right-2 bg-white text-blue-600 rounded-full p-0.5 shadow-sm animate-in zoom-in duration-200">
- <Check size={12} strokeWidth={4} />
- </div>
- )}
- <span className={`text-[10px] font-black uppercase tracking-widest mb-1 ${pendingWinner === 1 ? 'text-blue-100' : 'text-blue-500'}`}>Blue Team</span>
- {/* Avatars */}
- <div className="flex -space-x-2">
- {getTeamsForCourt(finishingGameCourt).team1.map(p => (
- <div key={p.id} className={`rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
- <img src={p.avatar} className={`w-8 h-8 rounded-full border-2 object-cover ${pendingWinner === 1 ? 'border-white' : 'border-[#000B29]'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
- </div>
- ))}
- </div>
- <div className={`flex flex-col items-center text-xs font-bold mt-1 w-full px-1 ${pendingWinner === 1 ? 'text-white' : 'text-white'}`}>
- {getTeamsForCourt(finishingGameCourt).team1.map(p => (
- <div key={p.id} className="truncate w-full text-center">{p.name.split(' ')[0]}</div>
- ))}
- </div>
- </button>
+    {/* Center divider + VS badge */}
+    <div className="absolute inset-0 flex justify-center pointer-events-none z-20"><div className="w-px h-full bg-white/10"></div></div>
+    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
+    <div className="bg-[#000B29] text-white/50 text-[9px] font-black w-7 h-7 flex items-center justify-center rounded-full border border-white/10 shadow-xl">VS</div>
+    </div>
 
- {/* Red Team Selection */}
- <button
- onClick={() => { triggerHaptic('light'); setPendingWinner(2); }}
- className={`relative p-4 rounded-none flex flex-col items-center gap-3 transition-all overflow-hidden group
- ${pendingWinner === 2
- ? 'bg-red-600 border border-red-400 shadow-[0_0_20px_rgba(220,38,38,0.5)] scale-[1.02]'
- : 'bg-[#001645] border border-red-500/30 '
- }`}
- >
- {pendingWinner === 2 && (
- <div className="absolute top-2 right-2 bg-white text-red-600 rounded-full p-0.5 shadow-sm animate-in zoom-in duration-200">
- <Check size={12} strokeWidth={4} />
- </div>
- )}
- <span className={`text-[10px] font-black uppercase tracking-widest mb-1 ${pendingWinner === 2 ? 'text-red-100' : 'text-red-500'}`}>Red Team</span>
- {/* Avatars */}
- <div className="flex -space-x-2">
- {getTeamsForCourt(finishingGameCourt).team2.map(p => (
- <div key={p.id} className={`rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
- <img src={p.avatar} className={`w-8 h-8 rounded-full border-2 object-cover ${pendingWinner === 2 ? 'border-white' : 'border-[#000B29]'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
- </div>
- ))}
- </div>
- <div className={`flex flex-col items-center text-xs font-bold mt-1 w-full px-1 ${pendingWinner === 2 ? 'text-white' : 'text-white'}`}>
- {getTeamsForCourt(finishingGameCourt).team2.map(p => (
- <div key={p.id} className="truncate w-full text-center">{p.name.split(' ')[0]}</div>
- ))}
- </div>
- </button>
+    {/* Red Team — entire right half is tappable */}
+    <button
+    onClick={() => { triggerHaptic('light'); setPendingWinner(2); }}
+    className={`w-1/2 relative flex flex-col items-center justify-center gap-2 p-4 transition-all overflow-hidden ${pendingWinner === 2 ? 'bg-gradient-to-bl from-red-600/90 to-red-900/70 shadow-[inset_0_0_30px_rgba(220,38,38,0.3)]' : 'bg-gradient-to-bl from-red-900/60 to-red-900/20'}`}
+    >
+    <span className="absolute top-2 right-2 text-[4rem] font-black text-red-500/10 leading-none select-none">RED</span>
+    {pendingWinner === 2 && (
+    <div className="absolute top-3 left-3 bg-white text-red-600 rounded-full p-0.5 shadow-sm animate-in zoom-in duration-200 z-20">
+    <Check size={12} strokeWidth={4} />
+    </div>
+    )}
+    <div className="w-full flex flex-col justify-center gap-2 items-center relative z-10">
+    {getTeamsForCourt(finishingGameCourt).team2.map(p => (
+    <div key={p.id} className="flex items-center flex-row-reverse gap-2 bg-[#000B29]/90 px-2 py-1 rounded-none border border-red-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
+    <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
+    <img src={p.avatar} className={`w-8 h-8 rounded-full border object-cover ${pendingWinner === 2 ? 'border-white' : 'border-red-500'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
+    </div>
+    <span className="text-[10px] font-bold text-white truncate">{p.name.split(' ')[0]}</span>
+    </div>
+    ))}
+    </div>
+    </button>
+  </div>
+
+  <p className="text-center text-gray-400 text-[10px] font-bold uppercase tracking-widest py-3 bg-[#000B29]">Tap a side to select winner</p>
+
  </div>
 
- {/* Confirm Button */}
- <button
- disabled={!pendingWinner}
- onClick={() => {
- if (pendingWinner) {
- triggerHaptic('success');
- // No await, immediate UI update
- onRecordMatchResult(session.id, finishingGameCourt, pendingWinner);
- setFinishingGameCourt(null);
- setPendingWinner(null);
- }
- }}
- className={`w-full py-4 mb-4 font-black uppercase tracking-widest text-sm rounded transition-all shadow-lg
- ${pendingWinner
- ? 'bg-[#00FF41] text-[#000B29] (0,255,65,0.4)] transform '
- : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
- }`}
- >
- Confirm Result
- </button>
+  <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] flex gap-3 shrink-0">
+  <button onClick={() => { triggerHaptic('heavy'); onCourtAssignment(session.id, finishingGameCourt, []); setFinishingGameCourt(null); setPendingWinner(null); }} className="flex-1 py-3.5 bg-red-900/20 text-red-500 border border-red-900/50 transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] flex items-center justify-center">
+  <span className="skew-x-[6deg] flex items-center justify-center gap-1.5"><Trash2 size={14} /> Cancel</span>
+  </button>
 
- <div className="pt-4 border-t border-[#002266]"><button onClick={() => { triggerHaptic('heavy'); onCourtAssignment(session.id, finishingGameCourt, []); setFinishingGameCourt(null); setPendingWinner(null); }} className="w-full py-3 bg-red-600 text-white border border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.4)] font-black uppercase tracking-widest text-xs transition-all rounded (220,38,38,0.6)]">Cancel Match (No Result)</button></div>
- </div>
- </div> </div>)}
+  {/* Confirm Button */}
+  <button
+  disabled={!pendingWinner}
+  onClick={() => {
+  if (pendingWinner) {
+  triggerHaptic('success');
+  // No await, immediate UI update
+  onRecordMatchResult(session.id, finishingGameCourt, pendingWinner);
+  setFinishingGameCourt(null);
+  setPendingWinner(null);
+  }
+  }}
+  className={`flex-[2] py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all ${pendingWinner ? 'bg-[#00FF41] text-[#000B29] shadow-[0_0_15px_rgba(0,255,65,0.4)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}
+  >
+  <span className="skew-x-[6deg] flex items-center">{pendingWinner && <Check size={14} className="mr-2" />}Confirm Result</span>
+  </button>
+  </div>
+  <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
+  </div> </div>)}
 
  <ConfirmationModal isOpen={!!confirmConfig} title={confirmConfig?.title || ''} message={confirmConfig?.message || ''} confirmLabel={confirmConfig?.confirmLabel} isDestructive={confirmConfig?.isDestructive} onConfirm={() => { triggerHaptic('medium'); confirmConfig?.action(); setConfirmConfig(null); }} onCancel={() => { triggerHaptic('light'); setConfirmConfig(null); }} />
  </div>
