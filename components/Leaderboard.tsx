@@ -1,8 +1,9 @@
 
 import React, { useMemo, useCallback, useState } from 'react';
 import { User, Session, MatchResult } from '../types';
-import { Trophy, Flame, Frown, Crown, Swords, Target, Zap } from 'lucide-react';
-import { getAvatarColor, getRankFrameClass, getWinRateColor, triggerHaptic } from '../utils';
+import { Trophy, Flame, Frown, Crown, Swords, Target, Zap, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { getAvatarColor, getRankFrameClass, getWinRateColor, triggerHaptic, mapSessionFromDB } from '../utils';
+import { supabase } from '../services/supabaseClient';
 
 type TimeRange = 'alltime' | 'monthly';
 type SortCol = 'pts' | 'w' | 'l' | 'wr';
@@ -30,10 +31,11 @@ interface LeaderboardRowProps {
   isMe: boolean;
   onPlayerClick?: (userId: string) => void;
   sortCol: SortCol;
+  timeRange: TimeRange;
 }
 
 // OPTIMIZATION: Extracted LeaderboardRow as memoized component to prevent re-renders of unchanged rows
-const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, isMe, onPlayerClick, sortCol }) => {
+const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, isMe, onPlayerClick, sortCol, timeRange }) => {
   const s = stats;
   let rankColor = "text-gray-400";
   if (index === 0) rankColor = "text-yellow-500";
@@ -41,6 +43,11 @@ const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, is
   if (index === 2) rankColor = "text-orange-700";
 
   const winRateStr = s.winRate.toString();
+
+  const pointsDisplay = timeRange === 'monthly' ? (s.points > 0 ? `+${s.points}` : s.points.toString()) : s.points.toString();
+  const pointsColor = timeRange === 'monthly' 
+    ? (s.points > 0 ? 'text-[#00FF41]' : s.points < 0 ? 'text-red-500' : 'text-white')
+    : (sortCol === 'pts' ? 'text-[#00FF41]' : 'text-white');
 
   return (
     <div
@@ -72,7 +79,7 @@ const LeaderboardRow = React.memo<LeaderboardRowProps>(({ user, index, stats, is
         <span className={`text-xs font-bold w-10 text-center ${sortCol === 'w' ? 'text-[#00FF41]' : 'text-white'}`}>{s.wins}</span>
         <span className={`text-xs font-bold w-10 text-center ${sortCol === 'l' ? 'text-red-500' : 'text-white'}`}>{s.losses}</span>
         <span className={`text-xs font-black italic w-12 text-center ${sortCol === 'wr' ? (s.winRate >= 50 ? 'text-[#00FF41]' : 'text-orange-500') : 'text-white'}`}>{winRateStr}%</span>
-        <span className={`text-sm font-black italic w-14 text-right tabular-nums ${sortCol === 'pts' ? 'text-[#00FF41]' : 'text-white'}`}>{s.points}</span>
+        <span className={`text-sm font-black italic w-14 text-right tabular-nums ${pointsColor}`}>{pointsDisplay}</span>
       </div>
     </div>
   );
@@ -86,23 +93,83 @@ const TIME_TABS: { key: TimeRange; label: string }[] = [
 const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClick, currentUser }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>('alltime');
   const [sort, setSort] = useState<{ col: SortCol; dir: SortDir }>({ col: 'pts', dir: 'desc' });
+  const [selectedMonthDate, setSelectedMonthDate] = useState(() => new Date());
+  const [fetchedSessionsMap, setFetchedSessionsMap] = useState<Record<string, Session[]>>({});
+  const [isLoadingMonth, setIsLoadingMonth] = useState(false);
+
+  const handlePrevMonth = useCallback(() => {
+    triggerHaptic('light');
+    setSelectedMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  }, []);
+
+  const handleNextMonth = useCallback(() => {
+    triggerHaptic('light');
+    setSelectedMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  }, []);
 
   const handleSort = useCallback((col: SortCol) => {
     setSort(prev => prev.col === col ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' });
   }, []);
 
+  const now = new Date();
+  const isCurrentMonth = selectedMonthDate.getFullYear() === now.getFullYear() && selectedMonthDate.getMonth() === now.getMonth();
+  const isFirstMonth = selectedMonthDate.getFullYear() === 2026 && selectedMonthDate.getMonth() === 0; // Jan 2026
+  const formattedMonth = selectedMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  // Fetch sessions for the selected month dynamically
+  React.useEffect(() => {
+    if (timeRange !== 'monthly') return;
+    const monthKey = `${selectedMonthDate.getFullYear()}-${selectedMonthDate.getMonth()}`;
+    if (fetchedSessionsMap[monthKey]) return; // Already fetched
+
+    let isMounted = true;
+    const fetchMonthSessions = async () => {
+      setIsLoadingMonth(true);
+      const startOfMonth = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth(), 1).toISOString();
+      const endOfMonth = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+
+      try {
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('*')
+          .gte('start_time', startOfMonth)
+          .lte('start_time', endOfMonth);
+
+        if (!error && data && isMounted) {
+          const mapped = data.map(mapSessionFromDB);
+          setFetchedSessionsMap(prev => ({ ...prev, [monthKey]: mapped }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch monthly sessions", err);
+      } finally {
+        if (isMounted) setIsLoadingMonth(false);
+      }
+    };
+    fetchMonthSessions();
+
+    return () => { isMounted = false; };
+  }, [selectedMonthDate, timeRange, fetchedSessionsMap]);
+
   // Filter sessions by time range
   const filteredSessions = useMemo(() => {
     if (timeRange === 'alltime') return sessions;
 
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfMonth = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth(), 1);
+    const endOfMonth = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    return sessions.filter(s => {
+    const monthKey = `${selectedMonthDate.getFullYear()}-${selectedMonthDate.getMonth()}`;
+    const fetched = fetchedSessionsMap[monthKey] || [];
+
+    // Combine prop sessions (active/recent) with fetched historical sessions, deduping by id
+    const allKnownSessions = [...sessions, ...fetched];
+    const uniqueSessionsMap = new Map<string, Session>();
+    allKnownSessions.forEach(s => uniqueSessionsMap.set(s.id, s));
+
+    return Array.from(uniqueSessionsMap.values()).filter(s => {
       const sessionDate = new Date(s.startTime);
-      return sessionDate >= startOfMonth;
+      return sessionDate >= startOfMonth && sessionDate <= endOfMonth;
     });
-  }, [sessions, timeRange]);
+  }, [sessions, timeRange, selectedMonthDate, fetchedSessionsMap]);
 
   const stats = useMemo(() => {
     const userStats: Record<string, UserStats> = {};
@@ -124,7 +191,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
     } else {
       // Monthly: compute from filtered sessions
       users.forEach(u => {
-        userStats[u.id] = { played: 0, wins: 0, losses: 0, winRate: 0, points: u.points };
+        userStats[u.id] = { played: 0, wins: 0, losses: 0, winRate: 0, points: 0 };
       });
 
       filteredSessions.forEach(session => {
@@ -133,17 +200,20 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
           const team1Won = match.winningTeamIndex === 1;
           const winners = team1Won ? match.team1Ids : match.team2Ids;
           const losers = team1Won ? match.team2Ids : match.team1Ids;
+          const pc = match.pointsChange || 0;
 
           winners.forEach(id => {
             if (userStats[id]) {
               userStats[id].played++;
               userStats[id].wins++;
+              userStats[id].points += pc;
             }
           });
           losers.forEach(id => {
             if (userStats[id]) {
               userStats[id].played++;
               userStats[id].losses++;
+              userStats[id].points -= pc;
             }
           });
         });
@@ -171,7 +241,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
       }
     };
 
-    const sorted = [...users].sort((a, b) => {
+    // Only display players who have stats (played >= 1 match)
+    const usersWithStats = users.filter(u => {
+      const s = stats[u.id];
+      return s && s.played >= 1;
+    });
+
+    const sorted = usersWithStats.sort((a, b) => {
       const diff = getVal(b) - getVal(a);
       return sort.dir === 'desc' ? diff : -diff;
     });
@@ -211,15 +287,46 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
           </div>
 
           <div key={timeRange} className="animate-fade-in-up">
+            {/* Month Selector */}
+            {timeRange === 'monthly' && (
+              <div className="flex items-center justify-between px-4 py-2 mb-2 bg-white/5 rounded-lg mx-4">
+                <button 
+                  onClick={handlePrevMonth} 
+                  disabled={isFirstMonth}
+                  className={`p-2 transition-colors ${isFirstMonth ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-white active:scale-95'}`}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-widest text-[#00FF41]">{formattedMonth}</span>
+                  {isLoadingMonth && <Loader2 className="w-3 h-3 text-[#00FF41] animate-spin" />}
+                </div>
+                <button 
+                  onClick={handleNextMonth} 
+                  disabled={isCurrentMonth} 
+                  className={`p-2 transition-colors ${isCurrentMonth ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-white active:scale-95'}`}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+
             {/* Column Headers */}
             <div className="flex items-center justify-between py-2 px-4">
               <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 flex-1">Player</span>
               <div className="flex items-center shrink-0">
-                {([['w', 'W', 'w-10'], ['l', 'L', 'w-10'], ['wr', 'WR%', 'w-12'], ['pts', 'PTS', 'w-14']] as const).map(([key, label, width]) => (
+                {([
+                  ['w', 'W', 'w-10'],
+                  ['l', 'L', 'w-10'],
+                  ['wr', 'WR%', 'w-12'],
+                  ['pts', timeRange === 'monthly' ? '+/-' : 'PTS', 'w-14']
+                ] as [SortCol, string, string][]).map(([key, label, width]) => (
                   <button
                     key={key}
                     onClick={() => handleSort(key)}
-                    className={`text-[9px] font-black uppercase tracking-widest ${width} text-center transition-colors flex items-center justify-center gap-0.5 ${sort.col === key ? (key === 'l' ? 'text-red-500' : 'text-[#00FF41]') : 'text-gray-600'}`}
+                    className={`text-[9px] font-black uppercase tracking-widest ${width} transition-colors flex items-center gap-0.5 ${
+                      key === 'pts' ? 'justify-end text-right' : 'justify-center text-center'
+                    } ${sort.col === key ? (key === 'l' ? 'text-red-500' : 'text-[#00FF41]') : 'text-gray-600'}`}
                   >
                     {label}
                     {sort.col === key && (
@@ -240,6 +347,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
                   isMe={user.id === currentUser?.id}
                   onPlayerClick={handlePlayerClick}
                   sortCol={sort.col}
+                  timeRange={timeRange}
                 />
               ))}
             </div>
