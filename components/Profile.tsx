@@ -173,9 +173,9 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
 
           {/* Edge-to-edge scroll container */}
           <div className="w-[calc(100%+48px)] sm:w-[calc(100%+64px)] -ml-6 sm:-ml-8 overflow-x-auto hide-scrollbar snap-x snap-mandatory" ref={scrollContainerRef}>
-            <div className="flex items-start min-w-max relative gap-32 pb-4 pt-4 px-6 sm:px-8">
+            <div className="flex items-start min-w-max relative gap-32 pb-4 pt-4 px-[calc(50vw-36px)] sm:px-[252px]">
               {/* Connecting Background Line */}
-              <div className="absolute top-[52px] left-[60px] sm:left-[68px] right-[60px] sm:right-[68px] h-1 bg-[#001645] z-0 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)] rounded-full">
+              <div className="absolute top-[52px] left-[50vw] sm:left-[288px] right-[50vw] sm:right-[288px] h-1 bg-[#001645] z-0 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)] rounded-full">
                 {/* Active Progress Line */}
                 <div 
                   className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#00A82B] to-[#00FF41] z-0 transition-all duration-1000 shadow-[0_0_10px_#00FF41] rounded-full"
@@ -219,7 +219,7 @@ const Profile: React.FC<ProfileProps> = ({ user, sessions, allUsers, onOpenSetti
 
 
  {/* Logout Button */}
- <div className="w-full pb-10 flex justify-center mt-auto">
+ <div className="w-full pt-12 pb-24 flex justify-center mt-auto">
  <Button
  type="button"
  variant="danger"

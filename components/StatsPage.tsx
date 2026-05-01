@@ -303,9 +303,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                                                 <Users size={20} className="text-gray-600" />
                                             </div>
                                         )}
-                                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(59,130,246,0.5)]">
-                                            PARTNER
-                                        </div>
+
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-sm font-black uppercase tracking-tighter text-blue-400 leading-none italic mb-0.5">Most Played</span>
@@ -341,9 +339,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                                                 <Users size={20} className="text-gray-600" />
                                             </div>
                                         )}
-                                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#00FF41] text-[#000B29] text-[8px] font-black uppercase px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(0,255,65,0.5)] whitespace-nowrap">
-                                            DUO
-                                        </div>
+
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-sm font-black uppercase tracking-tighter text-[#00FF41] leading-none italic mb-0.5">Best DUO</span>
@@ -379,9 +375,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                                                 <Swords size={20} className="text-gray-600" />
                                             </div>
                                         )}
-                                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-orange-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(249,115,22,0.5)]">
-                                            TARGET
-                                        </div>
+
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-sm font-black uppercase tracking-tighter text-orange-500 leading-none italic mb-0.5">Most Wins</span>
@@ -417,9 +411,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                                                 <Swords size={20} className="text-gray-600" />
                                             </div>
                                         )}
-                                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(239,68,68,0.5)] whitespace-nowrap">
-                                            KRYPTONITE
-                                        </div>
+
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-sm font-black uppercase tracking-tighter text-red-500 leading-none italic mb-0.5">Most Losses</span>
@@ -471,7 +463,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
                                             <button
                                                 key={key}
                                                 onClick={() => handleEncounterSort(key)}
-                                                className={`text-[9px] font-black uppercase tracking-widest ${width} text-center transition-colors flex items-center justify-center gap-0.5 ${encounterSort.col === key ? 'text-white' : 'text-gray-600'}`}
+                                                className={`text-[9px] font-black uppercase tracking-widest ${width} text-center transition-colors flex items-center justify-center gap-0.5 ${encounterSort.col === key ? (key === 'l' ? 'text-red-500' : key === 'gp' ? 'text-white' : 'text-neon-primary') : 'text-gray-600'}`}
                                             >
                                                 {label}
                                                 {encounterSort.col === key && (

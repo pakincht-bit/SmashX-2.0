@@ -27,6 +27,7 @@ interface SessionDetailModalProps {
  onQueueMatch?: (sessionId: string, playerIds: string[]) => void;
  onPromoteMatch?: (sessionId: string, matchupId: string, courtIndex: number) => void;
  onDeleteQueuedMatch?: (sessionId: string, matchupId: string) => void;
+  onUndoMatchResult?: (sessionId: string, matchId: string) => void;
 }
 
 const START_THRESHOLD_MINUTES = 30; // Button is enabled 30 mins before start
@@ -75,7 +76,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  onEdit,
  onQueueMatch,
  onPromoteMatch,
- onDeleteQueuedMatch
+ onDeleteQueuedMatch,
+  onUndoMatchResult
 }) => {
  const [confirmConfig, setConfirmConfig] = useState<{
  isOpen: boolean;
@@ -130,11 +132,12 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
 
  const playerStats = useMemo(() => {
- const stats: Record<string, { played: number; wins: number; losses: number }> = {};
+ const stats: Record<string, { played: number; wins: number; losses: number; ptsChange: number }> = {};
  if (!session) return stats;
 
- (session.checkedInPlayerIds || []).forEach(pid => {
- stats[pid] = { played: 0, wins: 0, losses: 0 };
+ // Initialize for all session players so stats persist after uncheck
+  session.playerIds.forEach(pid => {
+ stats[pid] = { played: 0, wins: 0, losses: 0, ptsChange: 0 };
  });
 
  (session.matches || []).forEach(match => {
@@ -142,10 +145,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
 
  winners.forEach(pid => {
- if (stats[pid]) { stats[pid].played++; stats[pid].wins++; }
+ if (stats[pid]) { stats[pid].played++; stats[pid].wins++; stats[pid].ptsChange += match.pointsChange; }
  });
  losers.forEach(pid => {
- if (stats[pid]) { stats[pid].played++; stats[pid].losses++; }
+ if (stats[pid]) { stats[pid].played++; stats[pid].losses++; stats[pid].ptsChange -= match.pointsChange; }
  });
  });
  return stats;
@@ -393,9 +396,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  Next Match Up
  </h3>
  {/* REMOVED isHost CHECK for Add Match */}
+ {isJoined && (
  <button onClick={handleStartQueueing} className="bg-[#001645] text-[#00FF41] border border-[#00FF41] px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2">
  <Plus size={14} /> Add Match
  </button>
+ )}
  </div>
 
  {(session.nextMatchups || []).length === 0 ? (
@@ -547,7 +552,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </div>
  <div className="absolute inset-x-0 bottom-0 p-3 pt-12 bg-gradient-to-t from-[#000920] via-[#000920]/90 to-transparent z-20 flex justify-between items-end pointer-events-none">
  <span className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center mb-0.5 ml-1 drop-shadow-md">Court {index + 1}</span>
- <div className="pointer-events-auto"> {hasPlayers ? (<div className="flex items-center">{startTime && <MatchTimer startTime={startTime} />}</div>) : (<div className={`text-[10px] text-white font-bold uppercase tracking-wider border border-white/20 px-3 py-1.5 rounded transition-all backdrop-blur-md bg-white/5 ${isCurrentUserCheckedIn ? ' cursor-pointer' : 'opacity-50'}`}>Assign</div>)} </div>
+ <div className="pointer-events-auto"> {hasPlayers ? (<div className="flex items-center">{startTime && <MatchTimer startTime={startTime} />}</div>) : (isJoined ? <div className={`text-[10px] text-white font-bold uppercase tracking-wider border border-white/20 px-3 py-1.5 rounded transition-all backdrop-blur-md bg-white/5 ${isCurrentUserCheckedIn ? ' cursor-pointer' : 'opacity-50'}`}>Assign</div> : null)} </div>
  </div>
  </div>
  </div>
@@ -583,7 +588,27 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
             {/* Match number header */}
             <div className="flex items-center justify-between px-3 py-1.5 bg-[#000B29]">
               <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Match {(session.matches || []).length - i}</span>
-              <span className="text-[9px] font-mono text-gray-600 tabular-nums">±{match.pointsChange} pts</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-mono text-gray-600 tabular-nums">±{match.pointsChange} pts</span>
+                {status !== 'END' && isHost && (
+                  <button
+                    onClick={() => {
+                      triggerHaptic('heavy');
+                      setConfirmConfig({
+                        isOpen: true,
+                        title: 'Undo Match Result',
+                        message: 'This will reverse the points and stats for all players in this match. Are you sure?',
+                        action: () => { onUndoMatchResult?.(session.id, match.id); },
+                        isDestructive: true,
+                        confirmLabel: 'Undo Result'
+                      });
+                    }}
+                    className="text-[9px] font-black uppercase tracking-wider text-red-400 border border-red-500/30 bg-red-500/10 px-2 py-0.5 rounded transition-all active:scale-95"
+                  >
+                    Undo
+                  </button>
+                )}
+              </div>
             </div>
             {/* Court-style split layout */}
             <div className="flex items-stretch relative min-h-[60px]">
@@ -662,10 +687,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     const notCheckedInPlayers = sortPlayers(players.filter(p => !checkedInIds.includes(p.id)));
 
     const renderSortableHeader = (label: string, col: 'played' | 'wins' | 'losses') => (
-      <button onClick={() => handleSort(col)} className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-10 text-center flex items-center justify-center gap-0.5 group">
-        <span className="group-active:text-[#00FF41] transition-colors">{label}</span>
+      <button onClick={() => handleSort(col)} className={`text-[9px] font-black uppercase tracking-widest w-10 text-center flex items-center justify-center gap-0.5 group transition-colors ${playerSort.col === col ? (col === 'losses' ? 'text-red-500' : col === 'played' ? 'text-white' : 'text-[#00FF41]') : 'text-gray-600'}`}>
+        <span className="group-active:text-[#00FF41]">{label}</span>
         {playerSort.col === col && (
-          <span className="text-white text-[8px]">{playerSort.dir === 'desc' ? '▼' : '▲'}</span>
+          <span className="text-[8px]">{playerSort.dir === 'desc' ? '▼' : '▲'}</span>
         )}
       </button>
     );
@@ -673,7 +698,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     const renderPlayerRow = (player: User, isCheckedIn: boolean) => {
       const currentCourt = getPlayerCourtIndex(player.id);
       const isPlaying = currentCourt !== null;
-      const s = playerStats[player.id] || { played: 0, wins: 0, losses: 0 };
+      const s = playerStats[player.id] || { played: 0, wins: 0, losses: 0, ptsChange: 0 };
       return (
         <div key={player.id} className={`flex items-center justify-between py-3 px-4 sm:px-6 transition-all ${isCheckedIn ? '' : ' opacity-60'}`}>
           <div className="flex items-center gap-3 cursor-pointer group flex-1 min-w-0" onClick={() => { triggerHaptic('light'); onPlayerClick?.(player.id); }}>
@@ -695,13 +720,21 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
               <span className="text-xs font-mono font-bold w-10 text-center text-gray-400">{s.played}</span>
               <span className="text-xs font-mono font-bold w-10 text-center text-[#00FF41]">{s.wins}</span>
               <span className="text-xs font-mono font-bold w-10 text-center text-red-500">{s.losses}</span>
+              <span className={`text-xs font-mono font-black w-12 text-center ${s.ptsChange > 0 ? 'text-[#00FF41]' : s.ptsChange < 0 ? 'text-red-500' : 'text-gray-600'}`}>{s.ptsChange > 0 ? '+' : ''}{s.ptsChange}</span>
             </>
-            {isHost && (
-              <button onClick={() => { triggerHaptic(isCheckedIn ? 'light' : 'success'); onCheckInToggle(session.id, player.id); }} className={`ml-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border transition-colors w-[68px] ${isCheckedIn ? 'bg-transparent border-transparent text-gray-500 ' : 'bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41] '}`} >
-                {isCheckedIn ? 'Undo' : 'Check In'}
+            {isHost && !isCheckedIn && (
+              <button onClick={() => { triggerHaptic('success'); onCheckInToggle(session.id, player.id); }} className="ml-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border transition-colors bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41]" >
+                Check In
               </button>
             )}
-          </div>
+            {isHost && isCheckedIn && (
+              <button
+                onClick={() => { triggerHaptic('light'); onCheckInToggle(session.id, player.id); }}
+                className="ml-1 w-6 h-6 flex items-center justify-center rounded-full text-gray-600 transition-colors active:bg-red-500/20 active:text-red-400"
+              >
+                <X size={12} />
+              </button>
+            )}          </div>
         </div>
       );
     };
@@ -717,7 +750,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                   {renderSortableHeader('M', 'played')}
                   {renderSortableHeader('W', 'wins')}
                   {renderSortableHeader('L', 'losses')}
-                  {isHost && <div className="w-[68px] ml-2"></div>}
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-12 text-center">±</span>
+                  {isHost && <div className="ml-1 w-6"></div>}
                 </div>
               </div>
               <div className="">
@@ -733,7 +767,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                   {renderSortableHeader('M', 'played')}
                   {renderSortableHeader('W', 'wins')}
                   {renderSortableHeader('L', 'losses')}
-                  {isHost && <div className="w-[68px] ml-2"></div>}
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-12 text-center">±</span>
+                  {isHost && <div className="ml-2 w-[68px]"></div>}
                 </div>
               </div>
               <div className="">
@@ -1049,7 +1084,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  const renderScoreboard = () => {
  const stats: Record<string, { wins: number; losses: number; pointsChange: number }> = {};
- (session.checkedInPlayerIds || []).forEach(pid => { stats[pid] = { wins: 0, losses: 0, pointsChange: 0 }; });
+ // Initialize for all session players so stats persist after uncheck
+  session.playerIds.forEach(pid => { stats[pid] = { wins: 0, losses: 0, pointsChange: 0 }; });
  (session.matches || []).forEach(match => {
  const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
  const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
@@ -1137,6 +1173,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <Share2 size={18} />
  {isCopied && <span>Copied!</span>}
  </button>
+ {!isHost && isJoined && status !== 'END' && (
+ <button onClick={() => setConfirmConfig({ isOpen: true, title: 'Leave Session', message: 'Are you sure?', action: () => { triggerHaptic('medium'); onLeave(session.id); onClose(); }, isDestructive: true, confirmLabel: 'Leave' })} className="p-2 text-gray-400 rounded-full transition-all active:text-red-400">
+ <LogOut size={18} />
+ </button>
+ )}
  {isHost && status === 'PLAYING' && (<button onClick={() => { triggerHaptic('medium'); setConfirmConfig({ isOpen: true, title: 'End Session', message: 'Are you sure you want to end this session? All active courts will be finalized.', confirmLabel: 'End Session', isDestructive: true, action: () => onEnd(session.id, { shuttlesUsed: 0, pricePerShuttle: 0, totalCourtPrice: 0, splitMode: 'EQUAL' }) }); }} className="flex items-center gap-2 bg-red-500/10 text-red-500 border border-red-500/50 px-3 py-1.5 rounded-none text-xs font-black uppercase tracking-wider transition-all"><Square size={14} fill="currentColor" /><span>End Session</span></button>)}
  {isHost && status === 'OPEN' && onEdit && (
  <button onClick={() => { triggerHaptic('medium'); onEdit(session.id); }} className="p-2 text-gray-400 rounded-full transition-all">
@@ -1150,18 +1191,34 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  {/* Scrollable Content */}
  <PullToRefresh onRefresh={onRefresh} className="flex-1 min-h-0 overflow-y-auto">
  {status === 'PLAYING' ? (
- <div className="bg-[#001645] border-b border-[#002266] h-12 overflow-hidden relative flex items-center shadow-lg z-10">
- <style>{` @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } } .animate-marquee { animation: marquee 20s linear infinite; will-change: transform; } `}</style>
- <div className="animate-marquee whitespace-nowrap font-black uppercase tracking-widest text-sm flex items-center min-w-full">
- <span className="mx-4 text-[#00FF41] flex items-center"><span className="w-2 h-2 bg-[#00FF41] rounded-full mr-2 shadow-[0_0_10px_#00FF41]"></span>Playing Now</span>
- <span className="text-gray-600 mx-2 text-[10px]">•</span>
- <span className="mx-4 text-white flex items-center"><MapPin size={14} className="mr-2 text-gray-400" />{session.location}</span>
- <span className="text-gray-600 mx-2 text-[10px]">•</span>
- <span className="mx-4 text-white flex items-center"><Clock size={14} className="mr-2 text-gray-400" />{formatTime(session.startTime)} - {formatTime(session.endTime)}</span>
- </div>
- <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#001645] to-transparent z-20 pointer-events-none"></div>
- <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#001645] to-transparent z-20 pointer-events-none"></div>
- </div>
+  <div className="bg-[#001645] border-b border-[#002266] p-2.5 relative flex flex-col justify-center shadow-lg z-10 overflow-hidden">
+    {/* LED Grid Overlay */}
+    <div className="absolute inset-0 opacity-15 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#00FF41 1px, transparent 1px)', backgroundSize: '3px 3px' }}></div>
+    {/* Scanline Overlay */}
+    <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(transparent 50%, rgba(0, 0, 0, 0.5) 50%)', backgroundSize: '100% 4px' }}></div>
+    
+    <div className="relative z-10 flex items-center justify-between w-full font-mono uppercase tracking-widest text-[10px] sm:text-xs text-[#00FF41]">
+      <div className="flex items-center gap-1.5 sm:gap-2 drop-shadow-[0_0_8px_rgba(0,255,65,0.8)] font-black min-w-0 pr-2">
+        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#00FF41] rounded-full animate-pulse shadow-[0_0_10px_#00FF41] shrink-0"></span>
+        <span className="truncate">{session.title || session.location}</span>
+      </div>
+      <div className="flex items-center justify-end gap-2 sm:gap-3 font-bold opacity-90 drop-shadow-[0_0_5px_rgba(0,255,65,0.5)] shrink-0">
+        {session.title && (
+          <>
+            <span className="flex items-center gap-1 sm:gap-1.5 truncate max-w-[80px] sm:max-w-[150px]">
+              <MapPin size={10} className="opacity-70 shrink-0 sm:w-3 sm:h-3" />
+              <span className="truncate">{session.location}</span>
+            </span>
+            <span className="opacity-40 text-[8px] shrink-0">•</span>
+          </>
+        )}
+        <span className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <Clock size={10} className="opacity-70 shrink-0 sm:w-3 sm:h-3" />
+          {formatTime(session.startTime)} - {formatTime(session.endTime)}
+        </span>
+      </div>
+    </div>
+  </div>
  ) : (
  <div className="bg-[#001645] p-4">
  <div className="flex items-center gap-4">
@@ -1233,10 +1290,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className="w-full">
  {isJoined ? (
  <div className="flex flex-col gap-3">
- {status === 'END' ? (
+ {status === 'END' && (
  <button onClick={() => setIsShareReportOpen(true)} className="w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] bg-[#00FF41] text-[#000B29] transition-colors font-black uppercase tracking-widest text-sm shadow-[0_0_20px_rgba(0,255,65,0.3)]"><span className="skew-x-[6deg] flex items-center gap-2"><Share2 size={18} />Share Results</span></button>
- ) : (
- <button onClick={() => setConfirmConfig({ isOpen: true, title: 'Leave Session', message: 'Are you sure?', action: () => { triggerHaptic('medium'); onLeave(session.id); onClose(); }, isDestructive: true, confirmLabel: 'Leave' })} className="w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] border border-gray-600 text-gray-300 transition-colors font-black uppercase tracking-widest text-sm"><span className="skew-x-[6deg] flex items-center"><LogOut size={16} className="mr-2" />Leave Session</span></button>
  )}
  </div>
  ) : <button onClick={() => { triggerHaptic('success'); onJoin(session.id); }} disabled={status === 'END'} className={`w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${status === 'END' ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{status === 'END' ? 'Session Ended' : 'Join Session'}</div></button>}

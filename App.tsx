@@ -1050,6 +1050,74 @@ const App: React.FC = () => {
  }
  }, [sessions, showToast]);
 
+  const handleUndoMatchResult = useCallback(async (sessionId: string, matchId: string) => {
+  const lockKey = `undo-${sessionId}-${matchId}`;
+  if (mutatingRef.current.has(lockKey)) return;
+  mutatingRef.current.add(lockKey);
+
+  const session = sessions.find(s => s.id === sessionId);
+  if (!session || !session.matches) return;
+
+  const match = session.matches.find(m => m.id === matchId);
+  if (!match) return;
+
+  const previousSessions = sessions;
+  const previousUsers = users;
+
+  // 1. Optimistic Update — remove match from session
+  const updatedMatches = session.matches.filter(m => m.id !== matchId);
+  setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, matches: updatedMatches } : s));
+
+  // 2. Optimistic Update — reverse points/wins/losses on local user state
+  const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
+  const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
+  setUsers(prev => prev.map(u => {
+  if (winners.includes(u.id)) {
+  return { ...u, points: u.points - match.pointsChange, wins: Math.max(u.wins - 1, 0) };
+  }
+  if (losers.includes(u.id)) {
+  return { ...u, points: u.points + match.pointsChange, losses: Math.max(u.losses - 1, 0) };
+  }
+  return u;
+  }));
+
+  try {
+  setIsSyncing(true);
+
+  const { data, error } = await supabase.rpc('undo_match_result', {
+  p_session_id: sessionId,
+  p_match_id: matchId,
+  p_team1_ids: match.team1Ids,
+  p_team2_ids: match.team2Ids,
+  p_winning_team_index: match.winningTeamIndex,
+  p_points_change: match.pointsChange
+  });
+
+  if (error) throw error;
+
+  // Refresh all profiles to ensure accurate points
+  const { data: updatedProfiles, error: profileError } = await supabase
+  .from('profiles')
+  .select('*');
+
+  if (!profileError && updatedProfiles) {
+  const mappedUsers = updatedProfiles.map(mapProfileFromDB);
+  setUsers(mappedUsers);
+  }
+
+  showToast("Match Result Undone");
+
+  } catch (err) {
+  console.error("Failed to undo match result:", err);
+  setSessions(previousSessions);
+  setUsers(previousUsers);
+  showToast("Failed to undo match. Please refresh.", true);
+  } finally {
+  setIsSyncing(false);
+  mutatingRef.current.delete(lockKey);
+  }
+  }, [sessions, users, showToast]);
+
  // Merge active + past sessions for child components that need full history
  const allSessions = useMemo(() => {
  const ids = new Set(sessions.map(s => s.id));
@@ -1417,6 +1485,7 @@ const App: React.FC = () => {
  onQueueMatch={handleQueueMatch}
  onPromoteMatch={handlePromoteMatch}
  onDeleteQueuedMatch={handleDeleteQueuedMatch}
+  onUndoMatchResult={handleUndoMatchResult}
  />
  </Suspense>
  ) : null}
