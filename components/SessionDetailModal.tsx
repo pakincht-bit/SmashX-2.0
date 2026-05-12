@@ -28,6 +28,7 @@ interface SessionDetailModalProps {
  onPromoteMatch?: (sessionId: string, matchupId: string, courtIndex: number) => void;
  onDeleteQueuedMatch?: (sessionId: string, matchupId: string) => void;
   onUndoMatchResult?: (sessionId: string, matchId: string) => void;
+ onAddCourt?: (sessionId: string) => void;
 }
 
 const START_THRESHOLD_MINUTES = 30; // Button is enabled 30 mins before start
@@ -77,7 +78,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  onQueueMatch,
  onPromoteMatch,
  onDeleteQueuedMatch,
-  onUndoMatchResult
+  onUndoMatchResult,
+ onAddCourt
 }) => {
  const [confirmConfig, setConfirmConfig] = useState<{
  isOpen: boolean;
@@ -494,9 +496,16 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  const renderLiveCourts = () => (
  <div className="mb-8">
- <h3 className="text-lg font-black italic text-white uppercase tracking-wider flex items-center mb-4">
+ <div className="flex justify-between items-center mb-4">
+ <h3 className="text-lg font-black italic text-white uppercase tracking-wider flex items-center">
  Courts
  </h3>
+ {isHost && (
+ <button onClick={() => { triggerHaptic('light'); onAddCourt?.(session.id); }} className="bg-[#001645] text-[#00FF41] border border-[#00FF41] px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2">
+ <Plus size={14} /> Add Court
+ </button>
+ )}
+ </div>
  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
  {Array.from({ length: session.courtCount }).map((_, index) => {
  const assignedPlayerIds = assignments[index] || [];

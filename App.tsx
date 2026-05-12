@@ -909,6 +909,28 @@ const App: React.FC = () => {
  }
  }, [sessions, showToast]);
 
+ const handleAddCourt = useCallback(async (sessionId: string) => {
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session) return;
+ const previousSessions = sessions;
+ const newCourtCount = session.courtCount + 1;
+ const newMaxPlayers = calculateMaxPlayers(newCourtCount);
+
+ setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, courtCount: newCourtCount, maxPlayers: newMaxPlayers } : s));
+
+ const { error } = await supabase.from('sessions').update({
+ court_count: newCourtCount,
+ max_players: newMaxPlayers,
+ }).eq('id', sessionId);
+
+ if (error) {
+ setSessions(previousSessions);
+ showToast("Failed to add court", true);
+ } else {
+ showToast(`Court ${newCourtCount} added`);
+ }
+ }, [sessions, showToast]);
+
  const handleQueueMatch = useCallback(async (sessionId: string, playerIds: string[]) => {
  const session = sessions.find(s => s.id === sessionId);
  if (!session) return;
@@ -1486,6 +1508,7 @@ const App: React.FC = () => {
  onPromoteMatch={handlePromoteMatch}
  onDeleteQueuedMatch={handleDeleteQueuedMatch}
   onUndoMatchResult={handleUndoMatchResult}
+ onAddCourt={handleAddCourt}
  />
  </Suspense>
  ) : null}

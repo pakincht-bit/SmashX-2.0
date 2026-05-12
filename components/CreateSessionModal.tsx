@@ -16,7 +16,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  date: new Date().toISOString().split('T')[0],
  startTime: '18:00',
  endTime: '20:00',
- courtCount: 2,
+ courtCount: 1,
  });
 
  const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,7 +48,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  date: new Date().toISOString().split('T')[0],
  startTime: '18:00',
  endTime: '20:00',
- courtCount: 2,
+ courtCount: 1,
  });
  }
  }
@@ -82,7 +82,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  date: new Date().toISOString().split('T')[0],
  startTime: '18:00',
  endTime: '20:00',
- courtCount: 2,
+ courtCount: 1,
  });
  }
  }
@@ -146,7 +146,6 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  </div>
  </div>
 
- <div className="grid grid-cols-2 gap-4">
  <div>
  <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">Date</label>
  <div className="relative group">
@@ -158,22 +157,6 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ isOpen, onClose
  onChange={handleInputChange}
  className="w-full pl-4 pr-4 py-3 bg-[#000B29] text-white rounded-none focus:border-[#00FF41] focus:ring-1 focus:ring-[#00FF41] outline-none transition-all text-sm [color-scheme:dark]"
  />
- </div>
- </div>
- <div>
- <label className="block text-xs font-bold text-[#00FF41] uppercase tracking-wider mb-2 ml-1">Courts</label>
- <div className="relative group">
- <input
- type="number"
- name="courtCount"
- min="1"
- max="10"
- required
- value={formData.courtCount}
- onChange={handleInputChange}
- className="w-full pl-4 pr-4 py-3 bg-[#000B29] text-white rounded-none focus:border-[#00FF41] focus:ring-1 focus:ring-[#00FF41] outline-none transition-all"
- />
- </div>
  </div>
  </div>
 
