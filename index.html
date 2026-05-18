@@ -270,19 +270,23 @@
     }
 
     /* === IMAGE-BASED RANK FRAMES === */
-    .rank-unpolished, .rank-spark, .rank-combustion, .rank-void, .rank-ascended, .rank-champion {
+    .rank-unpolished, .rank-spark, .rank-combustion, .rank-void, .rank-ascended, .rank-champion, .rank-cat, .rank-dog, .rank-frog, .rank-panda {
       position: relative;
       border: none !important;
       box-shadow: none !important;
       background: transparent !important;
     }
 
-    .rank-unpolished::after, 
-    .rank-spark::after, 
-    .rank-combustion::after, 
-    .rank-void::after, 
-    .rank-ascended::after, 
-    .rank-champion::after {
+    .rank-unpolished::after,
+    .rank-spark::after,
+    .rank-combustion::after,
+    .rank-void::after,
+    .rank-ascended::after,
+    .rank-champion::after,
+    .rank-cat::after,
+    .rank-dog::after,
+    .rank-frog::after,
+    .rank-panda::after {
       content: '';
       position: absolute;
       /* Base positioning properties */
@@ -294,11 +298,15 @@
     }
 
     /* Regular rank frames need a larger scale to fit the avatar */
-    .rank-unpolished::after, 
-    .rank-spark::after, 
-    .rank-combustion::after, 
-    .rank-void::after, 
-    .rank-ascended::after {
+    .rank-unpolished::after,
+    .rank-spark::after,
+    .rank-combustion::after,
+    .rank-void::after,
+    .rank-ascended::after,
+    .rank-cat::after,
+    .rank-dog::after,
+    .rank-frog::after,
+    .rank-panda::after {
       top: -24%;
       left: -24%;
       right: -24%;
@@ -319,6 +327,10 @@
     .rank-void::after { background-image: url('/frame/void.svg?v=2'); }
     .rank-ascended::after { background-image: url('/frame/ascended.svg?v=2'); }
     .rank-champion::after { background-image: url('/frame/champion.svg?v=5'); }
+    .rank-cat::after { background-image: url('/frame/cat.svg'); }
+    .rank-dog::after { background-image: url('/frame/dog.svg'); }
+    .rank-frog::after { background-image: url('/frame/frog.svg'); }
+    .rank-panda::after { background-image: url('/frame/panda.svg'); }
     /* Floating avatar animation for SessionCard */
     @keyframes sessionCardFloat {
       0% { transform: translateY(0px); }

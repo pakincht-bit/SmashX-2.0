@@ -41,12 +41,12 @@ export const getFrameByPoints = (points: number): string => {
 };
 
 export const getUnlockedFrames = (points: number, currentSpecialFrame?: string): string[] => {
-  const frames = ['none', 'unpolished'];
+  const frames = ['none', 'unpolished', 'cat', 'dog', 'frog', 'panda'];
   if (points >= 1100) frames.push('spark');
   if (points >= 1300) frames.push('combustion');
   if (points >= 1600) frames.push('void');
   if (points >= 2000) frames.push('ascended');
-  
+
   if (currentSpecialFrame && currentSpecialFrame !== 'none' && !frames.includes(currentSpecialFrame)) {
     frames.push(currentSpecialFrame);
   }
@@ -68,6 +68,14 @@ export const getRankFrameClass = (frame: string | undefined): string => {
       return `${base} rank-ascended rank-base`;
     case 'champion':
       return `${base} rank-champion rank-base`;
+    case 'cat':
+      return `${base} rank-cat rank-base`;
+    case 'dog':
+      return `${base} rank-dog rank-base`;
+    case 'frog':
+      return `${base} rank-frog rank-base`;
+    case 'panda':
+      return `${base} rank-panda rank-base`;
     default:
       return 'ring-0';
   }

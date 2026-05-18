@@ -59,6 +59,7 @@ const App: React.FC = () => {
  const channelRef = useRef<any>(null);
  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const lastFetchRef = useRef<number>(0);
+ const fetchGenerationRef = useRef<number>(0);
  const mutatingRef = useRef<Set<string>>(new Set());
 
  // Infinite Scroll State
@@ -280,6 +281,7 @@ const App: React.FC = () => {
 
  const fetchData = async () => {
  const fetchStarted = Date.now();
+ const generation = ++fetchGenerationRef.current;
  console.log("SX: Fetching Arena Data...");
  setFetchError(null);
  try {
@@ -310,6 +312,9 @@ const App: React.FC = () => {
  if (profilesRes.error) throw profilesRes.error;
  if (activeSessionsRes.error) throw activeSessionsRes.error;
  // Non-critical: don't throw on recentPast error
+
+ // Discard results if a newer fetch has already completed (prevents stale overwrites)
+ if (generation !== fetchGenerationRef.current) return;
 
  if (profilesRes.data) {
  const mappedUsers = profilesRes.data.map(mapProfileFromDB);
@@ -1047,6 +1052,10 @@ const App: React.FC = () => {
 
  if (error) throw error;
 
+ // Invalidate any in-flight fetchData() calls so their stale results won't overwrite
+ // the correct profiles we're about to fetch post-RPC commit.
+ fetchGenerationRef.current++;
+
  setIsSyncing(true); // Start full stat sync overlay
 
  // 3. Refresh profile data for all players to ensure local points are accurate
@@ -1116,6 +1125,8 @@ const App: React.FC = () => {
   });
 
   if (error) throw error;
+
+  fetchGenerationRef.current++;
 
   // Refresh all profiles to ensure accurate points
   const { data: updatedProfiles, error: profileError } = await supabase
