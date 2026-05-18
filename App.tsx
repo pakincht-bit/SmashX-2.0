@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, useTransition, lazy, Suspense } from 'react';
 import { Session, User, CreateSessionDTO, FinalBill, MatchResult } from './types';
-import { calculateMaxPlayers, mapSessionFromDB, mapProfileFromDB, getFrameByPoints, triggerHaptic, generateId, calculateQueue, getAvailablePlayers, getDateParts, formatTime, getAvatarColor } from './utils';
+import { calculateMaxPlayers, mapSessionFromDB, mapProfileFromDB, getFrameByPoints, getUnlockedFrames, COSMETIC_FRAMES, triggerHaptic, generateId, calculateQueue, getAvailablePlayers, getDateParts, formatTime, getAvatarColor } from './utils';
 import Header from './components/Header';
 import SessionCard from './components/SessionCard';
 import BottomNav from './components/BottomNav';
 import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import InstallBanner from './components/InstallBanner';
+import FrameUnlockModal from './components/FrameUnlockModal';
 import PullToRefresh from './components/PullToRefresh';
 import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users, Wifi } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
@@ -90,6 +91,13 @@ const App: React.FC = () => {
 
  // Toast State
  const [toast, setToast] = useState<{ message: string; visible: boolean; isError?: boolean } | null>(null);
+
+ // Frame Unlock Notification State
+ const [frameUnlockModal, setFrameUnlockModal] = useState<{
+   isOpen: boolean;
+   frames: string[];
+   scenario: 'rank' | 'cosmetic';
+ }>({ isOpen: false, frames: [], scenario: 'rank' });
 
  const showToast = useCallback((message: string, isError = false) => {
  setToast({ message, visible: true, isError });
@@ -505,6 +513,41 @@ const App: React.FC = () => {
  if (!currentUser) return null;
  return users.find(u => u.id === currentUser.id) || currentUser;
  }, [currentUser, users]);
+
+ // Frame unlock handlers
+ const handleFrameUnlockCustomize = useCallback(() => {
+   setFrameUnlockModal(prev => ({ ...prev, isOpen: false }));
+   setIsProfileOpen(true);
+   setIsSettingsOpen(true);
+ }, []);
+
+ const handleFrameUnlockDismiss = useCallback(() => {
+   setFrameUnlockModal(prev => ({ ...prev, isOpen: false }));
+ }, []);
+
+ // Scenario B: detect newly added cosmetic frames on first login
+ const cosmeticCheckDoneRef = useRef(false);
+ useEffect(() => {
+   if (!activeUser || cosmeticCheckDoneRef.current) return;
+   cosmeticCheckDoneRef.current = true;
+
+   const STORAGE_KEY = 'smashx_seen_cosmetic_frames';
+   const cosmeticFrames = COSMETIC_FRAMES.filter(f => f !== 'none' && f !== 'unpolished');
+
+   try {
+     const seenRaw = localStorage.getItem(STORAGE_KEY);
+     if (seenRaw === null) {
+       localStorage.setItem(STORAGE_KEY, JSON.stringify(cosmeticFrames));
+       return;
+     }
+     const seen: string[] = JSON.parse(seenRaw);
+     const newFrames = cosmeticFrames.filter(f => !seen.includes(f));
+     if (newFrames.length > 0) {
+       setFrameUnlockModal({ isOpen: true, frames: newFrames, scenario: 'cosmetic' });
+       localStorage.setItem(STORAGE_KEY, JSON.stringify(cosmeticFrames));
+     }
+   } catch { /* localStorage failure is non-fatal */ }
+ }, [activeUser]);
 
  const handleUpdateUser = useCallback(async (updatedUser: User) => {
  setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
@@ -996,6 +1039,7 @@ const App: React.FC = () => {
  if (!session) return;
 
  const previousSessions = sessions;
+ const prevPoints = activeUser?.points ?? 0;
  const assignedPlayerIds = (session.courtAssignments || {})[courtIndex] || [];
  if (assignedPlayerIds.length === 0) return;
 
@@ -1067,6 +1111,18 @@ const App: React.FC = () => {
  if (!profileError && updatedProfiles) {
  const mappedUsers = updatedProfiles.map(mapProfileFromDB);
  setUsers(mappedUsers);
+
+ // Scenario A: detect rank frame unlock
+ const selfAfter = mappedUsers.find(u => u.id === activeUser?.id);
+ if (selfAfter && activeUser) {
+   const prevFrames = new Set(getUnlockedFrames(prevPoints, activeUser.specialFrame));
+   const nextFrames = getUnlockedFrames(selfAfter.points, selfAfter.specialFrame);
+   const RANK_FRAME_IDS = ['spark', 'combustion', 'void', 'ascended'];
+   const newlyUnlocked = RANK_FRAME_IDS.filter(f => nextFrames.includes(f) && !prevFrames.has(f));
+   if (newlyUnlocked.length > 0) {
+     setFrameUnlockModal({ isOpen: true, frames: newlyUnlocked, scenario: 'rank' });
+   }
+ }
  }
 
  showToast("Match Recorded");
@@ -1079,7 +1135,7 @@ const App: React.FC = () => {
  setIsSyncing(false);
  mutatingRef.current.delete(lockKey);
  }
- }, [sessions, showToast]);
+ }, [sessions, showToast, activeUser]);
 
   const handleUndoMatchResult = useCallback(async (sessionId: string, matchId: string) => {
   const lockKey = `undo-${sessionId}-${matchId}`;
@@ -1483,6 +1539,14 @@ const App: React.FC = () => {
  </div>
 
  <BottomNav activeTab={activeTab} onTabChange={handleTabChange} currentUser={activeUser} />
+
+ <FrameUnlockModal
+   isOpen={frameUnlockModal.isOpen}
+   unlockedFrames={frameUnlockModal.frames}
+   scenario={frameUnlockModal.scenario}
+   onCustomize={handleFrameUnlockCustomize}
+   onDismiss={handleFrameUnlockDismiss}
+ />
 
  <Suspense fallback={null}>
  <CreateSessionModal

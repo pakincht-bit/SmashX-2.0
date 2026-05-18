@@ -40,8 +40,10 @@ export const getFrameByPoints = (points: number): string => {
   return 'unpolished';
 };
 
+export const COSMETIC_FRAMES: string[] = ['none', 'unpolished', 'cat', 'dog', 'frog', 'panda'];
+
 export const getUnlockedFrames = (points: number, currentSpecialFrame?: string): string[] => {
-  const frames = ['none', 'unpolished', 'cat', 'dog', 'frog', 'panda'];
+  const frames = [...COSMETIC_FRAMES];
   if (points >= 1100) frames.push('spark');
   if (points >= 1300) frames.push('combustion');
   if (points >= 1600) frames.push('void');
