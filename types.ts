@@ -34,6 +34,7 @@ export interface MatchResult {
   team2Ids: string[];
   winningTeamIndex: 1 | 2;
   pointsChange: number;
+  eloChanges?: Record<string, number>; // per-player ELO delta; keyed by player UUID
 }
 
 export interface Session {

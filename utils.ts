@@ -506,3 +506,33 @@ export const formatWaitTime = (waitingSince: Date): string => {
   const mins = diffMins % 60;
   return `${hours}h ${mins}m`;
 };
+
+export const computeEloDeltas = (
+  team1Ids: string[],
+  team2Ids: string[],
+  winningTeamIndex: 1 | 2,
+  allUsers: User[]
+): Record<string, number> => {
+  const get = (id: string) => allUsers.find(u => u.id === id);
+  const avg = (ids: string[]) => {
+    const pts = ids.map(id => get(id)?.points ?? 1000);
+    return pts.reduce((a, b) => a + b, 0) / pts.length;
+  };
+  const winnerIds = winningTeamIndex === 1 ? team1Ids : team2Ids;
+  const loserIds  = winningTeamIndex === 1 ? team2Ids : team1Ids;
+  const expectedWinner = 1 / (1 + Math.pow(10, (avg(loserIds) - avg(winnerIds)) / 950));
+  const getK = (u: User | undefined) => {
+    const n = (u?.wins ?? 0) + (u?.losses ?? 0);
+    return n < 10 ? 50 : n <= 30 ? 38 : 25;
+  };
+  const changes: Record<string, number> = {};
+  winnerIds.forEach(id => { changes[id] = Math.round(getK(get(id)) * (1 - expectedWinner)); });
+  loserIds.forEach(id =>  { changes[id] = Math.round(getK(get(id)) * (expectedWinner - 1)); });
+  return changes;
+};
+
+export const getPlayerMatchDelta = (match: MatchResult, playerId: string): number => {
+  if (match.eloChanges?.[playerId] !== undefined) return match.eloChanges[playerId];
+  const isWinner = (match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids).includes(playerId);
+  return isWinner ? match.pointsChange : -match.pointsChange;
+};

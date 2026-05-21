@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Session, User, MatchResult, NextMatchup } from '../types';
-import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic } from '../utils';
-import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, ListPlus, BarChart3 } from 'lucide-react';
+import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic, getPlayerMatchDelta, computeEloDeltas } from '../utils';
+import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, BarChart3 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import PullToRefresh from './PullToRefresh';
 import ShareReportModal from './ShareReportModal';
@@ -24,9 +24,6 @@ interface SessionDetailModalProps {
  onPlayerClick?: (userId: string) => void;
  onRefresh: () => Promise<void>;
  onEdit?: (sessionId: string) => void;
- onQueueMatch?: (sessionId: string, playerIds: string[]) => void;
- onPromoteMatch?: (sessionId: string, matchupId: string, courtIndex: number) => void;
- onDeleteQueuedMatch?: (sessionId: string, matchupId: string) => void;
   onUndoMatchResult?: (sessionId: string, matchId: string) => void;
  onAddCourt?: (sessionId: string) => void;
 }
@@ -75,9 +72,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  onPlayerClick,
  onRefresh,
  onEdit,
- onQueueMatch,
- onPromoteMatch,
- onDeleteQueuedMatch,
   onUndoMatchResult,
  onAddCourt
 }) => {
@@ -91,7 +85,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  } | null>(null);
 
  const [editingCourt, setEditingCourt] = useState<number | null>(null);
- const [isQueueingMatch, setIsQueueingMatch] = useState(false);
  const [tempSelectedPlayers, setTempSelectedPlayers] = useState<(string | null)[]>([null, null, null, null]);
  const [finishingGameCourt, setFinishingGameCourt] = useState<number | null>(null);
  const [pendingWinner, setPendingWinner] = useState<1 | 2 | null>(null);
@@ -147,10 +140,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
 
  winners.forEach(pid => {
- if (stats[pid]) { stats[pid].played++; stats[pid].wins++; stats[pid].ptsChange += match.pointsChange; }
+ if (stats[pid]) { stats[pid].played++; stats[pid].wins++; stats[pid].ptsChange += getPlayerMatchDelta(match, pid); }
  });
  losers.forEach(pid => {
- if (stats[pid]) { stats[pid].played++; stats[pid].losses++; stats[pid].ptsChange -= match.pointsChange; }
+ if (stats[pid]) { stats[pid].played++; stats[pid].losses++; stats[pid].ptsChange += getPlayerMatchDelta(match, pid); }
  });
  });
  return stats;
@@ -174,7 +167,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const isTeam2 = match.team2Ids.includes(currentUser.id);
  if (!isTeam1 && !isTeam2) return;
  const isWin = (isTeam1 && match.winningTeamIndex === 1) || (isTeam2 && match.winningTeamIndex === 2);
- if (isWin) { wins++; pointsChange += match.pointsChange; } else { losses++; pointsChange -= match.pointsChange; }
+ if (isWin) { wins++; } else { losses++; }
+ pointsChange += getPlayerMatchDelta(match, currentUser.id);
  });
  }
  return { wins, losses, pointsChange };
@@ -245,6 +239,19 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const assignments: Record<number, string[]> = session.courtAssignments || {};
  const startTimes: Record<number, string> = session.matchStartTimes || {};
 
+ const eloPreview = (() => {
+   if (finishingGameCourt === null) return null;
+   const pIds = assignments[finishingGameCourt] || [];
+   const mid = Math.ceil(pIds.length / 2);
+   const t1Ids = pIds.slice(0, mid);
+   const t2Ids = pIds.slice(mid);
+   if (!t1Ids.length || !t2Ids.length) return null;
+   return {
+     ifBlueWins: computeEloDeltas(t1Ids, t2Ids, 1, allUsers),
+     ifRedWins:  computeEloDeltas(t1Ids, t2Ids, 2, allUsers),
+   };
+ })();
+
  const getPlayerCourtIndex = (playerId: string): number | null => {
  for (const [courtIdx, pIds] of Object.entries(assignments)) {
  if ((pIds as string[]).includes(playerId)) return parseInt(courtIdx);
@@ -257,22 +264,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  onStart(session.id, players.map(p => p.id));
  };
 
- const handleStartQueueing = () => {
- setIsQueueingMatch(true);
- setEditingCourt(999); // Use dummy index
- triggerHaptic('light');
- const suggested = getSmartMatchSuggestionV2(session, 999);
- if (suggested && suggested.length > 0) {
- const newSlots = [null, null, null, null] as (string | null)[];
- suggested.forEach((id, i) => { if (i < 4) newSlots[i] = id; });
- setTempSelectedPlayers(newSlots);
- } else {
- setTempSelectedPlayers([null, null, null, null]);
- }
- };
-
  const handleOpenCourtEdit = (courtIndex: number) => {
- setIsQueueingMatch(false);
  setEditingCourt(courtIndex);
  triggerHaptic('light');
  const existingPlayers = assignments[courtIndex] || [];
@@ -315,16 +307,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  const saveCourtAssignment = () => {
  const finalPlayers = tempSelectedPlayers.filter((p): p is string => p !== null);
-
- if (isQueueingMatch) {
- if (onQueueMatch) {
- onQueueMatch(session.id, finalPlayers);
- setEditingCourt(null);
- setIsQueueingMatch(false);
- triggerHaptic('success');
- }
- return;
- }
 
  if (editingCourt !== null) {
  // Trigger parent handler - now optimistic
@@ -381,6 +363,25 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const team2Count = [tempSelectedPlayers[2], tempSelectedPlayers[3]].filter(Boolean).length;
  const canStartMatch = team1Count > 0 && team2Count > 0;
 
+ const t1IdsCurrent = [tempSelectedPlayers[0], tempSelectedPlayers[1]].filter(Boolean) as string[];
+ const t2IdsCurrent = [tempSelectedPlayers[2], tempSelectedPlayers[3]].filter(Boolean) as string[];
+ const assignEloPreview = (t1IdsCurrent.length > 0 && t2IdsCurrent.length > 0) ? {
+   ifBlueWins: computeEloDeltas(t1IdsCurrent, t2IdsCurrent, 1, allUsers),
+   ifRedWins:  computeEloDeltas(t1IdsCurrent, t2IdsCurrent, 2, allUsers),
+ } : null;
+
+ const getAvailablePlayerEloGain = (playerId: string): number | null => {
+   const nextEmpty = tempSelectedPlayers.findIndex(s => s === null);
+   if (nextEmpty < 0) return null;
+   if (nextEmpty < 2) {
+     if (!t2IdsCurrent.length) return null;
+     return computeEloDeltas([...t1IdsCurrent, playerId], t2IdsCurrent, 1, allUsers)[playerId] ?? null;
+   } else {
+     if (!t1IdsCurrent.length) return null;
+     return computeEloDeltas(t1IdsCurrent, [...t2IdsCurrent, playerId], 2, allUsers)[playerId] ?? null;
+   }
+ };
+
 
 
  const getTeamsForCourt = (courtIndex: number) => {
@@ -390,109 +391,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const team2 = pIds.slice(mid).map(id => usersMap.get(id)).filter(Boolean) as User[];
  return { team1, team2 };
  };
-
- const renderNextMatchups = () => (
- <div className="mb-8">
- <div className="flex justify-between items-center mb-4">
- <h3 className="text-lg font-black italic text-white uppercase tracking-wider flex items-center">
- Next Match Up
- </h3>
- {/* REMOVED isHost CHECK for Add Match */}
- {isJoined && (
- <button onClick={handleStartQueueing} className="bg-[#001645] text-[#00FF41] border border-[#00FF41] px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2">
- <Plus size={14} /> Add Match
- </button>
- )}
- </div>
-
- {(session.nextMatchups || []).length === 0 ? (
- <div className="bg-[#001645]/50 border border-[#002266] border-dashed rounded-none p-6 text-center">
- <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">No Matches Queued</p>
- </div>
- ) : (
- <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide pr-12">
- {(session.nextMatchups || []).map((matchup, idx) => {
- const mid = Math.ceil(matchup.playerIds.length / 2);
- const team1 = matchup.playerIds.slice(0, mid).map(id => usersMap.get(id)).filter(Boolean) as User[];
- const team2 = matchup.playerIds.slice(mid).map(id => usersMap.get(id)).filter(Boolean) as User[];
-
- return (
- <div key={matchup.id} className="min-w-[280px] sm:min-w-[320px] bg-[#000B29] border border-[#002266] rounded-none p-3 relative group snap-start shadow-lg">
- {/* Header: Match Number + Delete */}
- <div className="flex justify-between items-center mb-3 pb-2 border-b border-[#001645]">
- <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Match {idx + 1}</span>
- {/* REMOVED isHost CHECK for Delete Match */}
- <button onClick={() => {
- triggerHaptic('heavy');
- setConfirmConfig({
- isOpen: true,
- title: 'Cancel Match',
- message: 'Remove this matchup from queue?',
- action: () => { onDeleteQueuedMatch?.(session.id, matchup.id); },
- isDestructive: true,
- confirmLabel: 'Remove'
- });
- }} className="text-gray-500 transition-colors">
- <Trash2 size={14} />
- </button>
- </div>
-
- {/* Teams Display */}
- <div className="flex justify-between items-center gap-2 mb-4">
- {/* Team 1 (Blue) */}
- <div className="flex-1 space-y-2">
- {team1.map(u => (
- <div key={u.id} className="flex items-center gap-2 bg-[#001645]/50 rounded-none p-1 pr-2 border border-[#002266]">
- <img src={u.avatar} className="w-6 h-6 rounded-full object-cover border border-[#000B29]" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
- <span className="text-[10px] font-bold text-white truncate max-w-[70px]">{u.name.split(' ')[0]}</span>
- </div>
- ))}
- </div>
-
- <div className="flex flex-col items-center">
- <div className="w-px h-6 bg-[#002266] mb-1"></div>
- <span className="text-[9px] font-black text-gray-500 bg-[#000B29] border border-[#002266] px-1.5 rounded">VS</span>
- <div className="w-px h-6 bg-[#002266] mt-1"></div>
- </div>
-
- {/* Team 2 (Red) */}
- <div className="flex-1 space-y-2 text-right">
- {team2.map(u => (
- <div key={u.id} className="flex items-center justify-end gap-2 bg-[#001645]/50 rounded-none p-1 pl-2 border border-[#002266]">
- <span className="text-[10px] font-bold text-white truncate max-w-[70px]">{u.name.split(' ')[0]}</span>
- <img src={u.avatar} className="w-6 h-6 rounded-full object-cover border border-[#000B29]" style={{ backgroundColor: getAvatarColor(u.avatar) }} />
- </div>
- ))}
- </div>
- </div>
-
- {/* Promote Actions */}
- {/* REMOVED isHost CHECK for Promote Match */}
- <div className="grid grid-cols-2 gap-2 mt-auto">
- {Array.from({ length: session.courtCount }).map((_, cIdx) => {
- const isFree = (assignments[cIdx] || []).length === 0;
- return (
- <button
- key={cIdx}
- disabled={!isFree}
- onClick={() => { if (isFree) { triggerHaptic('success'); onPromoteMatch?.(session.id, matchup.id, cIdx); } }}
- className={`px-2 py-2 rounded text-[9px] font-black uppercase tracking-wider transition-all border ${isFree
- ? 'bg-[#00FF41]/10 border-[#00FF41] text-[#00FF41] '
- : 'bg-transparent border-gray-800 text-gray-600 cursor-not-allowed'
- }`}
- >
- {isFree ? `Push Court ${cIdx + 1}` : `Court ${cIdx + 1} Busy`}
- </button>
- );
- })}
- </div>
- </div>
- );
- })}
- </div>
- )}
- </div >
- );
 
  const renderLiveCourts = () => (
  <div className="mb-8">
@@ -598,7 +496,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
             <div className="flex items-center justify-between px-3 py-1.5 bg-[#000B29]">
               <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Match {(session.matches || []).length - i}</span>
               <div className="flex items-center gap-2">
-                <span className="text-[9px] font-mono text-gray-600 tabular-nums">±{match.pointsChange} pts</span>
+                {!match.eloChanges && <span className="text-[9px] font-mono text-gray-600 tabular-nums">±{match.pointsChange} pts</span>}
                 {status !== 'END' && isHost && (
                   <button
                     onClick={() => {
@@ -629,16 +527,22 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                   </div>
                 )}
                 <div className="flex flex-col gap-1.5 relative z-10">
-                  {team1.map(p => (
+                  {team1.map(p => {
+                    const delta = getPlayerMatchDelta(match, p.id);
+                    return (
                     <div key={p.id} className="flex items-center gap-2">
                       <div className={`shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
-                        <img src={p.avatar} className={`rounded-full object-cover ${match.winningTeamIndex === 1 ? 'w-8 h-8 border-2 border-[#00FF41]' : 'w-7 h-7 border border-[#001645]'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
+                        <img src={p.avatar} className={`w-8 h-8 rounded-full object-cover ${match.winningTeamIndex === 1 ? 'border-2 border-[#00FF41]' : 'border border-[#001645]'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
                       </div>
                       <span className={`text-xs font-bold truncate leading-tight ${match.winningTeamIndex === 1 ? 'text-white' : 'text-gray-400'}`}>
                         {p.name.split(' ')[0]}
                       </span>
+                      <span className={`text-xs font-black tabular-nums shrink-0 ml-auto ${delta >= 0 ? 'text-[#00FF41]' : 'text-red-400'}`}>
+                        {delta >= 0 ? '+' : ''}{delta}
+                      </span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -656,16 +560,22 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                   </div>
                 )}
                 <div className="flex flex-col gap-1.5 relative z-10">
-                  {team2.map(p => (
+                  {team2.map(p => {
+                    const delta = getPlayerMatchDelta(match, p.id);
+                    return (
                     <div key={p.id} className="flex items-center flex-row-reverse gap-2">
                       <div className={`shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
-                        <img src={p.avatar} className={`rounded-full object-cover ${match.winningTeamIndex === 2 ? 'w-8 h-8 border-2 border-[#00FF41]' : 'w-7 h-7 border border-[#001645]'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
+                        <img src={p.avatar} className={`w-8 h-8 rounded-full object-cover ${match.winningTeamIndex === 2 ? 'border-2 border-[#00FF41]' : 'border border-[#001645]'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
                       </div>
                       <span className={`text-xs font-bold truncate leading-tight ${match.winningTeamIndex === 2 ? 'text-white' : 'text-gray-400'}`}>
                         {p.name.split(' ')[0]}
                       </span>
+                      <span className={`text-xs font-black tabular-nums shrink-0 mr-auto ${delta >= 0 ? 'text-[#00FF41]' : 'text-red-400'}`}>
+                        {delta >= 0 ? '+' : ''}{delta}
+                      </span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1098,9 +1008,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  (session.matches || []).forEach(match => {
  const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
  const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
- const change = match.pointsChange || 25;
- winners.forEach(pid => { if (!stats[pid]) stats[pid] = { wins: 0, losses: 0, pointsChange: 0 }; stats[pid].wins += 1; stats[pid].pointsChange += change; });
- losers.forEach(pid => { if (!stats[pid]) stats[pid] = { wins: 0, losses: 0, pointsChange: 0 }; stats[pid].losses += 1; stats[pid].pointsChange -= change; });
+ winners.forEach(pid => { if (!stats[pid]) stats[pid] = { wins: 0, losses: 0, pointsChange: 0 }; stats[pid].wins += 1; stats[pid].pointsChange += getPlayerMatchDelta(match, pid); });
+ losers.forEach(pid => { if (!stats[pid]) stats[pid] = { wins: 0, losses: 0, pointsChange: 0 }; stats[pid].losses += 1; stats[pid].pointsChange += getPlayerMatchDelta(match, pid); });
  });
  const sortedPlayerIds = Object.keys(stats).sort((a, b) => { if (stats[b].wins !== stats[a].wins) return stats[b].wins - stats[a].wins; return stats[b].pointsChange - stats[a].pointsChange; });
 
@@ -1271,7 +1180,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  )}
  <div className="p-4 sm:p-6 space-y-6">
    {status === 'PLAYING' ? (
-     activeTab === 'live' ? <>{renderLiveCourts()}{renderNextMatchups()}</> :
+     activeTab === 'live' ? <>{renderLiveCourts()}</> :
      activeTab === 'players' ? renderCheckInList() :
      activeTab === 'history' ? renderMatchHistory() : null
    ) : status === 'END' ? (
@@ -1320,11 +1229,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
 
  {editingCourt !== null && (
-  <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => { setEditingCourt(null); setIsQueueingMatch(false); }}>
+  <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => { setEditingCourt(null); }}>
   <div className="relative bg-[#000B29] w-full h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
   <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[#002266] bg-[#000B29] shrink-0">
-    <h3 className="text-white font-black italic uppercase tracking-wider text-xl flex items-center gap-2"> {isQueueingMatch ? 'Queue Next Match' : `Assign Court ${editingCourt + 1}`} </h3>
-    <button onClick={() => { triggerHaptic('light'); setEditingCourt(null); setIsQueueingMatch(false); }} className="p-1 text-gray-400 active:scale-95 transition-all">
+    <h3 className="text-white font-black italic uppercase tracking-wider text-xl flex items-center gap-2"> {`Assign Court ${editingCourt + 1}`} </h3>
+    <button onClick={() => { triggerHaptic('light'); setEditingCourt(null); }} className="p-1 text-gray-400 active:scale-95 transition-all">
       <X size={20} />
     </button>
   </div>
@@ -1345,11 +1254,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className="grid grid-cols-2 gap-8 relative z-10">
  <div className="text-center">
  <div className="mb-3 flex flex-col items-center"> <span className="text-sm font-black font-mono text-white tracking-wide drop-shadow-md">{tempStats.t1Avg > 0 ? `${tempStats.t1Avg} pts` : '0 pts'}</span> </div>
- <div className="space-y-2"> {[0, 1].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 rounded-none transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#000B29]/90 backdrop-blur-sm border border-blue-500/50 shadow-lg' : 'border border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center gap-2 text-left w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-xs font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
+ <div className="space-y-2"> {[0, 1].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); const delta = assignEloPreview && user ? assignEloPreview.ifBlueWins[user.id] : null; return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 rounded-none transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#000B29]/90 backdrop-blur-sm border border-blue-500/50 shadow-lg' : 'border border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center gap-2 text-left w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-xs font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> {delta !== null && <span className="text-xs font-black tabular-nums shrink-0 text-yellow-400/80">+{delta}</span>} <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
  </div>
  <div className="text-center">
  <div className="mb-3 flex flex-col items-center"> <span className="text-sm font-black font-mono text-white tracking-wide drop-shadow-md">{tempStats.t2Avg > 0 ? `${tempStats.t2Avg} pts` : '0 pts'}</span> </div>
- <div className="space-y-2"> {[2, 3].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 rounded-none transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#000B29]/90 backdrop-blur-sm border border-red-500/50 shadow-lg' : 'border border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center flex-row-reverse gap-2 text-right w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-xs font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
+ <div className="space-y-2"> {[2, 3].map(i => { const playerId = tempSelectedPlayers[i]; const user = allUsers.find(u => u.id === playerId); const delta = assignEloPreview && user ? assignEloPreview.ifRedWins[user.id] : null; return (<div key={i} onClick={() => playerId && handleRemovePlayerFromSlot(i)} className={`h-12 rounded-none transition-all flex items-center justify-center relative group cursor-pointer ${playerId ? 'bg-[#000B29]/90 backdrop-blur-sm border border-red-500/50 shadow-lg' : 'border border-dashed border-[#002266] bg-[#000B29]/50 text-[10px] text-gray-600'}`} > {playerId && user ? (<div className="flex items-center flex-row-reverse gap-2 text-right w-full px-2"> <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}> <img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} /> </div> <div className="min-w-0 flex-1"> <p className="text-xs font-bold text-white truncate leading-none">{user.name.split(' ')[0]}</p> </div> {delta !== null && <span className="text-xs font-black tabular-nums shrink-0 text-yellow-400/80">+{delta}</span>} <div className="p-1 text-gray-500 transition-colors"> <X size={12} /> </div> </div>) : (<span>Slot {i + 1}</span>)} </div>); })} </div>
  </div>
  </div>
 
@@ -1369,7 +1278,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
       {checkedInIds.filter(pid => { 
         if (tempSelectedPlayers.includes(pid)) return false; 
         const currentCourt = getPlayerCourtIndex(pid); 
-        if (currentCourt !== null && currentCourt !== editingCourt && !isQueueingMatch) return false; 
+        if (currentCourt !== null && currentCourt !== editingCourt) return false;
         return true; 
       }).sort((a, b) => { 
         const aPlayed = (playerStats[a] || { played: 0 }).played; 
@@ -1387,7 +1296,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
               </div>
               <div className="flex-1 min-w-0 pr-2 text-left">
                 <span className="text-sm font-bold text-white block truncate">{user.name}</span>
-                <div className="text-[10px] font-mono text-yellow-500 font-bold mt-0.5">{user.points} pts</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] font-mono text-yellow-500 font-bold">{user.points} pts</span>
+                  {(() => { const gain = getAvailablePlayerEloGain(playerId); return gain !== null ? <span className="text-xs font-black tabular-nums text-[#00FF41]/80">W:+{gain}</span> : null; })()}
+                </div>
               </div>
             </div>
             <div className="flex items-center shrink-0">
@@ -1405,7 +1317,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
   </div>
   <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] flex gap-3 shrink-0">
   <button onClick={handleRandomize} className="flex-1 py-3.5 border border-blue-500/30 bg-blue-500/10 text-blue-500 transition-colors font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg]"><span className="skew-x-[6deg] flex items-center justify-center gap-2"><Dices size={14} /> Random</span></button>
-  <button onClick={saveCourtAssignment} disabled={!canStartMatch} className={`flex-[2] py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all ${canStartMatch ? (isQueueingMatch ? 'bg-[#003399] text-white' : 'bg-[#00FF41] text-[#000B29]') : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}><span className="skew-x-[6deg] flex items-center">{canStartMatch && (isQueueingMatch ? <ListPlus size={14} className="mr-2" /> : <Play size={14} className="mr-2 fill-current" />)}{isQueueingMatch ? 'Queue Match' : 'Start Match'}</span></button>
+  <button onClick={saveCourtAssignment} disabled={!canStartMatch} className={`flex-[2] py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all ${canStartMatch ? 'bg-[#00FF41] text-[#000B29]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}><span className="skew-x-[6deg] flex items-center">{canStartMatch && <Play size={14} className="mr-2 fill-current" />}Start Match</span></button>
   </div>
   <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
   </div>
@@ -1430,14 +1342,19 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     </div>
     )}
     <div className="w-full flex flex-col justify-center gap-2 items-center relative z-10">
-    {getTeamsForCourt(finishingGameCourt).team1.map(p => (
-    <div key={p.id} className="flex items-center gap-2 bg-[#000B29]/90 px-2 py-1 rounded-none border border-blue-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
-    <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
+    {getTeamsForCourt(finishingGameCourt).team1.map(p => {
+    const delta = eloPreview ? (pendingWinner === null ? eloPreview.ifBlueWins[p.id] : pendingWinner === 1 ? eloPreview.ifBlueWins[p.id] : eloPreview.ifRedWins[p.id]) : null;
+    const deltaColor = delta === null ? '' : pendingWinner === null ? 'text-yellow-400/70' : delta >= 0 ? 'text-[#00FF41]' : 'text-red-400';
+    return (
+    <div key={p.id} className="flex items-center justify-between gap-2 bg-[#000B29]/90 px-2 py-1 rounded-none border border-blue-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
+    <div className={`rounded-full transition-all duration-500 shrink-0 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
     <img src={p.avatar} className={`w-8 h-8 rounded-full border object-cover ${pendingWinner === 1 ? 'border-white' : 'border-blue-500'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
     </div>
-    <span className="text-[10px] font-bold text-white truncate">{p.name.split(' ')[0]}</span>
+    <span className="text-[10px] font-bold text-white flex-1 min-w-0 truncate">{p.name.split(' ')[0]}</span>
+    {delta !== null && <span className={`text-xs font-black tabular-nums shrink-0 ${deltaColor}`}>{delta >= 0 ? '+' : ''}{delta}</span>}
     </div>
-    ))}
+    );
+    })}
     </div>
     </button>
 
@@ -1459,19 +1376,24 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     </div>
     )}
     <div className="w-full flex flex-col justify-center gap-2 items-center relative z-10">
-    {getTeamsForCourt(finishingGameCourt).team2.map(p => (
-    <div key={p.id} className="flex items-center flex-row-reverse gap-2 bg-[#000B29]/90 px-2 py-1 rounded-none border border-red-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
-    <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
+    {getTeamsForCourt(finishingGameCourt).team2.map(p => {
+    const delta = eloPreview ? (pendingWinner === null ? eloPreview.ifRedWins[p.id] : pendingWinner === 2 ? eloPreview.ifRedWins[p.id] : eloPreview.ifBlueWins[p.id]) : null;
+    const deltaColor = delta === null ? '' : pendingWinner === null ? 'text-yellow-400/70' : delta >= 0 ? 'text-[#00FF41]' : 'text-red-400';
+    return (
+    <div key={p.id} className="flex items-center flex-row-reverse justify-between gap-2 bg-[#000B29]/90 px-2 py-1 rounded-none border border-red-500/50 backdrop-blur-sm shadow-lg w-full max-w-[130px] pointer-events-none">
+    <div className={`rounded-full transition-all duration-500 shrink-0 ${getRankFrameClass(p.rankFrame).replace('ring-4', 'ring-2')}`}>
     <img src={p.avatar} className={`w-8 h-8 rounded-full border object-cover ${pendingWinner === 2 ? 'border-white' : 'border-red-500'}`} style={{ backgroundColor: getAvatarColor(p.avatar) }} />
     </div>
-    <span className="text-[10px] font-bold text-white truncate">{p.name.split(' ')[0]}</span>
+    <span className="text-[10px] font-bold text-white flex-1 min-w-0 truncate">{p.name.split(' ')[0]}</span>
+    {delta !== null && <span className={`text-xs font-black tabular-nums shrink-0 ${deltaColor}`}>{delta >= 0 ? '+' : ''}{delta}</span>}
     </div>
-    ))}
+    );
+    })}
     </div>
     </button>
   </div>
 
-  <p className="text-center text-gray-400 text-[10px] font-bold uppercase tracking-widest py-3 bg-[#000B29]">Tap a side to select winner</p>
+  <p className="text-center text-gray-400 text-[10px] font-bold uppercase tracking-widest py-3 bg-[#000B29]">{pendingWinner === null ? 'Tap a side to select winner' : 'Tap again to change · confirm below'}</p>
 
  </div>
 

@@ -64,7 +64,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
  const getDynamicTitle = () => {
  if (stats.wins > 0 && stats.losses === 0) return { title: "UNTOUCHABLE", subtitle: "FLAWLESS RUN" };
  if (stats.wins + stats.losses === 0) return { title: "WARMING UP", subtitle: "0 MATCHES PLAYED" };
- if (stats.pointsChange > 20) return { title: "ARENA VICTOR", subtitle: "DOMINATING PERFORMANCE" };
+ if (stats.pointsChange > 30) return { title: "ARENA VICTOR", subtitle: "DOMINATING PERFORMANCE" };
  if (stats.wins > stats.losses) return { title: "HOT STREAK", subtitle: "MORE WINS THAN LOSSES" };
  if (stats.pointsChange < 0 && stats.wins > 0) return { title: "FOUGHT HARD", subtitle: "NEVER GAVE UP" };
  return { title: "TRAINING ARC", subtitle: "WE GO AGAIN..." };

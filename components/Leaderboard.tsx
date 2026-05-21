@@ -2,7 +2,7 @@
 import React, { useMemo, useCallback, useState } from 'react';
 import { User, Session, MatchResult } from '../types';
 import { Trophy, Flame, Frown, Crown, Swords, Target, Zap, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { getAvatarColor, getRankFrameClass, getWinRateColor, triggerHaptic, mapSessionFromDB } from '../utils';
+import { getAvatarColor, getRankFrameClass, getWinRateColor, triggerHaptic, mapSessionFromDB, getPlayerMatchDelta } from '../utils';
 import { supabase } from '../services/supabaseClient';
 
 type TimeRange = 'alltime' | 'monthly';
@@ -200,20 +200,19 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
           const team1Won = match.winningTeamIndex === 1;
           const winners = team1Won ? match.team1Ids : match.team2Ids;
           const losers = team1Won ? match.team2Ids : match.team1Ids;
-          const pc = match.pointsChange || 0;
 
           winners.forEach(id => {
             if (userStats[id]) {
               userStats[id].played++;
               userStats[id].wins++;
-              userStats[id].points += pc;
+              userStats[id].points += getPlayerMatchDelta(match, id);
             }
           });
           losers.forEach(id => {
             if (userStats[id]) {
               userStats[id].played++;
               userStats[id].losses++;
-              userStats[id].points -= pc;
+              userStats[id].points += getPlayerMatchDelta(match, id);
             }
           });
         });

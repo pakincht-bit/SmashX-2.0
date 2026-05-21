@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { User, Session } from '../types';
 import { ArrowLeft, Loader2, MapPin, Clock, Users, X, Calendar } from 'lucide-react';
-import { triggerHaptic, formatTime, getDateParts, mapSessionFromDB } from '../utils';
+import { triggerHaptic, formatTime, getDateParts, mapSessionFromDB, getPlayerMatchDelta } from '../utils';
 import { supabase } from '../services/supabaseClient';
 
 interface ActivityLogModalProps {
@@ -51,8 +51,7 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ currentUser, sessio
  const isT1 = m.team1Ids?.includes(currentUser.id);
  const isT2 = m.team2Ids?.includes(currentUser.id);
  if (!isT1 && !isT2) return;
- const won = (isT1 && m.winningTeamIndex === 1) || (isT2 && m.winningTeamIndex === 2);
- dayPts += won ? (m.pointsChange || 0) : -(m.pointsChange || 0);
+ dayPts += getPlayerMatchDelta(m, currentUser.id);
  });
  }
 
@@ -356,8 +355,8 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ currentUser, sessio
  const isT2 = m.team2Ids.includes(currentUser.id);
  if (!isT1 && !isT2) return;
  const won = (isT1 && m.winningTeamIndex === 1) || (isT2 && m.winningTeamIndex === 2);
- if (won) { wins++; pts += m.pointsChange; }
- else { losses++; pts -= m.pointsChange; }
+ if (won) { wins++; } else { losses++; }
+ pts += getPlayerMatchDelta(m, currentUser.id);
  });
  if (wins === 0 && losses === 0) return null;
  return (

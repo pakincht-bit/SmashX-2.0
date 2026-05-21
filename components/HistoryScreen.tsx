@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { User, Session } from '../types';
 import { ArrowLeft, Calendar, Loader2, MapPin, Clock } from 'lucide-react';
-import { formatTime, getDateParts, triggerHaptic } from '../utils';
+import { formatTime, getDateParts, triggerHaptic, getPlayerMatchDelta } from '../utils';
 
 interface HistoryScreenProps {
  currentUser: User | null;
@@ -100,13 +100,8 @@ const HistoryScreen: React.FC<HistoryScreenProps> = ({
  matchesPlayed++;
  
  const isWinner = (inTeam1 && match.winningTeamIndex === 1) || (inTeam2 && match.winningTeamIndex === 2);
- if (isWinner) {
- wins++;
- totalScoreChange += match.pointsChange;
- } else {
- losses++;
- totalScoreChange -= match.pointsChange;
- }
+ if (isWinner) { wins++; } else { losses++; }
+ totalScoreChange += getPlayerMatchDelta(match, currentUser.id);
  }
  });
  }

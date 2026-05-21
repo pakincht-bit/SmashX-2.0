@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, useTransition, lazy, Suspense } from 'react';
 import { Session, User, CreateSessionDTO, FinalBill, MatchResult } from './types';
-import { calculateMaxPlayers, mapSessionFromDB, mapProfileFromDB, getFrameByPoints, getUnlockedFrames, COSMETIC_FRAMES, triggerHaptic, generateId, calculateQueue, getAvailablePlayers, getDateParts, formatTime, getAvatarColor } from './utils';
+import { calculateMaxPlayers, mapSessionFromDB, mapProfileFromDB, getFrameByPoints, getUnlockedFrames, COSMETIC_FRAMES, triggerHaptic, generateId, calculateQueue, getAvailablePlayers, getDateParts, formatTime, getAvatarColor, computeEloDeltas } from './utils';
 import Header from './components/Header';
 import SessionCard from './components/SessionCard';
 import BottomNav from './components/BottomNav';
@@ -979,55 +979,6 @@ const App: React.FC = () => {
  }
  }, [sessions, showToast]);
 
- const handleQueueMatch = useCallback(async (sessionId: string, playerIds: string[]) => {
- const session = sessions.find(s => s.id === sessionId);
- if (!session) return;
- const previousSessions = sessions;
- const newMatchup = { id: generateId(), playerIds };
- const updatedQueue = [...(session.nextMatchups || []), newMatchup];
-
- // Optimistic
- setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, nextMatchups: updatedQueue } : s));
-
- const { error } = await supabase.from('sessions').update({ next_matchups: updatedQueue }).eq('id', sessionId);
- if (error) {
- console.error("SX: Supabase Queue Match Error:", error);
- setSessions(previousSessions);
- showToast("Queue failed", true);
- } else {
- showToast("Match Queued");
- }
- }, [sessions, showToast]);
-
- const handleDeleteQueuedMatch = useCallback(async (sessionId: string, matchupId: string) => {
- const session = sessions.find(s => s.id === sessionId);
- if (!session) return;
- const previousSessions = sessions;
- const updatedQueue = (session.nextMatchups || []).filter(m => m.id !== matchupId);
-
- setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, nextMatchups: updatedQueue } : s));
-
- const { error } = await supabase.from('sessions').update({ next_matchups: updatedQueue }).eq('id', sessionId);
- if (error) {
- console.error("SX: Supabase Delete Queue Match Error:", error);
- setSessions(previousSessions);
- showToast("Delete failed", true);
- }
- }, [sessions, showToast]);
-
- const handlePromoteMatch = useCallback(async (sessionId: string, matchupId: string, courtIndex: number) => {
- const session = sessions.find(s => s.id === sessionId);
- if (!session) return;
-
- const matchup = (session.nextMatchups || []).find(m => m.id === matchupId);
- if (!matchup) return;
-
- // OPTIMIZATION: Run queue removal and court assignment in parallel
- await Promise.all([
- handleDeleteQueuedMatch(sessionId, matchupId),
- handleCourtAssignment(sessionId, courtIndex, matchup.playerIds)
- ]);
- }, [sessions, handleDeleteQueuedMatch, handleCourtAssignment]);
 
 
 
@@ -1049,7 +1000,9 @@ const App: React.FC = () => {
 
  const newMatchId = generateId();
  const now = new Date().toISOString();
- const pointsChange = 25;
+
+ // Compute ELO deltas client-side for optimistic UI
+ const eloChanges = computeEloDeltas(team1Ids, team2Ids, winningTeamIndex, users);
 
  // 1. Optimistic Update (Immediate UI Feedback)
  const newMatch: MatchResult = {
@@ -1058,7 +1011,8 @@ const App: React.FC = () => {
  team1Ids,
  team2Ids,
  winningTeamIndex,
- pointsChange
+ pointsChange: 0,
+ eloChanges
  };
 
  const optimisticMatches = [...(session.matches || []), newMatch];
@@ -1080,6 +1034,12 @@ const App: React.FC = () => {
  checkInTimes: newCheckInTimes
  } : s));
 
+ // Apply optimistic ELO points to local user state
+ setUsers(prev => prev.map(u => {
+   const d = eloChanges[u.id];
+   return d !== undefined ? { ...u, points: u.points + d } : u;
+ }));
+
  try {
  // 2. Database Update via RPC
  // This handles sessions update and profiles stats update atomically
@@ -1090,11 +1050,20 @@ const App: React.FC = () => {
  p_team1_ids: team1Ids,
  p_team2_ids: team2Ids,
  p_winning_team_index: winningTeamIndex,
- p_points_change: pointsChange,
  p_now: now
  });
 
  if (error) throw error;
+
+ // Patch the optimistic match with server-authoritative eloChanges
+ if (data?.eloChanges) {
+   setSessions(prev => prev.map(s => s.id !== sessionId ? s : {
+     ...s,
+     matches: (s.matches || []).map(m =>
+       m.id === newMatchId ? { ...m, eloChanges: data.eloChanges } : m
+     )
+   }));
+ }
 
  // Invalidate any in-flight fetchData() calls so their stale results won't overwrite
  // the correct profiles we're about to fetch post-RPC commit.
@@ -1135,7 +1104,7 @@ const App: React.FC = () => {
  setIsSyncing(false);
  mutatingRef.current.delete(lockKey);
  }
- }, [sessions, showToast, activeUser]);
+ }, [sessions, users, showToast, activeUser]);
 
   const handleUndoMatchResult = useCallback(async (sessionId: string, matchId: string) => {
   const lockKey = `undo-${sessionId}-${matchId}`;
@@ -1159,12 +1128,16 @@ const App: React.FC = () => {
   const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
   const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
   setUsers(prev => prev.map(u => {
-  if (winners.includes(u.id)) {
-  return { ...u, points: u.points - match.pointsChange, wins: Math.max(u.wins - 1, 0) };
+  const delta = match.eloChanges?.[u.id];
+  if (delta !== undefined) {
+    // ELO match: stored delta is +N for winners, -N for losers; subtract to undo
+    if (winners.includes(u.id)) return { ...u, points: u.points - delta, wins: Math.max(u.wins - 1, 0) };
+    if (losers.includes(u.id))  return { ...u, points: u.points - delta, losses: Math.max(u.losses - 1, 0) };
+    return u;
   }
-  if (losers.includes(u.id)) {
-  return { ...u, points: u.points + match.pointsChange, losses: Math.max(u.losses - 1, 0) };
-  }
+  // Legacy flat match fallback
+  if (winners.includes(u.id)) return { ...u, points: u.points - match.pointsChange, wins: Math.max(u.wins - 1, 0) };
+  if (losers.includes(u.id))  return { ...u, points: u.points + match.pointsChange, losses: Math.max(u.losses - 1, 0) };
   return u;
   }));
 
@@ -1579,9 +1552,6 @@ const App: React.FC = () => {
  onPlayerClick={setViewingPlayerId}
  onRefresh={fetchData}
  onEdit={handleEditSessionTrigger}
- onQueueMatch={handleQueueMatch}
- onPromoteMatch={handlePromoteMatch}
- onDeleteQueuedMatch={handleDeleteQueuedMatch}
   onUndoMatchResult={handleUndoMatchResult}
  onAddCourt={handleAddCourt}
  />
