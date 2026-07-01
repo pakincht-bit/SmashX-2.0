@@ -59,7 +59,7 @@ One of the critical challenges in a sports venue is spotty internet connection.
 ### B. The Ranking System (RP)
 The logic mimics competitive video games:
 *   **Base:** Everyone starts at 1,000 RP.
-*   **Delta:** Matches typically award +/- 25 points.
+*   **Delta:** Matches award ELO-based points clamped to +/- 15–40 per player.
 *   **Tiers:** Visual frames change dynamically based on points:
     *   *Unpolished (<1100)* -> *Spark* -> *Flow* -> *Combustion* -> *Prism* -> *Void* -> *Ascended (>3000)*.
 *   **Visuals:** Advanced CSS animations (`keyframes`) are used to render glowing, burning, or glitching effects around avatars based on their tier.

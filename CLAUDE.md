@@ -54,7 +54,7 @@ The queue system (`calculateQueue`, `getAvailablePlayers` from `utils.ts`) deter
 
 ### Ranking System
 
-Players start at 1,000 RP. Each match awards ±25 points. Points are **stored in the `profiles` table** — not recalculated client-side from match history. `getFrameByPoints()` in `utils.ts` maps points to tier names: `unpolished → spark → flow → combustion → prism → void → ascended`.
+Players start at 1,000 RP. Each match awards ELO-based points clamped to **+15–40** (wins) and **-15–40** (losses). Points are **stored in the `profiles` table** — not recalculated client-side from match history. `getFrameByPoints()` in `utils.ts` maps points to tier names: `unpolished → spark → flow → combustion → prism → void → ascended`.
 
 ### Component Loading
 
