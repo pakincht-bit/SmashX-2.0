@@ -234,13 +234,15 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const renderInviteButton = () => {
  if (!isHost || status === 'END') return null;
  return (
+ <div className="-mx-4 sm:-mx-6 px-4 sm:px-6 mb-4">
  <button
  onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); }}
- className="w-full flex items-center justify-center gap-2 py-3 mx-4 sm:mx-6 mb-2 border border-dashed border-[#00FF41]/30 bg-[#001645] text-[#00FF41] transition-all active:scale-95"
+ className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-[#00FF41]/30 bg-[#001645] text-[#00FF41] transition-all active:scale-95"
  >
  <UserPlus size={16} />
  <span className="text-xs font-black uppercase tracking-wider">Invite Players</span>
  </button>
+ </div>
  );
  };
 
