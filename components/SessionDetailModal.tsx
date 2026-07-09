@@ -13,7 +13,7 @@ interface SessionDetailModalProps {
  allUsers: User[];
  onClose: () => void;
  onJoin: (sessionId: string) => void;
- onInvitePlayer: (sessionId: string, playerId: string) => void;
+ onInvitePlayers: (sessionId: string, playerIds: string[]) => void;
  onLeave: (sessionId: string) => void;
  onDelete: (sessionId: string) => void;
  onStart: (sessionId: string, initialCheckInIds?: string[]) => void;
@@ -62,7 +62,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  allUsers,
  onClose,
  onJoin,
- onInvitePlayer,
+ onInvitePlayers,
  onLeave,
  onDelete,
  onStart,
@@ -96,6 +96,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const [isShareReportOpen, setIsShareReportOpen] = useState(false);
  const [isInviteOpen, setIsInviteOpen] = useState(false);
  const [inviteSearchQuery, setInviteSearchQuery] = useState('');
+ const [selectedInvitePlayerIds, setSelectedInvitePlayerIds] = useState<string[]>([]);
 
 
 
@@ -234,28 +235,44 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  if (!isHost || status === 'END') return null;
  return (
  <button
- onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); }}
+ onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); }}
  className="w-full flex items-center justify-center gap-2 py-3 mx-4 sm:mx-6 mb-2 border border-dashed border-[#00FF41]/30 bg-[#001645] text-[#00FF41] transition-all active:scale-95"
  >
  <UserPlus size={16} />
- <span className="text-xs font-black uppercase tracking-wider">Invite Player</span>
+ <span className="text-xs font-black uppercase tracking-wider">Invite Players</span>
  </button>
  );
  };
 
- const handleInvitePlayerSelect = (player: User) => {
+ const toggleInvitePlayerSelection = (playerId: string) => {
+ triggerHaptic('light');
+ setSelectedInvitePlayerIds(prev =>
+ prev.includes(playerId) ? prev.filter(id => id !== playerId) : [...prev, playerId]
+ );
+ };
+
+ const handleConfirmInvitePlayers = () => {
+ if (selectedInvitePlayerIds.length === 0) return;
+ const count = selectedInvitePlayerIds.length;
  setConfirmConfig({
  isOpen: true,
- title: 'Invite Player',
- message: `Add ${player.name} to this session?`,
+ title: 'Invite Players',
+ message: `Add ${count} player${count === 1 ? '' : 's'} to this session?`,
  action: () => {
- onInvitePlayer(session.id, player.id);
+ onInvitePlayers(session.id, selectedInvitePlayerIds);
  setIsInviteOpen(false);
  setInviteSearchQuery('');
+ setSelectedInvitePlayerIds([]);
  },
  isDestructive: false,
- confirmLabel: 'Invite',
+ confirmLabel: `Invite ${count}`,
  });
+ };
+
+ const closeInviteSheet = () => {
+ setIsInviteOpen(false);
+ setInviteSearchQuery('');
+ setSelectedInvitePlayerIds([]);
  };
 
  const filteredInvitePlayers = inviteablePlayers.filter(u =>
@@ -1469,11 +1486,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
 
  {isInviteOpen && (
- <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => { setIsInviteOpen(false); setInviteSearchQuery(''); }}>
+ <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={closeInviteSheet}>
  <div className="relative bg-[#000B29] w-full h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
  <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[#002266] bg-[#000B29] shrink-0">
- <h3 className="text-white font-black italic uppercase tracking-wider text-xl flex items-center gap-2">Invite <span className="text-[#00FF41]">Player</span></h3>
- <button onClick={() => { triggerHaptic('light'); setIsInviteOpen(false); setInviteSearchQuery(''); }} className="p-1 text-gray-400 active:scale-95 transition-all">
+ <h3 className="text-white font-black italic uppercase tracking-wider text-xl flex items-center gap-2">Invite <span className="text-[#00FF41]">Players</span></h3>
+ <button onClick={() => { triggerHaptic('light'); closeInviteSheet(); }} className="p-1 text-gray-400 active:scale-95 transition-all">
  <X size={20} />
  </button>
  </div>
@@ -1489,6 +1506,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  autoFocus
  />
  </div>
+ {selectedInvitePlayerIds.length > 0 && (
+ <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-[#00FF41] tabular-nums">
+ {selectedInvitePlayerIds.length} selected
+ </p>
+ )}
  </div>
  <div className="p-4 sm:p-6 overflow-y-auto flex-1">
  {filteredInvitePlayers.length === 0 ? (
@@ -1500,11 +1522,13 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </div>
  ) : (
  <div className="space-y-2">
- {filteredInvitePlayers.map(player => (
+ {filteredInvitePlayers.map(player => {
+ const isSelected = selectedInvitePlayerIds.includes(player.id);
+ return (
  <button
  key={player.id}
- onClick={() => { triggerHaptic('light'); handleInvitePlayerSelect(player); }}
- className="w-full flex items-center justify-between p-3 rounded-none bg-[#001645] transition-all active:scale-[0.98]"
+ onClick={() => toggleInvitePlayerSelection(player.id)}
+ className={`w-full flex items-center justify-between p-3 rounded-none transition-all active:scale-[0.98] ${isSelected ? 'bg-[#00FF41]/10 border border-[#00FF41]/50' : 'bg-[#001645] border border-transparent'}`}
  >
  <div className="flex items-center gap-3 flex-1 min-w-0">
  <div className={`relative shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
@@ -1515,13 +1539,32 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <span className="text-[10px] font-mono text-yellow-500 font-bold">{player.points} pts</span>
  </div>
  </div>
- <div className="p-2 text-[#00FF41] shrink-0">
- <UserPlus size={16} />
+ <div className={`w-6 h-6 shrink-0 flex items-center justify-center border transition-all ${isSelected ? 'bg-[#00FF41] border-[#00FF41] text-[#000B29]' : 'border-[#002266] text-transparent'}`}>
+ <Check size={14} strokeWidth={3} />
  </div>
  </button>
- ))}
+ );
+ })}
  </div>
  )}
+ </div>
+ <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] flex gap-3 shrink-0">
+ <button
+ onClick={() => { triggerHaptic('light'); closeInviteSheet(); }}
+ className="flex-1 py-3.5 border border-[#002266] bg-[#001645] text-gray-400 transition-all font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] active:scale-95"
+ >
+ <span className="skew-x-[6deg] inline-block">Cancel</span>
+ </button>
+ <button
+ onClick={() => { triggerHaptic('medium'); handleConfirmInvitePlayers(); }}
+ disabled={selectedInvitePlayerIds.length === 0}
+ className={`flex-[2] py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all active:scale-95 ${selectedInvitePlayerIds.length > 0 ? 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.3)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}
+ >
+ <span className="skew-x-[6deg] inline-flex items-center gap-2">
+ <UserPlus size={14} />
+ Invite {selectedInvitePlayerIds.length > 0 ? `(${selectedInvitePlayerIds.length})` : ''}
+ </span>
+ </button>
  </div>
  <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
  </div>

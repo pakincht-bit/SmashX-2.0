@@ -692,21 +692,25 @@ const App: React.FC = () => {
  }
  }, [currentUser, sessions, showToast]);
 
- const handleInvitePlayer = useCallback(async (sessionId: string, playerId: string) => {
- if (!currentUser) return;
- const lockKey = `invite-${sessionId}-${playerId}`;
+ const handleInvitePlayers = useCallback(async (sessionId: string, playerIds: string[]) => {
+ if (!currentUser || playerIds.length === 0) return;
+ const lockKey = `invite-${sessionId}-batch`;
  if (mutatingRef.current.has(lockKey)) return;
 
  const session = sessions.find(s => s.id === sessionId);
- if (!session || session.hostId !== currentUser.id || session.finalBill || session.playerIds.includes(playerId)) return;
+ if (!session || session.hostId !== currentUser.id || session.finalBill) return;
+
+ const newPlayerIds = playerIds.filter(id => !session.playerIds.includes(id));
+ if (newPlayerIds.length === 0) return;
 
  mutatingRef.current.add(lockKey);
  try {
  const previousSessions = sessions;
- const updatedPlayerIds = [...session.playerIds, playerId];
+ const updatedPlayerIds = [...session.playerIds, ...newPlayerIds];
 
  setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, playerIds: updatedPlayerIds } : s));
 
+ for (const playerId of newPlayerIds) {
  const { error } = await supabase.rpc('invite_player_to_session', {
  p_session_id: sessionId,
  p_player_id: playerId,
@@ -715,11 +719,13 @@ const App: React.FC = () => {
  if (error) {
  console.error("Invite failed", error);
  setSessions(previousSessions);
- showToast("Failed to invite player", true);
- } else {
- triggerHaptic('success');
- showToast("Player invited");
+ showToast("Failed to invite players", true);
+ return;
  }
+ }
+
+ triggerHaptic('success');
+ showToast(`${newPlayerIds.length} player${newPlayerIds.length === 1 ? '' : 's'} invited`);
  } finally {
  mutatingRef.current.delete(lockKey);
  }
@@ -1574,7 +1580,7 @@ const App: React.FC = () => {
  allUsers={users}
  onClose={() => setSelectedSessionId(null)}
  onJoin={handleJoin}
- onInvitePlayer={handleInvitePlayer}
+ onInvitePlayers={handleInvitePlayers}
  onLeave={handleLeave}
  onDelete={handleDelete}
  onStart={handleStartSession}
