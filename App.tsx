@@ -298,6 +298,10 @@ const App: React.FC = () => {
 
  const fetchPlayerGroups = useCallback(async (userId: string) => {
  try {
+ const { data, error } = await supabase.rpc('get_my_player_groups');
+
+ if (error) {
+ // Fallback for environments where migration 009 is not applied yet
  const { data: membershipData, error: membershipError } = await supabase
  .from('group_members')
  .select('group_id')
@@ -325,6 +329,16 @@ const App: React.FC = () => {
  });
 
  setPlayerGroups((groupsRes.data || []).map((group: any) => mapGroupFromDB(group, membersByGroup.get(group.id) || [])));
+ return;
+ }
+
+ const groups = (Array.isArray(data) ? data : []).map((group: any) =>
+ mapGroupFromDB(
+ { id: group.id, name: group.name, owner_id: group.owner_id, created_at: group.created_at },
+ Array.isArray(group.member_ids) ? group.member_ids : []
+ )
+ );
+ setPlayerGroups(groups);
  } catch (error) {
  console.error('SX: Fetch player groups failed', error);
  }
@@ -783,12 +797,28 @@ const App: React.FC = () => {
 
  const handleCreateGroup = useCallback(async (name: string) => {
  if (!currentUser) return;
- const { data, error } = await supabase.rpc('create_player_group', { p_name: name });
+ const trimmedName = name.trim();
+ const { data: groupId, error } = await supabase.rpc('create_player_group', { p_name: trimmedName });
  if (error) {
  console.error('Create group failed', error);
  showToast('Failed to create group', true);
  return;
  }
+
+ // Optimistic update so the group appears immediately on the Arena page
+ if (groupId) {
+ setPlayerGroups(prev => {
+ if (prev.some(g => g.id === groupId)) return prev;
+ return [{
+ id: groupId,
+ name: trimmedName,
+ ownerId: currentUser.id,
+ memberIds: [currentUser.id],
+ createdAt: new Date().toISOString(),
+ }, ...prev];
+ });
+ }
+
  await fetchPlayerGroups(currentUser.id);
  triggerHaptic('success');
  showToast('Group created');
