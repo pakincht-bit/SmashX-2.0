@@ -140,8 +140,8 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
     : <>Add <span className="text-[#00FF41]">Members</span></>;
 
   return (
-    <div className="fixed inset-0 z-[220] bg-[#000B29] text-white overflow-y-auto animate-in fade-in duration-300">
-      <div className="sticky top-0 z-50 w-full bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)]">
+    <div className="fixed inset-0 z-[220] bg-[#000B29] text-white flex flex-col h-[100dvh] overflow-hidden animate-in fade-in duration-300">
+      <div className="shrink-0 w-full bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-3 py-3 px-4 sm:px-6">
           <button onClick={handleCreateBack} className="p-2 -ml-2 text-gray-400 rounded-full transition-colors active:scale-95">
             <ArrowLeft size={20} />
@@ -157,24 +157,28 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 space-y-6 pb-24">
-        {isCreateMode ? (
-          createStep === 'name' ? (
-            <div className="space-y-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                Step 1 — Name your crew
-              </p>
-              <label className="block">
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Group Name</span>
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  placeholder="Tuesday Crew"
-                  className="w-full bg-[#001645] border border-[#002266] focus:border-[#00FF41] px-4 py-3 text-white placeholder:text-gray-500 outline-none font-bold rounded-none"
-                  autoFocus
-                />
-              </label>
+      {isCreateMode ? (
+        createStep === 'name' ? (
+          <>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="space-y-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                  Step 1 — Name your crew
+                </p>
+                <label className="block">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Group Name</span>
+                  <input
+                    type="text"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
+                    placeholder="Tuesday Crew"
+                    className="w-full bg-[#001645] border border-[#002266] focus:border-[#00FF41] px-4 py-3 text-white placeholder:text-gray-500 outline-none font-bold rounded-none"
+                    autoFocus
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="shrink-0 p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <button
                 onClick={handleNextStep}
                 disabled={!groupName.trim()}
@@ -183,92 +187,96 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
                 <span className="skew-x-[6deg] inline-block">Next — Select Members</span>
               </button>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
-                  Step 2 — Select members
-                </p>
-                <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">{groupName.trim()}</h3>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1">
-                  You are included automatically
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5">
-                <Search size={16} className="text-gray-500 shrink-0" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search players..."
-                  className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium"
-                  autoFocus
-                />
-              </div>
-
-              {selectedMemberIds.length > 0 && (
-                <p className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] tabular-nums">
-                  {selectedMemberIds.length} selected
-                </p>
-              )}
-
-              <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-                {selectableUsers.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      {allUsers.length <= 1 ? 'No other players available yet' : 'No players match your search'}
-                    </p>
-                  </div>
-                ) : (
-                  selectableUsers.map(user => {
-                    const isSelected = selectedMemberIds.includes(user.id);
-                    return (
-                      <button
-                        key={user.id}
-                        onClick={() => toggleMemberSelection(user.id)}
-                        disabled={isSubmitting}
-                        className={`w-full flex items-center justify-between p-3 rounded-none transition-all active:scale-[0.98] ${isSelected ? 'bg-[#00FF41]/10 border border-[#00FF41]/50' : 'bg-[#001645] border border-transparent'}`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`rounded-full shrink-0 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
-                            <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
-                          </div>
-                          <div className="min-w-0 text-left">
-                            <div className="text-sm font-bold text-white truncate">{user.name}</div>
-                            <div className="text-[10px] font-mono text-yellow-500">{user.points} pts</div>
-                          </div>
-                        </div>
-                        <div className={`w-6 h-6 shrink-0 flex items-center justify-center border transition-all ${isSelected ? 'bg-[#00FF41] border-[#00FF41] text-[#000B29]' : 'border-[#002266] text-transparent'}`}>
-                          <Check size={14} strokeWidth={3} />
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => { triggerHaptic('light'); setCreateStep('name'); setSearchQuery(''); }}
-                  className="flex-1 py-3.5 border border-[#002266] bg-[#001645] text-gray-400 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] active:scale-95"
-                >
-                  <span className="skew-x-[6deg] inline-block">Back</span>
-                </button>
-                <button
-                  onClick={handleCreate}
-                  disabled={isSubmitting}
-                  className="flex-[2] py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] transition-all active:scale-95 bg-[#00FF41] text-[#000B29] disabled:opacity-60"
-                >
-                  <span className="skew-x-[6deg] inline-block">
-                    Create Group{selectedMemberIds.length > 0 ? ` (${selectedMemberIds.length + 1})` : ''}
-                  </span>
-                </button>
-              </div>
-            </div>
-          )
+          </>
         ) : (
           <>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
+                    Step 2 — Select members
+                  </p>
+                  <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">{groupName.trim()}</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1">
+                    You are included automatically
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5">
+                  <Search size={16} className="text-gray-500 shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search players..."
+                    className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium"
+                    autoFocus
+                  />
+                </div>
+
+                {selectedMemberIds.length > 0 && (
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] tabular-nums">
+                    {selectedMemberIds.length} selected
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  {selectableUsers.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        {allUsers.length <= 1 ? 'No other players available yet' : 'No players match your search'}
+                      </p>
+                    </div>
+                  ) : (
+                    selectableUsers.map(user => {
+                      const isSelected = selectedMemberIds.includes(user.id);
+                      return (
+                        <button
+                          key={user.id}
+                          onClick={() => toggleMemberSelection(user.id)}
+                          disabled={isSubmitting}
+                          className={`w-full flex items-center justify-between p-3 rounded-none transition-all active:scale-[0.98] ${isSelected ? 'bg-[#00FF41]/10 border border-[#00FF41]/50' : 'bg-[#001645] border border-transparent'}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`rounded-full shrink-0 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
+                              <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
+                            </div>
+                            <div className="min-w-0 text-left">
+                              <div className="text-sm font-bold text-white truncate">{user.name}</div>
+                              <div className="text-[10px] font-mono text-yellow-500">{user.points} pts</div>
+                            </div>
+                          </div>
+                          <div className={`w-6 h-6 shrink-0 flex items-center justify-center border transition-all ${isSelected ? 'bg-[#00FF41] border-[#00FF41] text-[#000B29]' : 'border-[#002266] text-transparent'}`}>
+                            <Check size={14} strokeWidth={3} />
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="shrink-0 p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] flex gap-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+              <button
+                onClick={() => { triggerHaptic('light'); setCreateStep('name'); setSearchQuery(''); }}
+                className="flex-1 py-3.5 border border-[#002266] bg-[#001645] text-gray-400 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] active:scale-95"
+              >
+                <span className="skew-x-[6deg] inline-block">Back</span>
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={isSubmitting}
+                className="flex-[2] py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] transition-all active:scale-95 bg-[#00FF41] text-[#000B29] disabled:opacity-60"
+              >
+                <span className="skew-x-[6deg] inline-block">
+                  Create Group{selectedMemberIds.length > 0 ? ` (${selectedMemberIds.length + 1})` : ''}
+                </span>
+              </button>
+            </div>
+          </>
+        )
+      ) : (
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 pb-24">
             <div>
               <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-1">{group.name}</h3>
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{members.length} members</p>
@@ -355,9 +363,8 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
                 <Trash2 size={14} /> Delete Group
               </button>
             )}
-          </>
-        )}
       </div>
+      )}
 
       <ConfirmationModal
         isOpen={!!confirmConfig}
