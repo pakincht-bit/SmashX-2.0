@@ -1465,14 +1465,6 @@ const App: React.FC = () => {
  default:
  return (
  <div className="space-y-6 animate-fade-in-up">
- <PlayerGroupsSection
- groups={playerGroups}
- allUsers={users}
- currentUserId={activeUser.id}
- onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }}
- onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }}
- onRankingsClick={(group) => setRankingGroup(group)}
- />
  <section className="mb-12">
  {upcomingSessions.length > 0 && (
  <div className="flex justify-between items-center mb-6">
@@ -1581,6 +1573,15 @@ const App: React.FC = () => {
  ))}
  </div>
  )}
+
+ <PlayerGroupsSection
+ groups={playerGroups}
+ allUsers={users}
+ currentUserId={activeUser.id}
+ onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }}
+ onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }}
+ onRankingsClick={(group) => setRankingGroup(group)}
+ />
 
  {/* Recent Battles */}
  {recentSessions.length > 0 && (
