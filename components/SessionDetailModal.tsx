@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Session, User, MatchResult, NextMatchup } from '../types';
+import { Session, User, MatchResult, NextMatchup, PlayerGroup } from '../types';
 import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic, getPlayerMatchDelta, computeEloDeltas } from '../utils';
-import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, BarChart3 } from 'lucide-react';
+import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, BarChart3, UserPlus, Search } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import PullToRefresh from './PullToRefresh';
 import ShareReportModal from './ShareReportModal';
@@ -13,6 +13,7 @@ interface SessionDetailModalProps {
  allUsers: User[];
  onClose: () => void;
  onJoin: (sessionId: string) => void;
+ onInvitePlayers: (sessionId: string, playerIds: string[]) => void;
  onLeave: (sessionId: string) => void;
  onDelete: (sessionId: string) => void;
  onStart: (sessionId: string, initialCheckInIds?: string[]) => void;
@@ -26,6 +27,7 @@ interface SessionDetailModalProps {
  onEdit?: (sessionId: string) => void;
   onUndoMatchResult?: (sessionId: string, matchId: string) => void;
  onAddCourt?: (sessionId: string) => void;
+ playerGroups?: PlayerGroup[];
 }
 
 const START_THRESHOLD_MINUTES = 30; // Button is enabled 30 mins before start
@@ -61,6 +63,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  allUsers,
  onClose,
  onJoin,
+ onInvitePlayers,
  onLeave,
  onDelete,
  onStart,
@@ -73,7 +76,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  onRefresh,
  onEdit,
   onUndoMatchResult,
- onAddCourt
+ onAddCourt,
+ playerGroups = []
 }) => {
  const [confirmConfig, setConfirmConfig] = useState<{
  isOpen: boolean;
@@ -92,6 +96,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const [isCopied, setIsCopied] = useState(false);
  const [isRefreshingManual, setIsRefreshingManual] = useState(false);
  const [isShareReportOpen, setIsShareReportOpen] = useState(false);
+ const [isInviteOpen, setIsInviteOpen] = useState(false);
+ const [inviteSearchQuery, setInviteSearchQuery] = useState('');
+ const [selectedInvitePlayerIds, setSelectedInvitePlayerIds] = useState<string[]>([]);
+ const [inviteSheetTab, setInviteSheetTab] = useState<'players' | 'groups'>('players');
 
 
 
@@ -123,6 +131,14 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  // OPTIMIZATION: Build a Map for O(1) user lookups instead of repeated .find() calls
  const usersMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
+
+ const inviteablePlayers = useMemo(() => {
+ if (!session) return [];
+ const rosterSet = new Set(session.playerIds);
+ return allUsers
+ .filter(u => !rosterSet.has(u.id))
+ .sort((a, b) => a.name.localeCompare(b.name));
+ }, [allUsers, session?.playerIds]);
 
 
 
@@ -217,6 +233,83 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  return 'OPEN';
  };
  const status = getSessionStatus();
+
+ const renderInviteButton = () => {
+ if (!isHost || status === 'END') return null;
+ return (
+ <div className="-mx-4 sm:-mx-6 px-4 sm:px-6 mb-4">
+ <button
+ onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); setInviteSheetTab('players'); }}
+ className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-[#00FF41]/30 bg-[#001645] text-[#00FF41] transition-all active:scale-95"
+ >
+ <UserPlus size={16} />
+ <span className="text-xs font-black uppercase tracking-wider">Invite Players</span>
+ </button>
+ </div>
+ );
+ };
+
+ const toggleInvitePlayerSelection = (playerId: string) => {
+ triggerHaptic('light');
+ setSelectedInvitePlayerIds(prev =>
+ prev.includes(playerId) ? prev.filter(id => id !== playerId) : [...prev, playerId]
+ );
+ };
+
+ const handleConfirmInvitePlayers = () => {
+ if (selectedInvitePlayerIds.length === 0) return;
+ const count = selectedInvitePlayerIds.length;
+ setConfirmConfig({
+ isOpen: true,
+ title: 'Invite Players',
+ message: `Add ${count} player${count === 1 ? '' : 's'} to this session?`,
+ action: () => {
+ onInvitePlayers(session.id, selectedInvitePlayerIds);
+ setIsInviteOpen(false);
+ setInviteSearchQuery('');
+ setSelectedInvitePlayerIds([]);
+ },
+ isDestructive: false,
+ confirmLabel: `Invite ${count}`,
+ });
+ };
+
+ const closeInviteSheet = () => {
+ setIsInviteOpen(false);
+ setInviteSearchQuery('');
+ setSelectedInvitePlayerIds([]);
+ setInviteSheetTab('players');
+ };
+
+ const handleInviteGroup = (group: PlayerGroup) => {
+ const inviteIds = group.memberIds.filter(id => !session.playerIds.includes(id));
+ if (inviteIds.length === 0) {
+ setConfirmConfig({
+ isOpen: true,
+ title: 'Invite Group',
+ message: `All members of "${group.name}" are already on the roster.`,
+ action: () => {},
+ isDestructive: false,
+ confirmLabel: 'OK',
+ });
+ return;
+ }
+ setConfirmConfig({
+ isOpen: true,
+ title: 'Invite Group',
+ message: `Add ${inviteIds.length} player${inviteIds.length === 1 ? '' : 's'} from "${group.name}" to this session?`,
+ action: () => {
+ onInvitePlayers(session.id, inviteIds);
+ closeInviteSheet();
+ },
+ isDestructive: false,
+ confirmLabel: `Invite ${inviteIds.length}`,
+ });
+ };
+
+ const filteredInvitePlayers = inviteablePlayers.filter(u =>
+ u.name.toLowerCase().includes(inviteSearchQuery.toLowerCase().trim())
+ );
 
  let activeTab = selectedTab;
  if (!activeTab) {
@@ -660,6 +753,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
     return (
       <div>
+        {renderInviteButton()}
         <div className="-mx-4 sm:-mx-6 flex flex-col space-y-4">
           {checkedInPlayers.length > 0 && (
             <div>
@@ -702,7 +796,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  const renderNormalPlayerList = () => (
  <div>
-
+ {renderInviteButton()}
  <div className="-mx-4 sm:-mx-6 flex flex-col">
  <div className="">
  {players.map((player) => (
@@ -1426,7 +1520,155 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
   </button>
   </div>
   <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
-  </div> </div>)}
+  </div> </div> )}
+
+
+ {isInviteOpen && (
+ <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={closeInviteSheet}>
+ <div className="relative bg-[#000B29] w-full h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+ <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[#002266] bg-[#000B29] shrink-0">
+ <h3 className="text-white font-black italic uppercase tracking-wider text-xl flex items-center gap-2">Invite <span className="text-[#00FF41]">Players</span></h3>
+ <button onClick={() => { triggerHaptic('light'); closeInviteSheet(); }} className="p-1 text-gray-400 active:scale-95 transition-all">
+ <X size={20} />
+ </button>
+ </div>
+ {playerGroups.length > 0 && (
+ <div className="flex border-b border-[#002266] px-4 sm:px-6 shrink-0">
+ <button
+ onClick={() => { triggerHaptic('light'); setInviteSheetTab('players'); }}
+ className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${inviteSheetTab === 'players' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent'}`}
+ >
+ Players
+ </button>
+ <button
+ onClick={() => { triggerHaptic('light'); setInviteSheetTab('groups'); }}
+ className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${inviteSheetTab === 'groups' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent'}`}
+ >
+ Groups
+ </button>
+ </div>
+ )}
+ {inviteSheetTab === 'players' ? (
+ <>
+ <div className="px-4 sm:px-6 py-3 border-b border-[#002266] shrink-0">
+ <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5">
+ <Search size={16} className="text-gray-500 shrink-0" />
+ <input
+ type="text"
+ value={inviteSearchQuery}
+ onChange={(e) => setInviteSearchQuery(e.target.value)}
+ placeholder="Search players..."
+ className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium"
+ autoFocus
+ />
+ </div>
+ {selectedInvitePlayerIds.length > 0 && (
+ <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-[#00FF41] tabular-nums">
+ {selectedInvitePlayerIds.length} selected
+ </p>
+ )}
+ </div>
+ <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+ {filteredInvitePlayers.length === 0 ? (
+ <div className="flex flex-col items-center justify-center py-16">
+ <Users size={32} className="text-gray-600 mb-3" />
+ <p className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+ {inviteablePlayers.length === 0 ? 'All players are already on the roster' : 'No players match your search'}
+ </p>
+ </div>
+ ) : (
+ <div className="space-y-2">
+ {filteredInvitePlayers.map(player => {
+ const isSelected = selectedInvitePlayerIds.includes(player.id);
+ return (
+ <button
+ key={player.id}
+ onClick={() => toggleInvitePlayerSelection(player.id)}
+ className={`w-full flex items-center justify-between p-3 rounded-none transition-all active:scale-[0.98] ${isSelected ? 'bg-[#00FF41]/10 border border-[#00FF41]/50' : 'bg-[#001645] border border-transparent'}`}
+ >
+ <div className="flex items-center gap-3 flex-1 min-w-0">
+ <div className={`relative shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
+ <img src={player.avatar} alt={player.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(player.avatar) }} />
+ </div>
+ <div className="flex-1 min-w-0 pr-2 text-left">
+ <span className="text-sm font-bold text-white block truncate">{player.name}</span>
+ <span className="text-[10px] font-mono text-yellow-500 font-bold">{player.points} pts</span>
+ </div>
+ </div>
+ <div className={`w-6 h-6 shrink-0 flex items-center justify-center border transition-all ${isSelected ? 'bg-[#00FF41] border-[#00FF41] text-[#000B29]' : 'border-[#002266] text-transparent'}`}>
+ <Check size={14} strokeWidth={3} />
+ </div>
+ </button>
+ );
+ })}
+ </div>
+ )}
+ </div>
+ <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] flex gap-3 shrink-0">
+ <button
+ onClick={() => { triggerHaptic('light'); closeInviteSheet(); }}
+ className="flex-1 py-3.5 border border-[#002266] bg-[#001645] text-gray-400 transition-all font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] active:scale-95"
+ >
+ <span className="skew-x-[6deg] inline-block">Cancel</span>
+ </button>
+ <button
+ onClick={() => { triggerHaptic('medium'); handleConfirmInvitePlayers(); }}
+ disabled={selectedInvitePlayerIds.length === 0}
+ className={`flex-[2] py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all active:scale-95 ${selectedInvitePlayerIds.length > 0 ? 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.3)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}
+ >
+ <span className="skew-x-[6deg] inline-flex items-center gap-2">
+ <UserPlus size={14} />
+ Invite {selectedInvitePlayerIds.length > 0 ? `(${selectedInvitePlayerIds.length})` : ''}
+ </span>
+ </button>
+ </div>
+ </>
+ ) : (
+ <>
+ <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+ {playerGroups.length === 0 ? (
+ <div className="flex flex-col items-center justify-center py-16">
+ <Users size={32} className="text-gray-600 mb-3" />
+ <p className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Create a group on the Arena page first</p>
+ </div>
+ ) : (
+ <div className="space-y-2">
+ {playerGroups.map(group => {
+ const pendingCount = group.memberIds.filter(id => !session.playerIds.includes(id)).length;
+ return (
+ <button
+ key={group.id}
+ onClick={() => { triggerHaptic('light'); handleInviteGroup(group); }}
+ disabled={pendingCount === 0}
+ className={`w-full flex items-center justify-between p-4 rounded-none transition-all active:scale-[0.98] ${pendingCount > 0 ? 'bg-[#001645]' : 'bg-[#001030] opacity-60'}`}
+ >
+ <div className="text-left min-w-0">
+ <div className="text-sm font-black italic uppercase text-white truncate">{group.name}</div>
+ <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1 tabular-nums">
+ {group.memberIds.length} members · {pendingCount > 0 ? `${pendingCount} to invite` : 'all invited'}
+ </div>
+ </div>
+ <UserPlus size={16} className={`shrink-0 ${pendingCount > 0 ? 'text-[#00FF41]' : 'text-gray-600'}`} />
+ </button>
+ );
+ })}
+ </div>
+ )}
+ </div>
+ <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] shrink-0">
+ <button
+ onClick={() => { triggerHaptic('light'); closeInviteSheet(); }}
+ className="w-full py-3.5 border border-[#002266] bg-[#001645] text-gray-400 transition-all font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] active:scale-95"
+ >
+ <span className="skew-x-[6deg] inline-block">Close</span>
+ </button>
+ </div>
+ </>
+ )}
+ <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
+ </div>
+ </div>
+ )}
 
  <ConfirmationModal isOpen={!!confirmConfig} title={confirmConfig?.title || ''} message={confirmConfig?.message || ''} confirmLabel={confirmConfig?.confirmLabel} isDestructive={confirmConfig?.isDestructive} onConfirm={() => { triggerHaptic('medium'); confirmConfig?.action(); setConfirmConfig(null); }} onCancel={() => { triggerHaptic('light'); setConfirmConfig(null); }} />
  </div>

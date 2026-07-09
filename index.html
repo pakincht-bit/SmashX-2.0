@@ -337,36 +337,51 @@
       100% { transform: translateY(-6px); }
     }
   </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
-    "html-to-image": "https://esm.sh/html-to-image@^1.11.11"
-  }
-}
-</script>
   <link rel="stylesheet" href="/index.css">
 </head>
 
 <body class="bg-[#000B29] text-white antialiased overflow-x-hidden w-full relative">
-  <div id="root"></div>
+  <div id="root">
+    <div id="boot-fallback" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000B29;color:#fff;font-family:Inter,sans-serif;">
+      <div style="width:40px;height:40px;border:3px solid #002266;border-top-color:#00FF41;border-radius:50%;animation:boot-spin 0.8s linear infinite;margin-bottom:16px;"></div>
+      <p style="font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;color:#6b7280;margin:0;">Entering Arena...</p>
+    </div>
+    <style>@keyframes boot-spin{to{transform:rotate(360deg)}}</style>
+  </div>
 
-  <!-- SVG filters removed for battery optimization -->
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('SW: Registered', reg.scope))
-          .catch(err => console.warn('SW: Registration failed', err));
-      });
-    }
+    (function () {
+      var isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
+      // Stale service worker caches break Vite dev — clear on localhost
+      if (isDev && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          regs.forEach(function (reg) { reg.unregister(); });
+        });
+        if (window.caches) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) { caches.delete(key); });
+          });
+        }
+      } else if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function (reg) { console.log('SW: Registered', reg.scope); })
+            .catch(function (err) { console.warn('SW: Registration failed', err); });
+        });
+      }
+
+      // If React never mounts, show recovery UI instead of a blank screen
+      setTimeout(function () {
+        var fallback = document.getElementById('boot-fallback');
+        if (!fallback) return;
+        fallback.innerHTML =
+          '<p style="font-size:18px;font-weight:900;font-style:italic;text-transform:uppercase;margin:0 0 8px;">Load <span style="color:#00FF41;">Failed</span></p>' +
+          '<p style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.15em;margin:0 0 20px;">App scripts did not start</p>' +
+          '<button onclick="location.reload()" style="background:#00FF41;color:#000B29;border:none;padding:12px 24px;font-weight:900;font-style:italic;text-transform:uppercase;font-size:12px;cursor:pointer;transform:skewX(-12deg);">' +
+          '<span style="display:inline-block;transform:skewX(12deg);">Hard Refresh</span></button>';
+      }, 15000);
+    })();
   </script>
   <script type="module" src="/index.tsx"></script>
 </body>

@@ -11,6 +11,14 @@ export interface User {
   password?: string;
 }
 
+export interface PlayerGroup {
+  id: string;
+  name: string;
+  ownerId: string;
+  memberIds: string[];
+  createdAt: string;
+}
+
 export interface BillItem {
   userId: string;
   durationMinutes: number;
