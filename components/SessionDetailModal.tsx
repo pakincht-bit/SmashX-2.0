@@ -225,7 +225,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
    else activeTab = 'players';
  }
  if (status === 'OPEN' && activeTab !== 'players') activeTab = 'players';
- if (status === 'PLAYING' && !['live', 'players', 'history'].includes(activeTab)) activeTab = 'live';
+ if (status === 'PLAYING' && !['live', 'history'].includes(activeTab)) activeTab = 'live';
  if (status === 'END' && !['scoreboard', 'analytics', 'history'].includes(activeTab)) activeTab = 'scoreboard';
 
  const now = new Date();
@@ -1165,7 +1165,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
      {status === 'PLAYING' && (
        <>
          <button onClick={() => { triggerHaptic('light'); setSelectedTab('live'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'live' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>Court</button>
-         <button onClick={() => { triggerHaptic('light'); setSelectedTab('players'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'players' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>Players</button>
          <button onClick={() => { triggerHaptic('light'); setSelectedTab('history'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'history' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>History</button>
        </>
      )}
@@ -1180,8 +1179,15 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  )}
  <div className="p-4 sm:p-6 space-y-6">
    {status === 'PLAYING' ? (
-     activeTab === 'live' ? <>{renderLiveCourts()}</> :
-     activeTab === 'players' ? renderCheckInList() :
+     activeTab === 'live' ? (
+       <>
+         {renderLiveCourts()}
+         <div>
+           <h3 className="text-lg font-black italic text-white uppercase tracking-wider mb-4">Players</h3>
+           {renderCheckInList()}
+         </div>
+       </>
+     ) :
      activeTab === 'history' ? renderMatchHistory() : null
    ) : status === 'END' ? (
      activeTab === 'scoreboard' ? renderScoreboard() :
