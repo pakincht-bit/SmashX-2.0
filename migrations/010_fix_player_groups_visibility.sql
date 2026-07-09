@@ -51,21 +51,29 @@ GRANT EXECUTE ON FUNCTION delete_player_group(UUID) TO authenticated;
 ALTER TABLE player_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
 
+CREATE OR REPLACE FUNCTION user_group_ids()
+RETURNS SETOF UUID
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT group_id FROM group_members WHERE user_id = auth.uid();
+$$;
+
+GRANT EXECUTE ON FUNCTION user_group_ids() TO authenticated;
+
 DROP POLICY IF EXISTS "Users can read groups they belong to" ON player_groups;
 CREATE POLICY "Users can read groups they belong to"
   ON player_groups FOR SELECT
   TO authenticated
-  USING (
-    id IN (SELECT group_id FROM group_members WHERE user_id = auth.uid())
-  );
+  USING (id IN (SELECT user_group_ids()));
 
 DROP POLICY IF EXISTS "Users can read members of their groups" ON group_members;
 CREATE POLICY "Users can read members of their groups"
   ON group_members FOR SELECT
   TO authenticated
-  USING (
-    group_id IN (SELECT group_id FROM group_members WHERE user_id = auth.uid())
-  );
+  USING (group_id IN (SELECT user_group_ids()));
 
 -- Refresh PostgREST schema cache
 NOTIFY pgrst, 'reload schema';

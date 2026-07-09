@@ -298,18 +298,26 @@ const App: React.FC = () => {
 
  const fetchPlayerGroups = useCallback(async (userId: string) => {
  try {
+ const parseJsonArray = (value: unknown): unknown[] => {
+ if (!value) return [];
+ if (Array.isArray(value)) return value;
+ if (typeof value === 'string') {
+ try {
+ const parsed = JSON.parse(value);
+ return Array.isArray(parsed) ? parsed : [];
+ } catch {
+ return [];
+ }
+ }
+ return [];
+ };
+
  const { data, error } = await supabase.rpc('get_my_player_groups');
 
  if (!error && data != null) {
- const rawGroups = typeof data === 'string'
- ? JSON.parse(data)
- : data;
- const groupsPayload = Array.isArray(rawGroups) ? rawGroups : [];
+ const groupsPayload = parseJsonArray(data);
  const groups = groupsPayload.map((group: any) => {
- const memberIds = group.member_ids;
- const parsedMemberIds = typeof memberIds === 'string'
- ? JSON.parse(memberIds)
- : (Array.isArray(memberIds) ? memberIds : []);
+ const parsedMemberIds = parseJsonArray(group.member_ids) as string[];
  return mapGroupFromDB(
  { id: group.id, name: group.name, owner_id: group.owner_id, created_at: group.created_at },
  parsedMemberIds
@@ -412,17 +420,15 @@ const App: React.FC = () => {
  lastFetchRef.current = fetchStarted;
  setLastSyncTime(new Date());
 
- if (currentUser?.id) {
- await fetchPlayerGroups(currentUser.id);
- } else {
- const { data: { session } } = await supabase.auth.getSession();
- if (session?.user?.id) await fetchPlayerGroups(session.user.id);
- }
-
- // Unlock UI immediately
+ // Unlock UI immediately — never block home screen on group fetch
  setIsInitialLoading(false);
- setIsOffline(false); // Successful fetch = we're online
+ setIsOffline(false);
  console.log("SX: Data fetched (points from profiles, active sessions only)");
+
+ const userIdForGroups = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user?.id;
+ if (userIdForGroups) {
+ void fetchPlayerGroups(userIdForGroups);
+ }
 
  } catch (error: any) {
  console.error("SX: Fetch data failed:", error.message);
