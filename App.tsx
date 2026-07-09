@@ -692,6 +692,39 @@ const App: React.FC = () => {
  }
  }, [currentUser, sessions, showToast]);
 
+ const handleInvitePlayer = useCallback(async (sessionId: string, playerId: string) => {
+ if (!currentUser) return;
+ const lockKey = `invite-${sessionId}-${playerId}`;
+ if (mutatingRef.current.has(lockKey)) return;
+
+ const session = sessions.find(s => s.id === sessionId);
+ if (!session || session.hostId !== currentUser.id || session.finalBill || session.playerIds.includes(playerId)) return;
+
+ mutatingRef.current.add(lockKey);
+ try {
+ const previousSessions = sessions;
+ const updatedPlayerIds = [...session.playerIds, playerId];
+
+ setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, playerIds: updatedPlayerIds } : s));
+
+ const { error } = await supabase.rpc('invite_player_to_session', {
+ p_session_id: sessionId,
+ p_player_id: playerId,
+ });
+
+ if (error) {
+ console.error("Invite failed", error);
+ setSessions(previousSessions);
+ showToast("Failed to invite player", true);
+ } else {
+ triggerHaptic('success');
+ showToast("Player invited");
+ }
+ } finally {
+ mutatingRef.current.delete(lockKey);
+ }
+ }, [currentUser, sessions, showToast]);
+
  const handleLeave = useCallback(async (sessionId: string) => {
  if (!currentUser) return;
  const session = sessions.find(s => s.id === sessionId);
@@ -1541,6 +1574,7 @@ const App: React.FC = () => {
  allUsers={users}
  onClose={() => setSelectedSessionId(null)}
  onJoin={handleJoin}
+ onInvitePlayer={handleInvitePlayer}
  onLeave={handleLeave}
  onDelete={handleDelete}
  onStart={handleStartSession}

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Session, User, MatchResult, NextMatchup } from '../types';
 import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic, getPlayerMatchDelta, computeEloDeltas } from '../utils';
-import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, BarChart3 } from 'lucide-react';
+import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, BarChart3, UserPlus, Search } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import PullToRefresh from './PullToRefresh';
 import ShareReportModal from './ShareReportModal';
@@ -13,6 +13,7 @@ interface SessionDetailModalProps {
  allUsers: User[];
  onClose: () => void;
  onJoin: (sessionId: string) => void;
+ onInvitePlayer: (sessionId: string, playerId: string) => void;
  onLeave: (sessionId: string) => void;
  onDelete: (sessionId: string) => void;
  onStart: (sessionId: string, initialCheckInIds?: string[]) => void;
@@ -61,6 +62,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  allUsers,
  onClose,
  onJoin,
+ onInvitePlayer,
  onLeave,
  onDelete,
  onStart,
@@ -92,6 +94,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const [isCopied, setIsCopied] = useState(false);
  const [isRefreshingManual, setIsRefreshingManual] = useState(false);
  const [isShareReportOpen, setIsShareReportOpen] = useState(false);
+ const [isInviteOpen, setIsInviteOpen] = useState(false);
+ const [inviteSearchQuery, setInviteSearchQuery] = useState('');
 
 
 
@@ -123,6 +127,14 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  // OPTIMIZATION: Build a Map for O(1) user lookups instead of repeated .find() calls
  const usersMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
+
+ const inviteablePlayers = useMemo(() => {
+ if (!session) return [];
+ const rosterSet = new Set(session.playerIds);
+ return allUsers
+ .filter(u => !rosterSet.has(u.id))
+ .sort((a, b) => a.name.localeCompare(b.name));
+ }, [allUsers, session?.playerIds]);
 
 
 
@@ -217,6 +229,38 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  return 'OPEN';
  };
  const status = getSessionStatus();
+
+ const renderInviteButton = () => {
+ if (!isHost || status === 'END') return null;
+ return (
+ <button
+ onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); }}
+ className="w-full flex items-center justify-center gap-2 py-3 mx-4 sm:mx-6 mb-2 border border-dashed border-[#00FF41]/30 bg-[#001645] text-[#00FF41] transition-all active:scale-95"
+ >
+ <UserPlus size={16} />
+ <span className="text-xs font-black uppercase tracking-wider">Invite Player</span>
+ </button>
+ );
+ };
+
+ const handleInvitePlayerSelect = (player: User) => {
+ setConfirmConfig({
+ isOpen: true,
+ title: 'Invite Player',
+ message: `Add ${player.name} to this session?`,
+ action: () => {
+ onInvitePlayer(session.id, player.id);
+ setIsInviteOpen(false);
+ setInviteSearchQuery('');
+ },
+ isDestructive: false,
+ confirmLabel: 'Invite',
+ });
+ };
+
+ const filteredInvitePlayers = inviteablePlayers.filter(u =>
+ u.name.toLowerCase().includes(inviteSearchQuery.toLowerCase().trim())
+ );
 
  let activeTab = selectedTab;
  if (!activeTab) {
@@ -660,6 +704,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
     return (
       <div>
+        {renderInviteButton()}
         <div className="-mx-4 sm:-mx-6 flex flex-col space-y-4">
           {checkedInPlayers.length > 0 && (
             <div>
@@ -702,7 +747,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  const renderNormalPlayerList = () => (
  <div>
-
+ {renderInviteButton()}
  <div className="-mx-4 sm:-mx-6 flex flex-col">
  <div className="">
  {players.map((player) => (
@@ -1420,7 +1465,68 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
   </button>
   </div>
   <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
-  </div> </div>)}
+  </div> </div> )}
+
+
+ {isInviteOpen && (
+ <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => { setIsInviteOpen(false); setInviteSearchQuery(''); }}>
+ <div className="relative bg-[#000B29] w-full h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+ <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[#002266] bg-[#000B29] shrink-0">
+ <h3 className="text-white font-black italic uppercase tracking-wider text-xl flex items-center gap-2">Invite <span className="text-[#00FF41]">Player</span></h3>
+ <button onClick={() => { triggerHaptic('light'); setIsInviteOpen(false); setInviteSearchQuery(''); }} className="p-1 text-gray-400 active:scale-95 transition-all">
+ <X size={20} />
+ </button>
+ </div>
+ <div className="px-4 sm:px-6 py-3 border-b border-[#002266] shrink-0">
+ <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5">
+ <Search size={16} className="text-gray-500 shrink-0" />
+ <input
+ type="text"
+ value={inviteSearchQuery}
+ onChange={(e) => setInviteSearchQuery(e.target.value)}
+ placeholder="Search players..."
+ className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium"
+ autoFocus
+ />
+ </div>
+ </div>
+ <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+ {filteredInvitePlayers.length === 0 ? (
+ <div className="flex flex-col items-center justify-center py-16">
+ <Users size={32} className="text-gray-600 mb-3" />
+ <p className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+ {inviteablePlayers.length === 0 ? 'All players are already on the roster' : 'No players match your search'}
+ </p>
+ </div>
+ ) : (
+ <div className="space-y-2">
+ {filteredInvitePlayers.map(player => (
+ <button
+ key={player.id}
+ onClick={() => { triggerHaptic('light'); handleInvitePlayerSelect(player); }}
+ className="w-full flex items-center justify-between p-3 rounded-none bg-[#001645] transition-all active:scale-[0.98]"
+ >
+ <div className="flex items-center gap-3 flex-1 min-w-0">
+ <div className={`relative shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
+ <img src={player.avatar} alt={player.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(player.avatar) }} />
+ </div>
+ <div className="flex-1 min-w-0 pr-2 text-left">
+ <span className="text-sm font-bold text-white block truncate">{player.name}</span>
+ <span className="text-[10px] font-mono text-yellow-500 font-bold">{player.points} pts</span>
+ </div>
+ </div>
+ <div className="p-2 text-[#00FF41] shrink-0">
+ <UserPlus size={16} />
+ </div>
+ </button>
+ ))}
+ </div>
+ )}
+ </div>
+ <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
+ </div>
+ </div>
+ )}
 
  <ConfirmationModal isOpen={!!confirmConfig} title={confirmConfig?.title || ''} message={confirmConfig?.message || ''} confirmLabel={confirmConfig?.confirmLabel} isDestructive={confirmConfig?.isDestructive} onConfirm={() => { triggerHaptic('medium'); confirmConfig?.action(); setConfirmConfig(null); }} onCancel={() => { triggerHaptic('light'); setConfirmConfig(null); }} />
  </div>
