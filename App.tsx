@@ -811,7 +811,7 @@ const App: React.FC = () => {
  }
  }, [currentUser, sessions, showToast]);
 
- const handleCreateGroup = useCallback(async (name: string) => {
+ const handleCreateGroup = useCallback(async (name: string, memberIds: string[] = []) => {
  if (!currentUser) return;
  const trimmedName = name.trim();
  const { data: groupId, error } = await supabase.rpc('create_player_group', { p_name: trimmedName });
@@ -821,6 +821,23 @@ const App: React.FC = () => {
  return;
  }
 
+ const uniqueMemberIds = [...new Set(memberIds.filter(id => id !== currentUser.id))];
+
+ if (groupId && uniqueMemberIds.length > 0) {
+ const results = await Promise.allSettled(
+ uniqueMemberIds.map(userId =>
+ supabase.rpc('add_group_member', { p_group_id: groupId, p_user_id: userId })
+ )
+ );
+ const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error));
+ if (failed.length > 0) {
+ console.warn('Some group members failed to add', failed);
+ showToast('Group created, but some members could not be added', true);
+ }
+ }
+
+ const allMemberIds = groupId ? [currentUser.id, ...uniqueMemberIds] : [currentUser.id];
+
  // Optimistic update so the group appears immediately on the Arena page
  if (groupId) {
  setPlayerGroups(prev => {
@@ -829,7 +846,7 @@ const App: React.FC = () => {
  id: groupId,
  name: trimmedName,
  ownerId: currentUser.id,
- memberIds: [currentUser.id],
+ memberIds: allMemberIds,
  createdAt: new Date().toISOString(),
  }, ...prev];
  });
