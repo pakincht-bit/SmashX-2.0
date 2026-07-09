@@ -300,18 +300,37 @@ const App: React.FC = () => {
  try {
  const { data, error } = await supabase.rpc('get_my_player_groups');
 
+ if (!error && data != null) {
+ const rawGroups = typeof data === 'string'
+ ? JSON.parse(data)
+ : data;
+ const groupsPayload = Array.isArray(rawGroups) ? rawGroups : [];
+ const groups = groupsPayload.map((group: any) => {
+ const memberIds = group.member_ids;
+ const parsedMemberIds = typeof memberIds === 'string'
+ ? JSON.parse(memberIds)
+ : (Array.isArray(memberIds) ? memberIds : []);
+ return mapGroupFromDB(
+ { id: group.id, name: group.name, owner_id: group.owner_id, created_at: group.created_at },
+ parsedMemberIds
+ );
+ });
+ setPlayerGroups(groups);
+ return;
+ }
+
  if (error) {
- // Fallback for environments where migration 009 is not applied yet
+ console.warn('SX: get_my_player_groups unavailable, falling back to direct query', error.message);
+ }
+
+ // Fallback when RPC is missing or fails
  const { data: membershipData, error: membershipError } = await supabase
  .from('group_members')
  .select('group_id')
  .eq('user_id', userId);
 
  if (membershipError) throw membershipError;
- if (!membershipData?.length) {
- setPlayerGroups([]);
- return;
- }
+ if (!membershipData?.length) return;
 
  const groupIds = [...new Set(membershipData.map((row: { group_id: string }) => row.group_id))];
  const [groupsRes, membersRes] = await Promise.all([
@@ -329,16 +348,6 @@ const App: React.FC = () => {
  });
 
  setPlayerGroups((groupsRes.data || []).map((group: any) => mapGroupFromDB(group, membersByGroup.get(group.id) || [])));
- return;
- }
-
- const groups = (Array.isArray(data) ? data : []).map((group: any) =>
- mapGroupFromDB(
- { id: group.id, name: group.name, owner_id: group.owner_id, created_at: group.created_at },
- Array.isArray(group.member_ids) ? group.member_ids : []
- )
- );
- setPlayerGroups(groups);
  } catch (error) {
  console.error('SX: Fetch player groups failed', error);
  }
@@ -1740,7 +1749,11 @@ const App: React.FC = () => {
  {isGroupManageOpen && activeUser && (
  <GroupManageModal
  isOpen={isGroupManageOpen}
- onClose={() => { setIsGroupManageOpen(false); setManagingGroup(null); }}
+ onClose={() => {
+ setIsGroupManageOpen(false);
+ setManagingGroup(null);
+ fetchPlayerGroups(activeUser.id);
+ }}
  group={managingGroup ? (playerGroups.find(g => g.id === managingGroup.id) || managingGroup) : null}
  allUsers={users}
  currentUserId={activeUser.id}
