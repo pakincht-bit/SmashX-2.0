@@ -34,6 +34,8 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
     message: string;
@@ -52,6 +54,8 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
       setSelectedMemberIds([]);
       setSearchQuery('');
       setIsSubmitting(false);
+      setIsAddPanelOpen(false);
+      setSelectedMemberId(null);
     }
   }, [isOpen]);
 
@@ -133,6 +137,29 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleRemoveSelectedMember = () => {
+    if (!group || !selectedMemberId || selectedMemberId === group.ownerId) return;
+    const member = members.find(m => m.id === selectedMemberId);
+    if (!member) return;
+    setConfirmConfig({
+      title: 'Remove Member',
+      message: `Remove ${member.name} from ${group.name}?`,
+      isDestructive: true,
+      confirmLabel: 'Remove',
+      action: async () => {
+        await onRemoveMember(group.id, selectedMemberId);
+        setSelectedMemberId(null);
+      },
+    });
+  };
+
+  const toggleAddPanel = () => {
+    triggerHaptic('light');
+    setIsAddPanelOpen(prev => !prev);
+    setSelectedMemberId(null);
+    setSearchQuery('');
   };
 
   const createHeaderTitle = createStep === 'name'
@@ -276,93 +303,125 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
           </>
         )
       ) : (
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 pb-24">
-            <div>
-              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-1">{group.name}</h3>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{members.length} members</p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Members</h4>
-              </div>
-              <div className="space-y-2">
-                {members.map(member => (
-                  <div key={member.id} className="flex items-center justify-between p-3 bg-[#001645] rounded-none">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`rounded-full shrink-0 ${getRankFrameClass(member.rankFrame).replace('ring-4', 'ring-2')}`}>
-                        <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(member.avatar) }} />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-white truncate">{member.name}</div>
-                        <div className="text-[10px] font-mono text-yellow-500">{member.points} pts</div>
-                      </div>
-                    </div>
-                    {isOwner && member.id !== group.ownerId && (
-                      <button
-                        onClick={() => setConfirmConfig({
-                          title: 'Remove Member',
-                          message: `Remove ${member.name} from ${group.name}?`,
-                          isDestructive: true,
-                          confirmLabel: 'Remove',
-                          action: () => onRemoveMember(group.id, member.id),
-                        })}
-                        className="p-2 text-gray-500 active:text-red-400 transition-colors"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {isOwner && (
-              <div>
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Add Players</h4>
-                <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5 mb-3">
-                  <Search size={16} className="text-gray-500 shrink-0" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search players..."
-                    className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium"
-                  />
-                </div>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {addableUsers.slice(0, 20).map(user => (
-                    <button
-                      key={user.id}
-                      onClick={() => handleAddMember(user.id)}
-                      disabled={isSubmitting}
-                      className="w-full flex items-center justify-between p-3 bg-[#001030] rounded-none active:scale-[0.99] transition-all"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
-                        <span className="text-sm font-bold text-white truncate">{user.name}</span>
-                      </div>
-                      <UserPlus size={16} className="text-[#00FF41] shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {isOwner && (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-[#002266] flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="text-xl font-black italic uppercase tracking-tighter text-white truncate">{group.name}</h3>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 tabular-nums">{members.length} members</p>
+          </div>
+          {isOwner && (
+            <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => setConfirmConfig({
-                  title: 'Delete Group',
-                  message: `Delete "${group.name}" permanently?`,
-                  isDestructive: true,
-                  confirmLabel: 'Delete',
-                  action: async () => { await onDeleteGroup(group.id); onClose(); },
-                })}
-                className="w-full flex items-center justify-center gap-2 py-3 border border-red-900/50 bg-red-900/20 text-red-500 font-black uppercase tracking-wider text-xs rounded-none active:scale-95"
+                type="button"
+                onClick={toggleAddPanel}
+                aria-label="Add member"
+                className={`p-2.5 rounded-none transition-all active:scale-95 ${isAddPanelOpen ? 'bg-[#00FF41] text-[#000B29]' : 'bg-[#001645] text-[#00FF41]'}`}
               >
-                <Trash2 size={14} /> Delete Group
+                <UserPlus size={18} strokeWidth={2.5} />
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => { triggerHaptic('light'); handleRemoveSelectedMember(); }}
+                disabled={!selectedMemberId || selectedMemberId === group.ownerId}
+                aria-label="Remove member"
+                className="p-2.5 rounded-none bg-[#001645] text-red-400 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isOwner && isAddPanelOpen && (
+          <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-[#002266] bg-[#001030] space-y-3">
+            <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5">
+              <Search size={16} className="text-gray-500 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search players to add..."
+                className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {addableUsers.length === 0 ? (
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center py-4">
+                  {searchQuery.trim() ? 'No players match your search' : 'All players are already in this group'}
+                </p>
+              ) : (
+                addableUsers.slice(0, 20).map(user => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => handleAddMember(user.id)}
+                    disabled={isSubmitting}
+                    className="w-full flex items-center justify-between p-3 bg-[#001645] rounded-none active:scale-[0.99] transition-all"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
+                      <span className="text-sm font-bold text-white truncate">{user.name}</span>
+                    </div>
+                    <UserPlus size={16} className="text-[#00FF41] shrink-0" />
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2 pb-24">
+          {members.map(member => {
+            const isSelected = selectedMemberId === member.id;
+            const canSelect = isOwner && member.id !== group.ownerId;
+            return (
+              <button
+                key={member.id}
+                type="button"
+                disabled={!canSelect}
+                onClick={() => {
+                  if (!canSelect) return;
+                  triggerHaptic('light');
+                  setSelectedMemberId(prev => prev === member.id ? null : member.id);
+                  setIsAddPanelOpen(false);
+                }}
+                className={`w-full flex items-center justify-between p-3 rounded-none text-left transition-all ${canSelect ? 'active:scale-[0.99]' : ''} ${isSelected ? 'bg-[#00FF41]/10 border border-[#00FF41]/50' : 'bg-[#001645] border border-transparent'}`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`rounded-full shrink-0 ${getRankFrameClass(member.rankFrame).replace('ring-4', 'ring-2')}`}>
+                    <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(member.avatar) }} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-white truncate">{member.name}</div>
+                    <div className="text-[10px] font-mono text-yellow-500">{member.points} pts</div>
+                  </div>
+                </div>
+                {member.id === group.ownerId && (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] shrink-0 ml-2">Owner</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {isOwner && (
+          <div className="shrink-0 px-4 sm:px-6 py-4 border-t border-[#002266] pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <button
+              type="button"
+              onClick={() => setConfirmConfig({
+                title: 'Delete Group',
+                message: `Delete "${group.name}" permanently?`,
+                isDestructive: true,
+                confirmLabel: 'Delete',
+                action: async () => { await onDeleteGroup(group.id); onClose(); },
+              })}
+              className="w-full flex items-center justify-center gap-2 py-3 border border-red-900/50 bg-red-900/20 text-red-500 font-black uppercase tracking-wider text-xs rounded-none active:scale-95"
+            >
+              <Trash2 size={14} /> Delete Group
+            </button>
+          </div>
+        )}
       </div>
       )}
 
