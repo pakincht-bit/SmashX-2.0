@@ -546,6 +546,7 @@ const App: React.FC = () => {
  } catch (err) {
  setIsInitialLoading(false);
  } finally {
+ setIsInitialLoading(false);
  isInitializing.current = false;
  }
  };
@@ -1500,7 +1501,14 @@ const App: React.FC = () => {
  );
  }
 
- if (!activeUser) return null;
+ if (!activeUser) {
+ return (
+ <SplashScreen
+ onLoginClick={() => setAuthStage('login')}
+ onRegisterClick={() => setAuthStage('register')}
+ />
+ );
+ }
 
  const renderContent = () => {
  switch (activeTab) {

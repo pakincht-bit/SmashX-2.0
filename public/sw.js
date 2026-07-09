@@ -1,33 +1,43 @@
 
-// SmashX Service Worker v2
-// Strategy: Cache-first for static assets, Stale-While-Revalidate for API calls.
-// This means the app opens INSTANTLY on return visits while refreshing data in the background.
+// SmashX Service Worker v4
+// Strategy:
+//   - Network-First for live session data (scores, assignments, check-ins)
+//   - Stale-While-Revalidate for profile data
+//   - Cache-First for hashed production static assets only
+//   - Network-First for HTML navigation
+//   - NEVER intercept Vite dev server requests or localhost
 
-const CACHE_VERSION = 'smashx-v2';
+const CACHE_VERSION = 'smashx-v4';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
-// Core files to pre-cache during install
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json'
 ];
 
-// ============================================
-// INSTALL: Pre-cache core shell
-// ============================================
+function isLocalhost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+}
+
+function isViteDevRequest(url) {
+  if (isLocalhost(url.hostname)) return true;
+  if (url.pathname.startsWith('/@')) return true;
+  if (url.pathname.includes('/node_modules/.vite/')) return true;
+  if (url.pathname.endsWith('.tsx') || url.pathname.endsWith('.ts')) return true;
+  if (url.search.includes('?t=') || url.search.includes('&t=')) return true;
+  return false;
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(cache => cache.addAll(PRECACHE_ASSETS))
-      .then(() => self.skipWaiting()) // Activate immediately
+      .then(() => self.skipWaiting())
   );
 });
 
-// ============================================
-// ACTIVATE: Clean up old caches
-// ============================================
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -36,52 +46,98 @@ self.addEventListener('activate', (event) => {
           .filter(key => key !== STATIC_CACHE && key !== API_CACHE)
           .map(key => caches.delete(key))
       )
-    ).then(() => self.clients.claim()) // Take control immediately
+    ).then(() => self.clients.claim())
   );
 });
 
-// ============================================
-// FETCH: Smart caching strategies
-// ============================================
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'INVALIDATE_SESSION_CACHE') {
+    caches.open(API_CACHE).then(cache => {
+      cache.keys().then(keys => {
+        keys.forEach(key => {
+          if (key.url.includes('sessions')) {
+            cache.delete(key);
+          }
+        });
+      });
+    });
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests (POST, DELETE, etc.)
   if (event.request.method !== 'GET') return;
-
-  // Skip non-http(s) requests (chrome-extension://, etc.)
   if (!url.protocol.startsWith('http')) return;
-
-  // Skip WebSocket and realtime connections
   if (url.protocol === 'wss:' || url.pathname.includes('/realtime/')) return;
 
-  // ----- Strategy 1: Supabase API (Stale-While-Revalidate) -----
-  // Show cached data instantly, then refresh in background
-  if (url.hostname.includes('supabase')) {
-    event.respondWith(
-      caches.open(API_CACHE).then(cache =>
-        cache.match(event.request).then(cached => {
-          const networkFetch = fetch(event.request).then(response => {
-            if (response.ok) {
-              cache.put(event.request, response.clone());
-            }
-            return response;
-          }).catch(() => cached); // If network fails, use cache
+  // Never intercept dev server traffic — stale cached Vite modules cause blank screens
+  if (isViteDevRequest(url)) return;
 
-          return cached || networkFetch; // Return cached immediately if available
+  if (url.hostname.includes('supabase')) {
+    const isSessionData = url.search.includes('sessions');
+
+    if (isSessionData) {
+      const NETWORK_TIMEOUT = 5000;
+
+      event.respondWith(
+        new Promise((resolve) => {
+          let settled = false;
+
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            caches.match(event.request).then(cached => {
+              resolve(cached || fetch(event.request));
+            });
+          }, NETWORK_TIMEOUT);
+
+          fetch(event.request)
+            .then(response => {
+              if (settled) return;
+              settled = true;
+              clearTimeout(timer);
+              if (response.ok) {
+                const clone = response.clone();
+                caches.open(API_CACHE).then(cache => cache.put(event.request, clone));
+              }
+              resolve(response);
+            })
+            .catch(() => {
+              if (settled) return;
+              settled = true;
+              clearTimeout(timer);
+              caches.match(event.request).then(cached => {
+                resolve(cached || new Response('{}', { status: 503 }));
+              });
+            });
         })
-      )
-    );
+      );
+    } else {
+      event.respondWith(
+        caches.open(API_CACHE).then(cache =>
+          cache.match(event.request).then(cached => {
+            const networkFetch = fetch(event.request).then(response => {
+              if (response.ok) {
+                cache.put(event.request, response.clone());
+              }
+              return response;
+            }).catch(() => cached);
+
+            return cached || networkFetch;
+          })
+        )
+      );
+    }
     return;
   }
 
-  // ----- Strategy 2: Static Assets (Cache-First) -----
-  // JS, CSS, fonts — these have hashed filenames so cache forever
-  if (url.pathname.match(/\.(js|css|woff2?|ttf|svg|png|jpg|webp|ico)$/)) {
+  // Production hashed assets only — skip unhashed dev bundles
+  if (url.pathname.match(/\.(js|css|woff2?|ttf|svg|png|jpg|webp|ico)$/) && url.pathname.includes('/assets/')) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(cache =>
         cache.match(event.request).then(cached => {
-          if (cached) return cached; // Return from cache instantly
+          if (cached) return cached;
 
           return fetch(event.request).then(response => {
             if (response.ok) {
@@ -95,8 +151,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ----- Strategy 3: HTML Navigation (Network-First) -----
-  // Always try to get fresh HTML, fall back to cache if offline
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -107,6 +161,5 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => caches.match('/index.html'))
     );
-    return;
   }
 });
