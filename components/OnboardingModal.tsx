@@ -21,15 +21,15 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, user
  {
  icon: <TrendingUp className="text-[#00FF41]"size={24} />,
  title:"Victory",
- value:"+25 pts",
- desc:"Securing a win in any match increases your ranking by 25 pts.",
+ value:"+15 to +40 pts",
+ desc:"Wins earn 15–40 pts depending on the matchup.",
  badgeClass:"text-[#00FF41] bg-[#00FF41]/10"
  },
  {
  icon: <TrendingDown className="text-red-500"size={24} />,
  title:"Defeat",
- value:"-25 pts",
- desc:"Losing a match results in a 25 pts deduction from your total.",
+ value:"-15 to -40 pts",
+ desc:"Losses cost 15–40 pts depending on the matchup.",
  badgeClass:"text-red-500 bg-red-500/10"
  }
  ];

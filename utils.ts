@@ -507,6 +507,18 @@ export const formatWaitTime = (waitingSince: Date): string => {
   return `${hours}h ${mins}m`;
 };
 
+export const ELO_K_NEW = 50;
+export const ELO_K_MID = 38;
+export const ELO_K_VET = 25;
+export const ELO_DIVISOR = 950;
+export const ELO_MIN_DELTA = 15;
+export const ELO_MAX_DELTA = 40;
+
+export const clampEloDelta = (delta: number): number => {
+  if (delta >= 0) return Math.max(ELO_MIN_DELTA, Math.min(ELO_MAX_DELTA, delta));
+  return Math.min(-ELO_MIN_DELTA, Math.max(-ELO_MAX_DELTA, delta));
+};
+
 export const computeEloDeltas = (
   team1Ids: string[],
   team2Ids: string[],
@@ -520,14 +532,14 @@ export const computeEloDeltas = (
   };
   const winnerIds = winningTeamIndex === 1 ? team1Ids : team2Ids;
   const loserIds  = winningTeamIndex === 1 ? team2Ids : team1Ids;
-  const expectedWinner = 1 / (1 + Math.pow(10, (avg(loserIds) - avg(winnerIds)) / 950));
+  const expectedWinner = 1 / (1 + Math.pow(10, (avg(loserIds) - avg(winnerIds)) / ELO_DIVISOR));
   const getK = (u: User | undefined) => {
     const n = (u?.wins ?? 0) + (u?.losses ?? 0);
-    return n < 10 ? 50 : n <= 30 ? 38 : 25;
+    return n < 10 ? ELO_K_NEW : n <= 30 ? ELO_K_MID : ELO_K_VET;
   };
   const changes: Record<string, number> = {};
-  winnerIds.forEach(id => { changes[id] = Math.round(getK(get(id)) * (1 - expectedWinner)); });
-  loserIds.forEach(id =>  { changes[id] = Math.round(getK(get(id)) * (expectedWinner - 1)); });
+  winnerIds.forEach(id => { changes[id] = clampEloDelta(Math.round(getK(get(id)) * (1 - expectedWinner))); });
+  loserIds.forEach(id =>  { changes[id] = clampEloDelta(Math.round(getK(get(id)) * (expectedWinner - 1))); });
   return changes;
 };
 
