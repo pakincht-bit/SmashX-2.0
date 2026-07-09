@@ -35,7 +35,6 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
     message: string;
@@ -55,7 +54,6 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
       setSearchQuery('');
       setIsSubmitting(false);
       setIsAddPanelOpen(false);
-      setSelectedMemberId(null);
     }
   }, [isOpen]);
 
@@ -139,27 +137,22 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
     }
   };
 
-  const handleRemoveSelectedMember = () => {
-    if (!group || !selectedMemberId || selectedMemberId === group.ownerId) return;
-    const member = members.find(m => m.id === selectedMemberId);
-    if (!member) return;
-    setConfirmConfig({
-      title: 'Remove Member',
-      message: `Remove ${member.name} from ${group.name}?`,
-      isDestructive: true,
-      confirmLabel: 'Remove',
-      action: async () => {
-        await onRemoveMember(group.id, selectedMemberId);
-        setSelectedMemberId(null);
-      },
-    });
-  };
-
   const toggleAddPanel = () => {
     triggerHaptic('light');
     setIsAddPanelOpen(prev => !prev);
-    setSelectedMemberId(null);
     setSearchQuery('');
+  };
+
+  const handleDeleteGroup = () => {
+    if (!group) return;
+    triggerHaptic('light');
+    setConfirmConfig({
+      title: 'Delete Group',
+      message: `Delete "${group.name}" permanently?`,
+      isDestructive: true,
+      confirmLabel: 'Delete',
+      action: async () => { await onDeleteGroup(group.id); onClose(); },
+    });
   };
 
   const createHeaderTitle = createStep === 'name'
@@ -321,12 +314,11 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => { triggerHaptic('light'); handleRemoveSelectedMember(); }}
-                disabled={!selectedMemberId || selectedMemberId === group.ownerId}
-                aria-label="Remove member"
-                className="p-2.5 rounded-none bg-[#001645] text-red-400 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={handleDeleteGroup}
+                aria-label="Delete group"
+                className="p-2.5 rounded-none bg-[#001645] text-red-400 transition-all active:scale-95"
               >
-                <X size={18} strokeWidth={2.5} />
+                <Trash2 size={18} strokeWidth={2.5} />
               </button>
             </div>
           )}
@@ -371,57 +363,45 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2 pb-24">
-          {members.map(member => {
-            const isSelected = selectedMemberId === member.id;
-            const canSelect = isOwner && member.id !== group.ownerId;
-            return (
-              <button
-                key={member.id}
-                type="button"
-                disabled={!canSelect}
-                onClick={() => {
-                  if (!canSelect) return;
-                  triggerHaptic('light');
-                  setSelectedMemberId(prev => prev === member.id ? null : member.id);
-                  setIsAddPanelOpen(false);
-                }}
-                className={`w-full flex items-center justify-between p-3 rounded-none text-left transition-all ${canSelect ? 'active:scale-[0.99]' : ''} ${isSelected ? 'bg-[#00FF41]/10 border border-[#00FF41]/50' : 'bg-[#001645] border border-transparent'}`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`rounded-full shrink-0 ${getRankFrameClass(member.rankFrame).replace('ring-4', 'ring-2')}`}>
-                    <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(member.avatar) }} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold text-white truncate">{member.name}</div>
-                    <div className="text-[10px] font-mono text-yellow-500">{member.points} pts</div>
-                  </div>
-                </div>
-                {member.id === group.ownerId && (
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] shrink-0 ml-2">Owner</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {isOwner && (
-          <div className="shrink-0 px-4 sm:px-6 py-4 border-t border-[#002266] pb-[calc(1rem+env(safe-area-inset-bottom))]">
-            <button
-              type="button"
-              onClick={() => setConfirmConfig({
-                title: 'Delete Group',
-                message: `Delete "${group.name}" permanently?`,
-                isDestructive: true,
-                confirmLabel: 'Delete',
-                action: async () => { await onDeleteGroup(group.id); onClose(); },
-              })}
-              className="w-full flex items-center justify-center gap-2 py-3 border border-red-900/50 bg-red-900/20 text-red-500 font-black uppercase tracking-wider text-xs rounded-none active:scale-95"
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          {members.map(member => (
+            <div
+              key={member.id}
+              className="flex items-center justify-between p-3 bg-[#001645] rounded-none"
             >
-              <Trash2 size={14} /> Delete Group
-            </button>
-          </div>
-        )}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`rounded-full shrink-0 ${getRankFrameClass(member.rankFrame).replace('ring-4', 'ring-2')}`}>
+                  <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(member.avatar) }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-white truncate">{member.name}</div>
+                  <div className="text-[10px] font-mono text-yellow-500">{member.points} pts</div>
+                </div>
+              </div>
+              {member.id === group.ownerId ? (
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] shrink-0 ml-2">Owner</span>
+              ) : isOwner ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setConfirmConfig({
+                      title: 'Remove Member',
+                      message: `Remove ${member.name} from ${group.name}?`,
+                      isDestructive: true,
+                      confirmLabel: 'Remove',
+                      action: () => onRemoveMember(group.id, member.id),
+                    });
+                  }}
+                  aria-label={`Remove ${member.name}`}
+                  className="p-2 text-gray-500 active:text-red-400 transition-colors shrink-0"
+                >
+                  <X size={16} />
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
       </div>
       )}
 
