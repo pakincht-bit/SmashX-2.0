@@ -1,24 +1,20 @@
 import React from 'react';
 import { User, PlayerGroup } from '../types';
-import { Plus, Settings, Trophy, Users } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
 import { getAvatarColor, triggerHaptic } from '../utils';
 
 interface PlayerGroupsSectionProps {
   groups: PlayerGroup[];
   allUsers: User[];
-  currentUserId: string;
   onCreateClick: () => void;
   onManageClick: (group: PlayerGroup) => void;
-  onRankingsClick: (group: PlayerGroup) => void;
 }
 
 const PlayerGroupsSection: React.FC<PlayerGroupsSectionProps> = ({
   groups,
   allUsers,
-  currentUserId,
   onCreateClick,
   onManageClick,
-  onRankingsClick,
 }) => {
   const usersMap = new Map(allUsers.map(u => [u.id, u]));
 
@@ -55,12 +51,12 @@ const PlayerGroupsSection: React.FC<PlayerGroupsSectionProps> = ({
               .map(id => usersMap.get(id))
               .filter(Boolean)
               .slice(0, 4) as User[];
-            const isOwner = group.ownerId === currentUserId;
-
             return (
-              <div
+              <button
                 key={group.id}
-                className="w-[72vw] sm:w-[280px] shrink-0 snap-start bg-[#001645] p-4 rounded-none flex flex-col gap-4"
+                type="button"
+                onClick={() => { triggerHaptic('light'); onManageClick(group); }}
+                className="w-[72vw] sm:w-[280px] shrink-0 snap-start bg-[#001645] p-4 rounded-none flex flex-col gap-4 text-left active:scale-[0.99] transition-all"
               >
                 <div className="min-w-0">
                   <h4 className="text-base font-black italic uppercase text-white truncate tracking-tight">{group.name}</h4>
@@ -83,31 +79,7 @@ const PlayerGroupsSection: React.FC<PlayerGroupsSectionProps> = ({
                     </div>
                   )}
                 </div>
-
-                <div className="grid grid-cols-2 gap-2 mt-auto">
-                  <button
-                    onClick={() => { triggerHaptic('light'); onRankingsClick(group); }}
-                    className="flex items-center justify-center gap-1.5 py-2.5 bg-[#00FF41]/10 text-[#00FF41] text-[10px] font-black uppercase tracking-wider rounded-none active:scale-95 transition-all"
-                  >
-                    <Trophy size={12} /> Ranks
-                  </button>
-                  {isOwner ? (
-                    <button
-                      onClick={() => { triggerHaptic('light'); onManageClick(group); }}
-                      className="flex items-center justify-center gap-1.5 py-2.5 bg-[#001030] text-gray-300 text-[10px] font-black uppercase tracking-wider rounded-none active:scale-95 transition-all"
-                    >
-                      <Settings size={12} /> Manage
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => { triggerHaptic('light'); onRankingsClick(group); }}
-                      className="flex items-center justify-center gap-1.5 py-2.5 bg-[#001030] text-gray-300 text-[10px] font-black uppercase tracking-wider rounded-none active:scale-95 transition-all"
-                    >
-                      <Users size={12} /> View
-                    </button>
-                  )}
-                </div>
-              </div>
+              </button>
             );
           })}
         </div>

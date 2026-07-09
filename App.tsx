@@ -1647,10 +1647,8 @@ const App: React.FC = () => {
  <PlayerGroupsSection
  groups={playerGroups}
  allUsers={users}
- currentUserId={activeUser.id}
  onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }}
  onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }}
- onRankingsClick={(group) => setRankingGroup(group)}
  />
 
  {/* Recent Battles */}
