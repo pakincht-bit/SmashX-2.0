@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Session, User, MatchResult, NextMatchup } from '../types';
+import { Session, User, MatchResult, NextMatchup, PlayerGroup } from '../types';
 import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic, getPlayerMatchDelta, computeEloDeltas } from '../utils';
 import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, BarChart3, UserPlus, Search } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
@@ -27,6 +27,7 @@ interface SessionDetailModalProps {
  onEdit?: (sessionId: string) => void;
   onUndoMatchResult?: (sessionId: string, matchId: string) => void;
  onAddCourt?: (sessionId: string) => void;
+ playerGroups?: PlayerGroup[];
 }
 
 const START_THRESHOLD_MINUTES = 30; // Button is enabled 30 mins before start
@@ -75,7 +76,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  onRefresh,
  onEdit,
   onUndoMatchResult,
- onAddCourt
+ onAddCourt,
+ playerGroups = []
 }) => {
  const [confirmConfig, setConfirmConfig] = useState<{
  isOpen: boolean;
@@ -97,6 +99,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const [isInviteOpen, setIsInviteOpen] = useState(false);
  const [inviteSearchQuery, setInviteSearchQuery] = useState('');
  const [selectedInvitePlayerIds, setSelectedInvitePlayerIds] = useState<string[]>([]);
+ const [inviteSheetTab, setInviteSheetTab] = useState<'players' | 'groups'>('players');
 
 
 
@@ -236,7 +239,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  return (
  <div className="-mx-4 sm:-mx-6 px-4 sm:px-6 mb-4">
  <button
- onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); }}
+ onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); setInviteSheetTab('players'); }}
  className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-[#00FF41]/30 bg-[#001645] text-[#00FF41] transition-all active:scale-95"
  >
  <UserPlus size={16} />
@@ -275,6 +278,33 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  setIsInviteOpen(false);
  setInviteSearchQuery('');
  setSelectedInvitePlayerIds([]);
+ setInviteSheetTab('players');
+ };
+
+ const handleInviteGroup = (group: PlayerGroup) => {
+ const inviteIds = group.memberIds.filter(id => !session.playerIds.includes(id));
+ if (inviteIds.length === 0) {
+ setConfirmConfig({
+ isOpen: true,
+ title: 'Invite Group',
+ message: `All members of "${group.name}" are already on the roster.`,
+ action: () => {},
+ isDestructive: false,
+ confirmLabel: 'OK',
+ });
+ return;
+ }
+ setConfirmConfig({
+ isOpen: true,
+ title: 'Invite Group',
+ message: `Add ${inviteIds.length} player${inviteIds.length === 1 ? '' : 's'} from "${group.name}" to this session?`,
+ action: () => {
+ onInvitePlayers(session.id, inviteIds);
+ closeInviteSheet();
+ },
+ isDestructive: false,
+ confirmLabel: `Invite ${inviteIds.length}`,
+ });
  };
 
  const filteredInvitePlayers = inviteablePlayers.filter(u =>
@@ -1496,6 +1526,24 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <X size={20} />
  </button>
  </div>
+ {playerGroups.length > 0 && (
+ <div className="flex border-b border-[#002266] px-4 sm:px-6 shrink-0">
+ <button
+ onClick={() => { triggerHaptic('light'); setInviteSheetTab('players'); }}
+ className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${inviteSheetTab === 'players' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent'}`}
+ >
+ Players
+ </button>
+ <button
+ onClick={() => { triggerHaptic('light'); setInviteSheetTab('groups'); }}
+ className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${inviteSheetTab === 'groups' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent'}`}
+ >
+ Groups
+ </button>
+ </div>
+ )}
+ {inviteSheetTab === 'players' ? (
+ <>
  <div className="px-4 sm:px-6 py-3 border-b border-[#002266] shrink-0">
  <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5">
  <Search size={16} className="text-gray-500 shrink-0" />
@@ -1568,6 +1616,49 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </span>
  </button>
  </div>
+ </>
+ ) : (
+ <>
+ <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+ {playerGroups.length === 0 ? (
+ <div className="flex flex-col items-center justify-center py-16">
+ <Users size={32} className="text-gray-600 mb-3" />
+ <p className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Create a group on the Arena page first</p>
+ </div>
+ ) : (
+ <div className="space-y-2">
+ {playerGroups.map(group => {
+ const pendingCount = group.memberIds.filter(id => !session.playerIds.includes(id)).length;
+ return (
+ <button
+ key={group.id}
+ onClick={() => { triggerHaptic('light'); handleInviteGroup(group); }}
+ disabled={pendingCount === 0}
+ className={`w-full flex items-center justify-between p-4 rounded-none transition-all active:scale-[0.98] ${pendingCount > 0 ? 'bg-[#001645]' : 'bg-[#001030] opacity-60'}`}
+ >
+ <div className="text-left min-w-0">
+ <div className="text-sm font-black italic uppercase text-white truncate">{group.name}</div>
+ <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1 tabular-nums">
+ {group.memberIds.length} members · {pendingCount > 0 ? `${pendingCount} to invite` : 'all invited'}
+ </div>
+ </div>
+ <UserPlus size={16} className={`shrink-0 ${pendingCount > 0 ? 'text-[#00FF41]' : 'text-gray-600'}`} />
+ </button>
+ );
+ })}
+ </div>
+ )}
+ </div>
+ <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] shrink-0">
+ <button
+ onClick={() => { triggerHaptic('light'); closeInviteSheet(); }}
+ className="w-full py-3.5 border border-[#002266] bg-[#001645] text-gray-400 transition-all font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] active:scale-95"
+ >
+ <span className="skew-x-[6deg] inline-block">Close</span>
+ </button>
+ </div>
+ </>
+ )}
  <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
  </div>
  </div>

@@ -1,5 +1,5 @@
 
-import { User, Session, MatchResult, NextMatchup } from './types';
+import { User, Session, MatchResult, NextMatchup, PlayerGroup } from './types';
 
 export const generateId = (): string => Math.random().toString(36).substring(2, 9);
 
@@ -149,6 +149,14 @@ export const mapProfileFromDB = (dbProfile: any): User => {
     specialFrame,
   };
 };
+
+export const mapGroupFromDB = (dbGroup: any, memberIds: string[] = []): PlayerGroup => ({
+  id: dbGroup.id,
+  name: dbGroup.name,
+  ownerId: dbGroup.owner_id,
+  memberIds,
+  createdAt: dbGroup.created_at,
+});
 
 export const mapSessionFromDB = (dbSession: any): Session => ({
   id: dbSession.id,

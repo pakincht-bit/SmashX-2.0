@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, useTransition, lazy, Suspense } from 'react';
-import { Session, User, CreateSessionDTO, FinalBill, MatchResult } from './types';
-import { calculateMaxPlayers, mapSessionFromDB, mapProfileFromDB, getFrameByPoints, getUnlockedFrames, COSMETIC_FRAMES, triggerHaptic, generateId, calculateQueue, getAvailablePlayers, getDateParts, formatTime, getAvatarColor, computeEloDeltas } from './utils';
+import { Session, User, CreateSessionDTO, FinalBill, MatchResult, PlayerGroup } from './types';
+import { calculateMaxPlayers, mapSessionFromDB, mapProfileFromDB, mapGroupFromDB, getFrameByPoints, getUnlockedFrames, COSMETIC_FRAMES, triggerHaptic, generateId, calculateQueue, getAvailablePlayers, getDateParts, formatTime, getAvatarColor, computeEloDeltas } from './utils';
 import Header from './components/Header';
 import SessionCard from './components/SessionCard';
 import BottomNav from './components/BottomNav';
@@ -10,6 +10,7 @@ import LoginScreen from './components/LoginScreen';
 import InstallBanner from './components/InstallBanner';
 import FrameUnlockModal from './components/FrameUnlockModal';
 import PullToRefresh from './components/PullToRefresh';
+import PlayerGroupsSection from './components/PlayerGroupsSection';
 import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users, Wifi } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
@@ -27,6 +28,8 @@ const RegisterScreen = lazy(() => import('./components/RegisterScreen'));
 const ArenaTiersModal = lazy(() => import('./components/ArenaTiersModal'));
 const InstallGuideModal = lazy(() => import('./components/InstallGuideModal'));
 const ShareReportModal = lazy(() => import('./components/ShareReportModal'));
+const GroupManageModal = lazy(() => import('./components/GroupManageModal'));
+const GroupLeaderboardModal = lazy(() => import('./components/GroupLeaderboardModal'));
 const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })));
 
 const SESSIONS_PER_PAGE = 10;
@@ -84,6 +87,12 @@ const App: React.FC = () => {
  const [editingSession, setEditingSession] = useState<Session | null>(null);
  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
  const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
+
+ // Player Groups
+ const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>([]);
+ const [isGroupManageOpen, setIsGroupManageOpen] = useState(false);
+ const [managingGroup, setManagingGroup] = useState<PlayerGroup | null>(null);
+ const [rankingGroup, setRankingGroup] = useState<PlayerGroup | null>(null);
 
  // Profile Sub-modals
  const [showTiers, setShowTiers] = useState(false);
@@ -287,6 +296,40 @@ const App: React.FC = () => {
 
  // --- Data Fetching ---
 
+ const fetchPlayerGroups = useCallback(async (userId: string) => {
+ try {
+ const { data: membershipData, error: membershipError } = await supabase
+ .from('group_members')
+ .select('group_id')
+ .eq('user_id', userId);
+
+ if (membershipError) throw membershipError;
+ if (!membershipData?.length) {
+ setPlayerGroups([]);
+ return;
+ }
+
+ const groupIds = [...new Set(membershipData.map((row: { group_id: string }) => row.group_id))];
+ const [groupsRes, membersRes] = await Promise.all([
+ supabase.from('player_groups').select('*').in('id', groupIds),
+ supabase.from('group_members').select('group_id, user_id').in('group_id', groupIds),
+ ]);
+
+ if (groupsRes.error) throw groupsRes.error;
+
+ const membersByGroup = new Map<string, string[]>();
+ (membersRes.data || []).forEach((row: { group_id: string; user_id: string }) => {
+ const list = membersByGroup.get(row.group_id) || [];
+ list.push(row.user_id);
+ membersByGroup.set(row.group_id, list);
+ });
+
+ setPlayerGroups((groupsRes.data || []).map((group: any) => mapGroupFromDB(group, membersByGroup.get(group.id) || [])));
+ } catch (error) {
+ console.error('SX: Fetch player groups failed', error);
+ }
+ }, []);
+
  const fetchData = async () => {
  const fetchStarted = Date.now();
  const generation = ++fetchGenerationRef.current;
@@ -345,6 +388,13 @@ const App: React.FC = () => {
  // Mark fetch timestamp for event ordering (realtime-sync skill §4)
  lastFetchRef.current = fetchStarted;
  setLastSyncTime(new Date());
+
+ if (currentUser?.id) {
+ await fetchPlayerGroups(currentUser.id);
+ } else {
+ const { data: { session } } = await supabase.auth.getSession();
+ if (session?.user?.id) await fetchPlayerGroups(session.user.id);
+ }
 
  // Unlock UI immediately
  setIsInitialLoading(false);
@@ -730,6 +780,55 @@ const App: React.FC = () => {
  mutatingRef.current.delete(lockKey);
  }
  }, [currentUser, sessions, showToast]);
+
+ const handleCreateGroup = useCallback(async (name: string) => {
+ if (!currentUser) return;
+ const { data, error } = await supabase.rpc('create_player_group', { p_name: name });
+ if (error) {
+ console.error('Create group failed', error);
+ showToast('Failed to create group', true);
+ return;
+ }
+ await fetchPlayerGroups(currentUser.id);
+ triggerHaptic('success');
+ showToast('Group created');
+ }, [currentUser, fetchPlayerGroups, showToast]);
+
+ const handleAddGroupMember = useCallback(async (groupId: string, userId: string) => {
+ if (!currentUser) return;
+ const { error } = await supabase.rpc('add_group_member', { p_group_id: groupId, p_user_id: userId });
+ if (error) {
+ console.error('Add group member failed', error);
+ showToast('Failed to add member', true);
+ return;
+ }
+ await fetchPlayerGroups(currentUser.id);
+ showToast('Member added');
+ }, [currentUser, fetchPlayerGroups, showToast]);
+
+ const handleRemoveGroupMember = useCallback(async (groupId: string, userId: string) => {
+ if (!currentUser) return;
+ const { error } = await supabase.rpc('remove_group_member', { p_group_id: groupId, p_user_id: userId });
+ if (error) {
+ console.error('Remove group member failed', error);
+ showToast('Failed to remove member', true);
+ return;
+ }
+ await fetchPlayerGroups(currentUser.id);
+ showToast('Member removed');
+ }, [currentUser, fetchPlayerGroups, showToast]);
+
+ const handleDeleteGroup = useCallback(async (groupId: string) => {
+ if (!currentUser) return;
+ const { error } = await supabase.rpc('delete_player_group', { p_group_id: groupId });
+ if (error) {
+ console.error('Delete group failed', error);
+ showToast('Failed to delete group', true);
+ return;
+ }
+ await fetchPlayerGroups(currentUser.id);
+ showToast('Group deleted');
+ }, [currentUser, fetchPlayerGroups, showToast]);
 
  const handleLeave = useCallback(async (sessionId: string) => {
  if (!currentUser) return;
@@ -1366,6 +1465,14 @@ const App: React.FC = () => {
  default:
  return (
  <div className="space-y-6 animate-fade-in-up">
+ <PlayerGroupsSection
+ groups={playerGroups}
+ allUsers={users}
+ currentUserId={activeUser.id}
+ onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }}
+ onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }}
+ onRankingsClick={(group) => setRankingGroup(group)}
+ />
  <section className="mb-12">
  {upcomingSessions.length > 0 && (
  <div className="flex justify-between items-center mb-6">
@@ -1594,9 +1701,37 @@ const App: React.FC = () => {
  onEdit={handleEditSessionTrigger}
   onUndoMatchResult={handleUndoMatchResult}
  onAddCourt={handleAddCourt}
+ playerGroups={playerGroups}
  />
  </Suspense>
  ) : null}
+ <Suspense fallback={null}>
+ {isGroupManageOpen && activeUser && (
+ <GroupManageModal
+ isOpen={isGroupManageOpen}
+ onClose={() => { setIsGroupManageOpen(false); setManagingGroup(null); }}
+ group={managingGroup ? (playerGroups.find(g => g.id === managingGroup.id) || managingGroup) : null}
+ allUsers={users}
+ currentUserId={activeUser.id}
+ onCreateGroup={handleCreateGroup}
+ onAddMember={handleAddGroupMember}
+ onRemoveMember={handleRemoveGroupMember}
+ onDeleteGroup={handleDeleteGroup}
+ />
+ )}
+ </Suspense>
+ <Suspense fallback={null}>
+ {rankingGroup && activeUser && (
+ <GroupLeaderboardModal
+ isOpen={!!rankingGroup}
+ onClose={() => setRankingGroup(null)}
+ group={rankingGroup}
+ allUsers={users}
+ currentUserId={activeUser.id}
+ onPlayerClick={setViewingPlayerId}
+ />
+ )}
+ </Suspense>
  <Suspense fallback={null}>
  <PlayerProfileModal isOpen={!!viewingPlayerId} onClose={() => setViewingPlayerId(null)} userId={viewingPlayerId} allUsers={users} sessions={sessions} />
  </Suspense>
