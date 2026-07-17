@@ -306,27 +306,22 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
                     {selectedMembers.length}
                   </p>
                 </div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 -mt-2">
-                  You are included automatically
-                </p>
 
-                <div className="space-y-2">
+                <div className="flex flex-wrap gap-x-3 gap-y-4">
                   {selectedMembers.map(user => (
                     <div
                       key={user.id}
-                      className="w-full flex items-center gap-3 p-3 bg-navy-card rounded-none"
+                      className="w-14 flex flex-col items-center gap-1"
                     >
-                      <div className={`rounded-full shrink-0 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
-                        <img
-                          src={user.avatar}
-                          alt={user.name}
-                          className="w-10 h-10 rounded-full border border-navy-base object-cover"
-                          style={{ backgroundColor: getAvatarColor(user.avatar) }}
-                        />
-                      </div>
-                      <div className="min-w-0 text-left">
-                        <div className="text-sm font-bold text-white truncate">{user.name}</div>
-                      </div>
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
+                        style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                      />
+                      <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
+                        {user.name}
+                      </span>
                     </div>
                   ))}
                 </div>
