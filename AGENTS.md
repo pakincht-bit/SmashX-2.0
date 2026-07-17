@@ -76,3 +76,10 @@ Login uses email derived from username: `${name.replace(/\s/g, '').toLowerCase()
 - Typography: `font-black italic uppercase tracking-tighter` for headings
 - Buttons: flat, `-skew-x-12` italic style, no border-radius (`rounded-none`)
 - Haptics: `triggerHaptic()` from `utils.ts` wraps `navigator.vibrate` — call on all interactive actions
+
+## Cursor Cloud specific instructions
+
+- Dev server: `npm run dev` (Vite) serves on `http://localhost:3000` (port fixed in `vite.config.ts`). Standard commands live in the `## Commands` section above; there is no test suite or linter.
+- Backend is live and shared: Supabase URL + anon key are hardcoded in `services/supabaseClient.ts`, so no env vars/secrets are needed to run. Registering accounts and creating/editing sessions write to the **real, shared** Supabase project — use throwaway usernames when testing and avoid mutating other users' data.
+- The Gemini "parse session from text" feature (`services/geminiService.ts`) reads `process.env.API_KEY`, which is not defined in the browser bundle. That AI paste flow will silently fail, but manual session creation works fine — it does not block running or testing the app.
+- `index.html` links `/index.css`, which does not exist in the repo. Vite prints a harmless "doesn't exist at build time" notice; all styling comes from the Tailwind CDN + inline `<style>` in `index.html`, so the app renders correctly regardless.
