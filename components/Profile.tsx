@@ -335,7 +335,7 @@ const Profile: React.FC<ProfileProps> = ({
         </div>
 
         {/* Career stats — compact block */}
-        <section className="w-full mb-4 bg-navy-struct p-4">
+        <section className="w-full mb-2 bg-navy-card p-4">
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col">
               <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
@@ -443,7 +443,7 @@ const Profile: React.FC<ProfileProps> = ({
             triggerHaptic('light');
             onOpenActivity();
           }}
-          className="w-full mb-8 bg-navy-struct p-4 text-left transition-all active:scale-[0.99]"
+          className="w-full mb-8 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
         >
           {isLoadingActivity ? (
             <div className="flex items-center justify-center py-6">
