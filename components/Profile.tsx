@@ -507,12 +507,13 @@ const Profile: React.FC<ProfileProps> = ({
           }}
           className="w-full mb-6 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
         >
-          <div className="flex items-end justify-between mb-3">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
-              Activ<span className="text-neon-primary">ity</span>
-            </h3>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
               {now.toLocaleString('en-US', { month: 'short', year: 'numeric' })}
+            </h3>
+            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1">
+              View activity log
+              <ChevronRight size={12} className="text-neon-primary" />
             </span>
           </div>
 
@@ -550,10 +551,6 @@ const Profile: React.FC<ProfileProps> = ({
                     </span>
                   </div>
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-auto inline-flex items-center gap-1">
-                  View activity log
-                  <ChevronRight size={12} className="text-neon-primary" />
-                </span>
               </div>
 
               <div className="flex-1 min-w-0 flex flex-col items-end justify-end pointer-events-none">
