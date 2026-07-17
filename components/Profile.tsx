@@ -352,7 +352,7 @@ const Profile: React.FC<ProfileProps> = ({
       <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-6 md:pt-8 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-24">
         {/* Identity + career — single static group */}
         <section className="w-full mb-2 bg-navy-struct p-4">
-          <div className="flex items-center gap-6 w-full mb-4">
+          <div className="flex items-center gap-8 w-full mb-4">
             <div className="relative shrink-0">
               <div
                 className={`w-20 h-20 relative rounded-full bg-navy-base shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${getRankFrameClass(user.rankFrame)}`}
