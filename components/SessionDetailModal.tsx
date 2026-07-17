@@ -253,7 +253,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  className="p-2 -mr-2 text-neon-primary transition-all active:scale-95"
  aria-label="Invite players"
  >
- <UserPlus size={18} />
+ <Plus size={18} strokeWidth={2.5} />
  </button>
  );
  };
