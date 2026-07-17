@@ -424,13 +424,13 @@ const Profile: React.FC<ProfileProps> = ({
                 </div>
               </div>
 
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 flex flex-col items-end">
                 <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2 text-right">
                   {activeDays} active day{activeDays === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
                 </div>
-                <div className="flex flex-col gap-[2px]">
+                <div className="flex flex-col gap-px">
                   {calendarWeeks.map((week, wIdx) => (
-                    <div key={wIdx} className="grid grid-cols-7 gap-[2px] justify-items-end">
+                    <div key={wIdx} className="flex gap-px justify-end">
                       {week.map((day) => {
                         const isClickable =
                           day.count > 0 && !day.isFuture && day.isCurrentMonth;
@@ -442,7 +442,7 @@ const Profile: React.FC<ProfileProps> = ({
                             disabled={!isClickable}
                             onClick={() => handleDateClick(day)}
                             aria-label={day.isCurrentMonth ? `${day.dateStr}` : undefined}
-                            className={`w-2.5 h-2.5 rounded-full transition-all ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)} ${isClickable ? 'active:scale-75' : ''} ${isSelected ? 'ring-1 ring-white ring-offset-1 ring-offset-navy-struct' : ''}`}
+                            className={`w-2 h-2 shrink-0 rounded-full transition-all ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)} ${isClickable ? 'active:scale-75' : ''} ${isSelected ? 'ring-1 ring-white ring-offset-1 ring-offset-navy-struct' : ''}`}
                           />
                         );
                       })}
