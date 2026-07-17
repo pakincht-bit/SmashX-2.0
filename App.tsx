@@ -1802,7 +1802,17 @@ const App: React.FC = () => {
  </Suspense>
  <Suspense fallback={null}>
  {isActivityOpen && activeUser && (
- <ActivityLogModal currentUser={activeUser} sessions={sessions} onClose={() => setIsActivityOpen(false)} onSessionClick={(id) => { setSelectedSessionId(id); }} />
+ <ActivityLogModal
+ currentUser={activeUser}
+ sessions={sessions}
+ onClose={() => setIsActivityOpen(false)}
+ onSessionClick={(id) => {
+ setIsActivityOpen(false);
+ setIsProfileOpen(false);
+ setIsSettingsOpen(false);
+ setSelectedSessionId(id);
+ }}
+ />
  )}
  </Suspense>
  {isProfileOpen && (

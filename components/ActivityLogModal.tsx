@@ -287,9 +287,9 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ currentUser, sessio
  </div>
  )}
 
- {/* Bottom Sheet Overlay */}
+ {/* Bottom Sheet Overlay — absolute so it stacks inside Activity Log, not behind it */}
  {selectedDate && (
- <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => { setSelectedDate(null); setDaySessions([]); }}>
+ <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => { setSelectedDate(null); setDaySessions([]); }}>
 
  {/* Sheet */}
  <div
