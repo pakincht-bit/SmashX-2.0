@@ -314,52 +314,6 @@ const Profile: React.FC<ProfileProps> = ({
     [allTimeSessions, sessions]
   );
 
-  const formTeaser = useMemo(() => {
-    const myMatches: { won: boolean; timestamp: number }[] = [];
-
-    formSessions.forEach((session) => {
-      (session.matches || []).forEach((match) => {
-        const isTeam1 = match.team1Ids.includes(user.id);
-        const isTeam2 = match.team2Ids.includes(user.id);
-        if (!isTeam1 && !isTeam2) return;
-        // Match StatsPage win logic exactly
-        const team1Won = match.winningTeamIndex === 1;
-        const won = (isTeam1 && team1Won) || (isTeam2 && !team1Won);
-        myMatches.push({
-          won,
-          timestamp: new Date(match.timestamp || session.startTime).getTime(),
-        });
-      });
-    });
-
-    myMatches.sort((a, b) => a.timestamp - b.timestamp);
-
-    let streakCount = 0;
-    let streakType: 'W' | 'L' = 'W';
-    let maxWinStreak = 0;
-    let tempWinStr = 0;
-
-    for (const m of myMatches) {
-      if (m.won) {
-        tempWinStr++;
-        if (tempWinStr > maxWinStreak) maxWinStreak = tempWinStr;
-      } else {
-        tempWinStr = 0;
-      }
-    }
-
-    if (myMatches.length > 0) {
-      streakType = myMatches[myMatches.length - 1].won ? 'W' : 'L';
-      for (let i = myMatches.length - 1; i >= 0; i--) {
-        if ((myMatches[i].won ? 'W' : 'L') === streakType) streakCount++;
-        else break;
-      }
-    }
-
-    const last10 = myMatches.slice(-10).map((m) => m.won);
-    return { streakCount, streakType, maxWinStreak, last10 };
-  }, [formSessions, user.id]);
-
   const socialSynergies = useMemo(
     () => computeSocialSynergies(formSessions, user.id, allUsers),
     [formSessions, user.id, allUsers]
@@ -569,82 +523,8 @@ const Profile: React.FC<ProfileProps> = ({
           )}
         </button>
 
-        {/* Form teaser — opens full Stats tab */}
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('light');
-            onOpenStats();
-          }}
-          className="w-full mb-2 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
-        >
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-start gap-4">
-              <div className="flex flex-col">
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                  Streak
-                </span>
-                <span
-                  className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
-                    formTeaser.streakCount > 0
-                      ? formTeaser.streakType === 'W'
-                        ? 'text-neon-primary'
-                        : 'text-red-500'
-                      : 'text-gray-400'
-                  }`}
-                >
-                  {formTeaser.streakCount > 0
-                    ? `${formTeaser.streakCount}${formTeaser.streakType}`
-                    : '—'}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                  Best
-                </span>
-                <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
-                  {formTeaser.maxWinStreak > 0 ? `${formTeaser.maxWinStreak}W` : '—'}
-                </span>
-              </div>
-            </div>
-            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1 shrink-0 pt-0.5">
-              View stats
-              <ChevronRight size={12} className="text-neon-primary" />
-            </span>
-          </div>
-
-          <div>
-            {formTeaser.last10.length === 0 ? (
-              <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-                No matches yet
-              </span>
-            ) : (
-              <div className="flex items-center gap-1 w-full">
-                {formTeaser.last10.map((won, idx) => (
-                  <span
-                    key={idx}
-                    className={`flex-1 h-6 flex items-center justify-center min-w-0 text-[10px] font-black italic uppercase leading-none ${
-                      won
-                        ? 'bg-neon-primary text-navy-base'
-                        : 'bg-red-500 text-white'
-                    }`}
-                  >
-                    {won ? 'W' : 'L'}
-                  </span>
-                ))}
-                {Array.from({ length: Math.max(0, 10 - formTeaser.last10.length) }).map((_, idx) => (
-                  <span
-                    key={`empty-${idx}`}
-                    className="flex-1 h-6 min-w-0 bg-white/10"
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </button>
-
         {/* Social Synergies — highlight cards only (no encounter table) */}
-        <section className="w-full mb-6">
+        <section className="w-full mb-6 bg-navy-card p-4">
           <div className="flex items-end justify-between mb-3">
             <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
               Social <span className="text-gray-500">Synergy</span>
