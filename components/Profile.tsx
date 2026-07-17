@@ -433,6 +433,22 @@ const Profile: React.FC<ProfileProps> = ({
         {/* Identity + career — single static group */}
         <section className="w-full mb-2 bg-navy-struct p-4">
           <div className="flex items-center gap-8 w-full mb-4">
+            <div className="flex-1 min-w-0 flex flex-col gap-2">
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter truncate leading-none">
+                {user.name}
+              </h1>
+
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400 shrink-0">
+                  Rank #{rank}
+                </span>
+                <span className="text-[10px] text-neon-primary shrink-0">•</span>
+                <span className="text-sm font-black italic tabular-nums text-neon-primary tracking-tighter shrink-0">
+                  {user.points} <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">pts</span>
+                </span>
+              </div>
+            </div>
+
             <div className="relative shrink-0">
               <div
                 className={`w-20 h-20 relative rounded-full bg-navy-base shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${getRankFrameClass(user.rankFrame)}`}
@@ -454,22 +470,6 @@ const Profile: React.FC<ProfileProps> = ({
               >
                 <Settings size={14} strokeWidth={2.5} />
               </button>
-            </div>
-
-            <div className="flex-1 min-w-0 flex flex-col gap-2">
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter truncate leading-none">
-                {user.name}
-              </h1>
-
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400 shrink-0">
-                  Rank #{rank}
-                </span>
-                <span className="text-[10px] text-neon-primary shrink-0">•</span>
-                <span className="text-sm font-black italic tabular-nums text-neon-primary tracking-tighter shrink-0">
-                  {user.points} <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">pts</span>
-                </span>
-              </div>
             </div>
           </div>
 
