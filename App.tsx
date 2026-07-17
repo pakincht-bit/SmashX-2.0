@@ -1621,8 +1621,8 @@ const App: React.FC = () => {
  );
  })()}
  </div>
- <h3 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">The Court is <span className="text-[#00FF41]">Yours</span></h3>
- <p className="text-gray-400 font-medium text-xs uppercase tracking-widest mb-8 text-center max-w-[300px] leading-relaxed">No sessions have been created.<br />Be the first to claim the court.</p>
+ <h3 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">Ready to <span className="text-[#00FF41]">Smash</span>?</h3>
+ <p className="text-gray-400 font-medium text-xs uppercase tracking-widest mb-8 text-center max-w-[300px] leading-relaxed">The board&apos;s empty.<br />Drop a session and start the rally.</p>
  <button
  onClick={() => { triggerHaptic('medium'); setIsModalOpen(true); }}
  className="bg-[#00FF41] text-[#000B29] px-8 py-4 rounded-none -skew-x-12 text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(0,255,65,0.3)] (255,255,255,0.5)] transition-all active:scale-95 flex items-center gap-2 group/btn"
