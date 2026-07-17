@@ -179,39 +179,55 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
             </span>
           )}
         </div>
-        {isCreateMode && createStep === 'members' && selectedMembers.length > 0 && (
-          <div className="px-4 sm:px-6 pb-3">
-            <div className="flex items-center gap-2 mb-2">
-              <p className="text-[10px] font-black uppercase tracking-widest text-neon-primary tabular-nums">
-                {selectedMembers.length} selected
-              </p>
+        {isCreateMode && createStep === 'members' && (
+          <div className="px-4 sm:px-6 pb-3 space-y-3">
+            <div className="flex items-center gap-2 bg-navy-card px-3 py-2.5">
+              <Search size={16} className="text-gray-500 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search players..."
+                className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium shadow-none"
+                autoFocus
+              />
             </div>
-            <div className="flex overflow-x-auto hide-scrollbar gap-3 -mx-1 px-1">
-              {selectedMembers.map((user) => (
-                <button
-                  key={user.id}
-                  type="button"
-                  onClick={() => toggleMemberSelection(user.id)}
-                  className="shrink-0 w-14 flex flex-col items-center gap-1 active:scale-95 transition-all relative"
-                  aria-label={`Remove ${user.name}`}
-                >
-                  <div className="relative">
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
-                      style={{ backgroundColor: getAvatarColor(user.avatar) }}
-                    />
-                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-navy-card flex items-center justify-center">
-                      <X size={10} className="text-gray-400" strokeWidth={3} />
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
-                    {user.name}
-                  </span>
-                </button>
-              ))}
-            </div>
+
+            {selectedMembers.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-neon-primary tabular-nums">
+                    {selectedMembers.length} selected
+                  </p>
+                </div>
+                <div className="flex overflow-x-auto hide-scrollbar gap-3 -mx-1 px-1">
+                  {selectedMembers.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => toggleMemberSelection(user.id)}
+                      className="shrink-0 w-14 flex flex-col items-center gap-1 active:scale-95 transition-all relative"
+                      aria-label={`Remove ${user.name}`}
+                    >
+                      <div className="relative">
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
+                          style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                        />
+                        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-navy-card flex items-center justify-center">
+                          <X size={10} className="text-gray-400" strokeWidth={3} />
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
+                        {user.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -220,52 +236,38 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
         createStep === 'members' ? (
           <>
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 bg-navy-card px-3 py-2.5">
-                  <Search size={16} className="text-gray-500 shrink-0" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search players..."
-                    className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium shadow-none"
-                    autoFocus
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  {selectableUsers.length === 0 ? (
-                    <div className="py-12 text-center">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        {allUsers.length <= 1 ? 'No other players available yet' : 'No players match your search'}
-                      </p>
-                    </div>
-                  ) : (
-                    selectableUsers.map(user => {
-                      const isSelected = selectedMemberIds.includes(user.id);
-                      return (
-                        <button
-                          key={user.id}
-                          onClick={() => toggleMemberSelection(user.id)}
-                          disabled={isSubmitting}
-                          className={`w-full flex items-center justify-between p-3 rounded-none transition-all active:scale-[0.98] ${isSelected ? 'bg-neon-primary/10 border border-neon-primary/50' : 'bg-navy-card border border-transparent'}`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={`rounded-full shrink-0 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
-                              <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full border border-navy-base object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
-                            </div>
-                            <div className="min-w-0 text-left">
-                              <div className="text-sm font-bold text-white truncate">{user.name}</div>
-                            </div>
+              <div className="space-y-2">
+                {selectableUsers.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      {allUsers.length <= 1 ? 'No other players available yet' : 'No players match your search'}
+                    </p>
+                  </div>
+                ) : (
+                  selectableUsers.map(user => {
+                    const isSelected = selectedMemberIds.includes(user.id);
+                    return (
+                      <button
+                        key={user.id}
+                        onClick={() => toggleMemberSelection(user.id)}
+                        disabled={isSubmitting}
+                        className={`w-full flex items-center justify-between p-3 rounded-none transition-all active:scale-[0.98] ${isSelected ? 'bg-neon-primary/10 border border-neon-primary/50' : 'bg-navy-card border border-transparent'}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`rounded-full shrink-0 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
+                            <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full border border-navy-base object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
                           </div>
-                          <div className={`w-6 h-6 shrink-0 flex items-center justify-center border transition-all ${isSelected ? 'bg-neon-primary border-neon-primary text-navy-base' : 'border-navy-border text-transparent'}`}>
-                            <Check size={14} strokeWidth={3} />
+                          <div className="min-w-0 text-left">
+                            <div className="text-sm font-bold text-white truncate">{user.name}</div>
                           </div>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
+                        </div>
+                        <div className={`w-6 h-6 shrink-0 flex items-center justify-center border transition-all ${isSelected ? 'bg-neon-primary border-neon-primary text-navy-base' : 'border-navy-border text-transparent'}`}>
+                          <Check size={14} strokeWidth={3} />
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
             <div className="shrink-0 p-4 sm:px-6 bg-navy-base border-t border-navy-border pb-[calc(1rem+env(safe-area-inset-bottom))]">
