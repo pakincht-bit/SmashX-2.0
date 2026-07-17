@@ -465,19 +465,19 @@ const Profile: React.FC<ProfileProps> = ({
                   No matches yet
                 </span>
               ) : (
-                <div className="flex items-end gap-1 h-10 w-full">
+                <div className="flex items-center justify-end gap-1 h-10 w-full">
                   {formTeaser.last10.map((won, idx) => (
                     <div
                       key={idx}
-                      className={`flex-1 min-w-0 rounded-none ${
-                        won ? 'bg-neon-primary h-full' : 'bg-red-500 h-1/2'
+                      className={`w-1.5 h-full shrink-0 rounded-none ${
+                        won ? 'bg-neon-primary' : 'bg-red-500'
                       }`}
                     />
                   ))}
                   {Array.from({ length: Math.max(0, 10 - formTeaser.last10.length) }).map((_, idx) => (
                     <div
                       key={`empty-${idx}`}
-                      className="flex-1 min-w-0 h-1/3 rounded-none bg-white/10"
+                      className="w-1.5 h-full shrink-0 rounded-none bg-white/10"
                     />
                   ))}
                 </div>
