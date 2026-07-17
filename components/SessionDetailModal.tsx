@@ -143,6 +143,12 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const inviteableIdSet = useMemo(() => new Set(inviteablePlayers.map(p => p.id)), [inviteablePlayers]);
  const selectedInviteIdSet = useMemo(() => new Set(selectedInvitePlayerIds), [selectedInvitePlayerIds]);
 
+ const selectedInvitePlayers = useMemo(() => {
+ return selectedInvitePlayerIds
+ .map(id => usersMap.get(id))
+ .filter(Boolean) as User[];
+ }, [selectedInvitePlayerIds, usersMap]);
+
 
 
  const playerStats = useMemo(() => {
@@ -1530,7 +1536,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </button>
  </div>
  <>
- <div className="px-4 sm:px-6 py-3 border-b border-[#002266] shrink-0">
+ <div className="px-4 sm:px-6 py-3 border-b border-[#002266] shrink-0 space-y-3">
  <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5">
  <Search size={16} className="text-gray-500 shrink-0" />
  <input
@@ -1538,12 +1544,45 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  value={inviteSearchQuery}
  onChange={(e) => setInviteSearchQuery(e.target.value)}
  placeholder="Search players..."
- className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium"
+ className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium shadow-none"
  autoFocus
  />
  </div>
+ {selectedInvitePlayers.length > 0 && (
+ <div>
+ <p className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] tabular-nums mb-2">
+ {selectedInvitePlayers.length} selected
+ </p>
+ <div className="flex overflow-x-auto hide-scrollbar gap-3 -mx-1 px-1">
+ {selectedInvitePlayers.map((player) => (
+ <button
+ key={player.id}
+ type="button"
+ onClick={() => toggleInvitePlayerSelection(player.id)}
+ className="shrink-0 w-14 flex flex-col items-center gap-1 active:scale-95 transition-all relative"
+ aria-label={`Remove ${player.name}`}
+ >
+ <div className="relative">
+ <img
+ src={player.avatar}
+ alt={player.name}
+ className="w-11 h-11 rounded-full object-cover border-2 border-[#00FF41]/40"
+ style={{ backgroundColor: getAvatarColor(player.avatar) }}
+ />
+ <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#001645] flex items-center justify-center">
+ <X size={10} className="text-gray-400" strokeWidth={3} />
+ </span>
+ </div>
+ <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
+ {player.name}
+ </span>
+ </button>
+ ))}
+ </div>
+ </div>
+ )}
  {playerGroups.length > 0 && (
- <div className="flex gap-2 mt-3 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-0.5">
+ <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-0.5">
  {playerGroups.map(group => {
  const groupInviteableIds = getGroupInviteableIds(group);
  const invitable = groupInviteableIds.length;
@@ -1563,11 +1602,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  );
  })}
  </div>
- )}
- {selectedInvitePlayerIds.length > 0 && (
- <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-[#00FF41] tabular-nums">
- {selectedInvitePlayerIds.length} selected
- </p>
  )}
  </div>
  <div className="p-4 sm:p-6 overflow-y-auto flex-1">
