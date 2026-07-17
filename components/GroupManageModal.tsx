@@ -512,7 +512,7 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          <div className="flex flex-wrap gap-x-3 gap-y-4">
+          <div className="grid grid-cols-4 gap-x-3 gap-y-4">
             {members.map(member => {
               const canRemove = isOwner && member.id !== group.ownerId;
               return (
@@ -531,7 +531,7 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
                     });
                   }}
                   disabled={!canRemove}
-                  className={`w-14 flex flex-col items-center gap-1 relative ${canRemove ? 'active:scale-95 transition-all' : 'cursor-default'}`}
+                  className={`w-full flex flex-col items-center gap-1 relative ${canRemove ? 'active:scale-95 transition-all' : 'cursor-default'}`}
                   aria-label={canRemove ? `Remove ${member.name}` : member.name}
                 >
                   <div className="relative">
