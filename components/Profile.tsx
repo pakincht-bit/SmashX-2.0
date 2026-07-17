@@ -396,18 +396,37 @@ const Profile: React.FC<ProfileProps> = ({
             </div>
           ) : (
             <div className="flex items-start gap-4">
-              <div className="shrink-0 flex flex-col pt-0.5 min-w-[4.5rem]">
-                <span className="text-4xl font-black tabular-nums tracking-tighter text-white leading-none">
-                  {activeDays}
-                </span>
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1.5">
-                  Active days
-                </span>
+              <div className="shrink-0 flex flex-col gap-3 pt-0.5 min-w-[4.5rem]">
+                <div className="flex flex-col">
+                  <span className="text-4xl font-black tabular-nums tracking-tighter text-white leading-none">
+                    {monthSessionCount}
+                  </span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1.5">
+                    Sessions
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span
+                    className={`text-2xl font-black italic tabular-nums tracking-tighter leading-none ${
+                      monthNetPts > 0
+                        ? 'text-neon-primary'
+                        : monthNetPts < 0
+                          ? 'text-red-500'
+                          : 'text-white'
+                    }`}
+                  >
+                    {monthNetPts > 0 ? '+' : ''}
+                    {monthNetPts}
+                  </span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1.5">
+                    Net pts
+                  </span>
+                </div>
               </div>
 
               <div className="flex-1 min-w-0">
                 <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2 text-right">
-                  {monthSessionCount} session{monthSessionCount === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
+                  {activeDays} active day{activeDays === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
                 </div>
                 <div className="flex flex-col gap-[2px]">
                   {calendarWeeks.map((week, wIdx) => (
@@ -433,36 +452,6 @@ const Profile: React.FC<ProfileProps> = ({
               </div>
             </div>
           )}
-
-          {!isLoadingActivity ? (
-            <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-navy-border/60">
-              <div className="flex flex-col">
-                <span className="text-base font-black italic tabular-nums tracking-tighter text-white leading-none">
-                  {monthSessionCount}
-                </span>
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1">
-                  Sessions
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span
-                  className={`text-base font-black italic tabular-nums tracking-tighter leading-none ${
-                    monthNetPts > 0
-                      ? 'text-neon-primary'
-                      : monthNetPts < 0
-                        ? 'text-red-500'
-                        : 'text-white'
-                  }`}
-                >
-                  {monthNetPts > 0 ? '+' : ''}
-                  {monthNetPts}
-                </span>
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1">
-                  Net pts
-                </span>
-              </div>
-            </div>
-          ) : null}
         </section>
 
         {/* Frames achievements */}
