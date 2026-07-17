@@ -372,11 +372,7 @@ const Profile: React.FC<ProfileProps> = ({
           >
             <ArrowLeft size={18} />
           </button>
-          <div className="flex items-center flex-1 min-w-0">
-            <h2 className="text-base font-black italic uppercase text-white tracking-wider truncate">
-              Player <span className="text-neon-primary">Profile</span>
-            </h2>
-          </div>
+          <div className="flex items-center flex-1 min-w-0" />
           <button
             type="button"
             onClick={() => {
