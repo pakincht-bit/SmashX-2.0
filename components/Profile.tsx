@@ -396,7 +396,7 @@ const Profile: React.FC<ProfileProps> = ({
 
       <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-6 md:pt-8 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-24">
         {/* Identity + career — single static group */}
-        <section className="w-full mb-2 bg-navy-struct p-4">
+        <section className="w-full mb-2 p-4">
           <div className="flex items-center gap-8 w-full mb-4">
             <div className="flex-1 min-w-0 flex flex-col gap-1.5">
               <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400">
