@@ -409,9 +409,9 @@ const Profile: React.FC<ProfileProps> = ({
                 <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2 text-right">
                   {monthSessionCount} session{monthSessionCount === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
                 </div>
-                <div className="flex flex-col gap-[5px]">
+                <div className="flex flex-col gap-[2px]">
                   {calendarWeeks.map((week, wIdx) => (
-                    <div key={wIdx} className="grid grid-cols-7 gap-[5px] justify-items-end">
+                    <div key={wIdx} className="grid grid-cols-7 gap-[2px] justify-items-end">
                       {week.map((day) => {
                         const isClickable =
                           day.count > 0 && !day.isFuture && day.isCurrentMonth;
