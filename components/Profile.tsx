@@ -347,7 +347,7 @@ const Profile: React.FC<ProfileProps> = ({
             triggerHaptic('light');
             onOpenActivity();
           }}
-          className="w-full mb-8 bg-navy-card p-4 text-left transition-all active:scale-[0.99] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+          className="w-full mb-8 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
         >
           {isLoadingActivity ? (
             <div className="flex items-center justify-center py-6">
@@ -427,7 +427,7 @@ const Profile: React.FC<ProfileProps> = ({
                   key={frame.id}
                   type="button"
                   onClick={() => handleFrameTap(frame.id, unlocked)}
-                  className={`relative flex flex-col items-center justify-center gap-3 p-5 bg-navy-struct shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all active:scale-[0.98] ${
+                  className={`relative flex flex-col items-center justify-center gap-3 p-5 bg-navy-struct transition-all active:scale-[0.98] ${
                     equipped ? 'ring-1 ring-neon-primary/60' : ''
                   } ${!unlocked ? 'opacity-50' : ''}`}
                 >
