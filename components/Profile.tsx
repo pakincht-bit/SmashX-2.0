@@ -440,6 +440,18 @@ const Profile: React.FC<ProfileProps> = ({
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter truncate leading-none">
                 {user.name}
               </h1>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  onOpenSettings();
+                }}
+                className="mt-1 inline-flex items-center gap-1.5 self-start text-[9px] font-black uppercase tracking-widest text-gray-500 transition-all active:scale-95"
+                aria-label="Open settings"
+              >
+                <Settings size={12} strokeWidth={2.5} className="text-neon-primary" />
+                Settings
+              </button>
             </div>
 
             <div className="relative shrink-0">
@@ -453,16 +465,6 @@ const Profile: React.FC<ProfileProps> = ({
                   alt={user.name}
                 />
               </div>
-              <button
-                onClick={() => {
-                  triggerHaptic('light');
-                  onOpenSettings();
-                }}
-                className="absolute -bottom-1 -right-1 p-1.5 bg-neon-primary text-navy-base border-2 border-navy-struct transition-all active:scale-95 z-10"
-                aria-label="Open settings"
-              >
-                <Settings size={14} strokeWidth={2.5} />
-              </button>
             </div>
           </div>
 
