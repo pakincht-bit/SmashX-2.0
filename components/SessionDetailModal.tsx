@@ -1529,7 +1529,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  {isInviteOpen && (
  <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={closeInviteSheet}>
  <div className="relative bg-[#000B29] w-full h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
- <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[#002266] bg-[#000B29] shrink-0">
+ <div className="flex items-center justify-between px-4 sm:px-6 py-4 bg-[#000B29] shrink-0">
  <h3 className="text-white font-black italic uppercase tracking-wider text-xl flex items-center gap-2">Invite <span className="text-[#00FF41]">Players</span></h3>
  <button onClick={() => { triggerHaptic('light'); closeInviteSheet(); }} className="p-1 text-gray-400 active:scale-95 transition-all">
  <X size={20} />
