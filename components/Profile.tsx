@@ -350,50 +350,49 @@ const Profile: React.FC<ProfileProps> = ({
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg aspect-square bg-neon-primary rounded-full blur-[160px] opacity-[0.05] pointer-events-none z-0" />
 
       <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-6 md:pt-8 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-24">
-        {/* Identity row */}
-        <div className="flex items-center gap-4 w-full mb-6">
-          <div className="flex-1 min-w-0 flex flex-col gap-2">
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter truncate leading-none">
-              {user.name}
-            </h1>
+        {/* Identity + career — single static group */}
+        <section className="w-full mb-2 bg-navy-struct p-4">
+          <div className="flex items-center gap-4 w-full mb-4">
+            <div className="flex-1 min-w-0 flex flex-col gap-2">
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter truncate leading-none">
+                {user.name}
+              </h1>
 
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400 shrink-0">
-                Rank #{rank}
-              </span>
-              <span className="text-[10px] text-neon-primary shrink-0">•</span>
-              <span className="text-sm font-black italic tabular-nums text-neon-primary tracking-tighter shrink-0">
-                {user.points} <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">pts</span>
-              </span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400 shrink-0">
+                  Rank #{rank}
+                </span>
+                <span className="text-[10px] text-neon-primary shrink-0">•</span>
+                <span className="text-sm font-black italic tabular-nums text-neon-primary tracking-tighter shrink-0">
+                  {user.points} <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">pts</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="relative shrink-0">
+              <div
+                className={`w-20 h-20 relative rounded-full bg-navy-base shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${getRankFrameClass(user.rankFrame)}`}
+              >
+                <img
+                  src={user.avatar}
+                  className="w-full h-full rounded-full object-cover border-[3px] border-navy-struct"
+                  style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                  alt={user.name}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  triggerHaptic('light');
+                  onOpenSettings();
+                }}
+                className="absolute -bottom-1 -right-1 p-1.5 bg-neon-primary text-navy-base border-2 border-navy-struct transition-all active:scale-95 z-10"
+                aria-label="Open settings"
+              >
+                <Settings size={14} strokeWidth={2.5} />
+              </button>
             </div>
           </div>
 
-          <div className="relative shrink-0">
-            <div
-              className={`w-20 h-20 relative rounded-full bg-navy-struct shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${getRankFrameClass(user.rankFrame)}`}
-            >
-              <img
-                src={user.avatar}
-                className="w-full h-full rounded-full object-cover border-[3px] border-navy-base"
-                style={{ backgroundColor: getAvatarColor(user.avatar) }}
-                alt={user.name}
-              />
-            </div>
-            <button
-              onClick={() => {
-                triggerHaptic('light');
-                onOpenSettings();
-              }}
-              className="absolute -bottom-1 -right-1 p-1.5 bg-neon-primary text-navy-base border-2 border-navy-base transition-all active:scale-95 z-10"
-              aria-label="Open settings"
-            >
-              <Settings size={14} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
-
-        {/* Career stats — compact block */}
-        <section className="w-full mb-2 bg-navy-card p-4">
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col">
               <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
