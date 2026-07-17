@@ -106,6 +106,12 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
       setCreateStep('members');
       return;
     }
+    if (!isCreateMode && isAddPanelOpen) {
+      setIsAddPanelOpen(false);
+      setSearchQuery('');
+      setSelectedMemberIds([]);
+      return;
+    }
     handleClose();
   };
 
@@ -136,13 +142,17 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
     }
   };
 
-  const handleAddMember = async (userId: string) => {
-    if (!group || isSubmitting) return;
+  const handleAddSelectedMembers = async () => {
+    if (!group || isSubmitting || selectedMemberIds.length === 0) return;
     setIsSubmitting(true);
-    triggerHaptic('success');
+    triggerHaptic('medium');
     try {
-      await onAddMember(group.id, userId);
+      for (const userId of selectedMemberIds) {
+        await onAddMember(group.id, userId);
+      }
+      setSelectedMemberIds([]);
       setSearchQuery('');
+      setIsAddPanelOpen(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -152,6 +162,7 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
     triggerHaptic('light');
     setIsAddPanelOpen(prev => !prev);
     setSearchQuery('');
+    setSelectedMemberIds([]);
   };
 
   const handleDeleteGroup = () => {
@@ -178,7 +189,11 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
             <ArrowLeft size={20} />
           </button>
           <h2 className="text-lg font-black italic uppercase text-white tracking-wider flex-1">
-            {isCreateMode ? createHeaderTitle : <>Manage <span className="text-[#00FF41]">Group</span></>}
+            {isCreateMode
+              ? createHeaderTitle
+              : isAddPanelOpen
+                ? <>Add <span className="text-neon-primary">Members</span></>
+                : <>Manage <span className="text-[#00FF41]">Group</span></>}
           </h2>
           {isCreateMode && (
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 tabular-nums">
@@ -365,6 +380,108 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
             </div>
           </>
         )
+      ) : isAddPanelOpen && isOwner ? (
+        <>
+          <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-navy-border space-y-3">
+            <div className="flex items-center gap-2 bg-navy-card px-3 py-2.5">
+              <Search size={16} className="text-gray-500 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search players..."
+                className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium shadow-none"
+                autoFocus
+              />
+            </div>
+            {selectedMembers.length > 0 && (
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-neon-primary tabular-nums mb-2">
+                  {selectedMembers.length} selected
+                </p>
+                <div className="flex overflow-x-auto hide-scrollbar gap-3 -mx-1 px-1">
+                  {selectedMembers.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => toggleMemberSelection(user.id)}
+                      className="shrink-0 w-14 flex flex-col items-center gap-1 active:scale-95 transition-all relative"
+                      aria-label={`Remove ${user.name}`}
+                    >
+                      <div className="relative">
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
+                          style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                        />
+                        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-navy-card flex items-center justify-center">
+                          <X size={10} className="text-gray-400" strokeWidth={3} />
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
+                        {user.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {addableUsers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <UserPlus size={32} className="text-gray-600 mb-3" />
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+                  {searchQuery.trim() ? 'No players match your search' : 'All players are already in this group'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {addableUsers.map(user => {
+                  const isSelected = selectedMemberIds.includes(user.id);
+                  return (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => toggleMemberSelection(user.id)}
+                      disabled={isSubmitting}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-none transition-all active:scale-[0.98] ${isSelected ? 'bg-neon-primary/10 border border-neon-primary/50' : 'bg-navy-card border border-transparent'}`}
+                    >
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="w-8 h-8 rounded-full border border-navy-base object-cover shrink-0"
+                          style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                        />
+                        <span className="text-sm font-bold text-white truncate text-left">{user.name}</span>
+                      </div>
+                      <div className={`w-5 h-5 shrink-0 flex items-center justify-center border transition-all ${isSelected ? 'bg-neon-primary border-neon-primary text-navy-base' : 'border-navy-border text-transparent'}`}>
+                        <Check size={12} strokeWidth={3} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 p-4 sm:px-6 bg-navy-base border-t border-navy-border pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <button
+              type="button"
+              onClick={handleAddSelectedMembers}
+              disabled={selectedMemberIds.length === 0 || isSubmitting}
+              className={`w-full py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] flex items-center justify-center transition-all active:scale-95 ${selectedMemberIds.length > 0 && !isSubmitting ? 'bg-neon-primary text-navy-base' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+            >
+              <span className="skew-x-[6deg] inline-flex items-center gap-2">
+                <UserPlus size={14} />
+                Add {selectedMemberIds.length > 0 ? `(${selectedMemberIds.length})` : ''}
+              </span>
+            </button>
+          </div>
+        </>
       ) : (
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-[#002266] flex items-center justify-between gap-4">
@@ -378,7 +495,7 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
                 type="button"
                 onClick={toggleAddPanel}
                 aria-label="Add member"
-                className={`p-2.5 rounded-none transition-all active:scale-95 ${isAddPanelOpen ? 'bg-[#00FF41] text-[#000B29]' : 'bg-[#001645] text-[#00FF41]'}`}
+                className="p-2.5 rounded-none transition-all active:scale-95 bg-[#001645] text-[#00FF41]"
               >
                 <UserPlus size={18} strokeWidth={2.5} />
               </button>
@@ -393,45 +510,6 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
             </div>
           )}
         </div>
-
-        {isOwner && isAddPanelOpen && (
-          <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-[#002266] bg-[#001030] space-y-3">
-            <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5">
-              <Search size={16} className="text-gray-500 shrink-0" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search players to add..."
-                className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none font-medium"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {addableUsers.length === 0 ? (
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center py-4">
-                  {searchQuery.trim() ? 'No players match your search' : 'All players are already in this group'}
-                </p>
-              ) : (
-                addableUsers.slice(0, 20).map(user => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    onClick={() => handleAddMember(user.id)}
-                    disabled={isSubmitting}
-                    className="w-full flex items-center justify-between p-3 bg-[#001645] rounded-none active:scale-[0.99] transition-all"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
-                      <span className="text-sm font-bold text-white truncate">{user.name}</span>
-                    </div>
-                    <UserPlus size={16} className="text-[#00FF41] shrink-0" />
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {members.map(member => (
