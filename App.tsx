@@ -1811,10 +1811,18 @@ const App: React.FC = () => {
  <ActivityLogModal currentUser={activeUser} sessions={sessions} onClose={() => setIsActivityOpen(false)} onSessionClick={(id) => { setSelectedSessionId(id); }} />
  )}
  </Suspense>
- <Suspense fallback={null}>
  {isProfileOpen && (
  <div className="fixed inset-0 z-[200] bg-[#000B29] overflow-y-auto animate-in fade-in duration-300">
  <div className="mx-auto min-h-screen relative w-full px-0 py-0">
+ {/* Keep overlay shell mounted while lazy Settings/Profile chunks load —
+     a null Suspense fallback here would briefly reveal the home page. */}
+ <Suspense
+ fallback={
+ <div className="flex items-center justify-center min-h-screen">
+ <Loader2 className="animate-spin text-[#00FF41]" size={32} />
+ </div>
+ }
+ >
  {isSettingsOpen ? (
  <SettingsScreen
  currentUser={activeUser}
@@ -1833,17 +1841,21 @@ const App: React.FC = () => {
  onOpenInstallGuide={() => setShowInstallGuide(true)}
  onOpenActivity={() => setIsActivityOpen(true)}
  onOpenStats={() => {
-   setIsProfileOpen(false);
-   handleTabChange('stats');
+ setIsProfileOpen(false);
+ setIsSettingsOpen(false);
+ handleTabChange('stats');
  }}
  onLogout={handleLogout}
- onClose={() => setIsProfileOpen(false)}
+ onClose={() => {
+ setIsProfileOpen(false);
+ setIsSettingsOpen(false);
+ }}
  />
  )}
+ </Suspense>
  </div>
  </div>
  )}
- </Suspense>
  <Suspense fallback={null}>
  <ArenaTiersModal isOpen={showTiers} onClose={() => setShowTiers(false)} user={activeUser} />
  </Suspense>
