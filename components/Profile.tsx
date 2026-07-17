@@ -338,26 +338,12 @@ const Profile: React.FC<ProfileProps> = ({
       {/* Ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg aspect-square bg-neon-primary rounded-full blur-[160px] opacity-[0.05] pointer-events-none z-0" />
 
-      <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-5 md:pt-8 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-24">
-        {/* Identity row */}
-        <div className="flex items-center gap-3.5 w-full mb-5">
-          <div className="relative shrink-0">
-            <div className={`absolute inset-0 ${rankInfo.dot} blur-[12px] opacity-20 rounded-full`} />
-            <div
-              className={`w-16 h-16 relative rounded-full bg-navy-struct shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${getRankFrameClass(user.rankFrame)}`}
-            >
-              <img
-                src={user.avatar}
-                className="w-full h-full rounded-full object-cover border-2 border-navy-base"
-                style={{ backgroundColor: getAvatarColor(user.avatar) }}
-                alt={user.name}
-              />
-            </div>
-          </div>
-
-          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+      <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-4 md:pt-6 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-24">
+        {/* Identity row — compact */}
+        <div className="flex items-center gap-3 w-full mb-4">
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
             <div className="flex items-center gap-1.5 min-w-0">
-              <h1 className="text-lg font-black text-white italic tracking-tighter truncate leading-none">
+              <h1 className="text-xl font-black text-white italic tracking-tighter truncate leading-none">
                 {user.name}
               </h1>
               <button
@@ -365,25 +351,39 @@ const Profile: React.FC<ProfileProps> = ({
                   triggerHaptic('light');
                   onOpenSettings();
                 }}
-                className="shrink-0 p-1.5 text-gray-400 transition-all active:scale-95"
+                className="shrink-0 p-1 text-gray-400 transition-all active:scale-95"
                 aria-label="Open settings"
               >
                 <Settings size={14} strokeWidth={2} />
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={`text-[9px] font-bold uppercase tracking-[0.15em] ${rankInfo.color}`}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className={`text-[9px] font-bold uppercase tracking-[0.15em] truncate ${rankInfo.color}`}>
                 {rankInfo.name}
               </span>
-              <span className="text-[9px] text-neon-primary">•</span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.15em] italic text-gray-400">
+              <span className="text-[9px] text-neon-primary shrink-0">•</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.15em] italic text-gray-400 shrink-0">
                 #{rank}
               </span>
-              <span className="text-[9px] text-gray-600">•</span>
-              <span className="text-[9px] font-black italic tabular-nums text-neon-primary tracking-wider">
+              <span className="text-[9px] text-gray-600 shrink-0">•</span>
+              <span className="text-[9px] font-black italic tabular-nums text-neon-primary tracking-wider shrink-0">
                 {user.points} pts
               </span>
+            </div>
+          </div>
+
+          <div className="relative shrink-0">
+            <div className={`absolute inset-0 ${rankInfo.dot} blur-[10px] opacity-20 rounded-full`} />
+            <div
+              className={`w-14 h-14 relative rounded-full bg-navy-struct shadow-[0_8px_24px_rgba(0,0,0,0.4)] ${getRankFrameClass(user.rankFrame)}`}
+            >
+              <img
+                src={user.avatar}
+                className="w-full h-full rounded-full object-cover border-2 border-navy-base"
+                style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                alt={user.name}
+              />
             </div>
           </div>
         </div>
