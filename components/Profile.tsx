@@ -347,7 +347,7 @@ const Profile: React.FC<ProfileProps> = ({
             triggerHaptic('light');
             onOpenActivity();
           }}
-          className="w-full mb-8 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
+          className="w-full mb-8 bg-navy-struct p-4 text-left transition-all active:scale-[0.99]"
         >
           {isLoadingActivity ? (
             <div className="flex items-center justify-center py-6">
