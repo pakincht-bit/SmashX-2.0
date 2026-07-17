@@ -221,8 +221,8 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  ))}
  </div>
 
- {/* Grid/Scroll of Feature Thumbnails */}
- <div className="grid grid-cols-4 sm:grid-cols-5 gap-0 p-1 max-h-[200px] overflow-y-auto no-scrollbar" style={{ scrollbarWidth: 'none' }}>
+ {/* Grid of Feature Thumbnails — no max-height so options aren't clipped */}
+ <div className="grid grid-cols-4 sm:grid-cols-5 gap-1 p-1">
  {dynamicCategories.find(c => c.id === activeTab)?.options.map((optionLabel) => {
  const isNullOption = optionLabel === 'none';
  const isFrameTab = activeTab === 'frame';
@@ -267,7 +267,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  });
  }
  }}
- className={`flex flex-col items-center justify-center w-full min-h-[72px] aspect-square rounded-none border-2 transition-all overflow-hidden bg-[#000B29] relative group ${isActive ? 'border-[#00FF41] shadow-[0_0_15px_rgba(0,255,65,0.4)] scale-105 z-20' : 'border-white/5 border opacity-70 hover:border-white/20'}`}
+ className={`flex flex-col items-center justify-center w-full min-h-[72px] aspect-square rounded-none border-2 transition-all overflow-hidden bg-[#000B29] relative group ${isActive ? 'border-[#00FF41] shadow-[0_0_15px_rgba(0,255,65,0.4)] z-20' : 'border-white/5 opacity-70'}`}
  >
  {isNullOption ? (
  <div className="w-full h-full flex items-center justify-center text-gray-500 text-[10px] font-bold uppercase tracking-widest">None</div>
