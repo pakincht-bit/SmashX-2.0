@@ -128,8 +128,10 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onLoginClick, onRegisterCli
 
  {/* Hero Content */}
  <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 pt-10">
- <p className="text-gray-300 text-sm md:text-base font-medium tracking-wide max-w-xs mx-auto mb-8 uppercase drop-shadow-md bg-[#000B29]/50 backdrop-blur-sm p-2 rounded">
- Smash. Rally. Connect.
+ <p className="flex flex-col items-center gap-1 text-white text-2xl md:text-3xl font-black italic uppercase tracking-tighter mx-auto mb-8 drop-shadow-xl leading-none">
+ <span>Smash</span>
+ <span>Rally</span>
+ <span>Connect</span>
  </p>
  </div>
 
