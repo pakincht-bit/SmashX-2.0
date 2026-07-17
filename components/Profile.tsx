@@ -83,6 +83,9 @@ const SynergyRow = ({
   player,
   emptyLabel,
   icon,
+  metric,
+  kind,
+  metricAccent = 'text-neon-primary',
   onClick,
 }: {
   label: string;
@@ -92,46 +95,98 @@ const SynergyRow = ({
   player: SynergyPlayer | null;
   emptyLabel: string;
   icon: React.ReactNode;
+  metric: 'matches' | 'winRate';
+  kind: 'with' | 'against';
+  metricAccent?: string;
   onClick?: () => void;
-}) => (
-  <button
-    type="button"
-    disabled={!player}
-    onClick={() => {
-      if (!player || !onClick) return;
-      triggerHaptic('light');
-      onClick();
-    }}
-    className={`w-full flex items-center gap-3 p-3 bg-gradient-to-r ${bgClass} border-l-2 ${borderClass} text-left transition-all ${
-      player ? 'active:scale-[0.99]' : 'opacity-70'
-    }`}
-  >
-    {player ? (
-      <img
-        src={player.user.avatar}
-        className="w-10 h-10 rounded-full object-cover border-2 border-navy-base shrink-0"
-        style={{ backgroundColor: getAvatarColor(player.user.avatar) }}
-        alt={player.user.name}
-      />
-    ) : (
-      <div className="w-10 h-10 rounded-full border-2 border-navy-border bg-navy-base flex items-center justify-center shrink-0">
-        {icon}
+}) => {
+  const wins =
+    player == null
+      ? 0
+      : kind === 'with'
+        ? player.stat.wonWith
+        : player.stat.playedAgainst - player.stat.lostAgainst;
+  const losses =
+    player == null
+      ? 0
+      : kind === 'with'
+        ? player.stat.playedWith - player.stat.wonWith
+        : player.stat.lostAgainst;
+  const total =
+    player == null
+      ? 0
+      : kind === 'with'
+        ? player.stat.playedWith
+        : player.stat.playedAgainst;
+  const winRatePct =
+    player == null
+      ? 0
+      : kind === 'with'
+        ? Math.round((player.winRate ?? (total > 0 ? wins / total : 0)) * 100)
+        : Math.round((total > 0 ? wins / total : 0) * 100);
+
+  return (
+    <button
+      type="button"
+      disabled={!player}
+      onClick={() => {
+        if (!player || !onClick) return;
+        triggerHaptic('light');
+        onClick();
+      }}
+      className={`w-full flex items-center gap-3 p-3 bg-gradient-to-r ${bgClass} border-l-2 ${borderClass} text-left transition-all ${
+        player ? 'active:scale-[0.99]' : 'opacity-70'
+      }`}
+    >
+      {player ? (
+        <img
+          src={player.user.avatar}
+          className="w-10 h-10 rounded-full object-cover border-2 border-navy-base shrink-0"
+          style={{ backgroundColor: getAvatarColor(player.user.avatar) }}
+          alt={player.user.name}
+        />
+      ) : (
+        <div className="w-10 h-10 rounded-full border-2 border-navy-border bg-navy-base flex items-center justify-center shrink-0">
+          {icon}
+        </div>
+      )}
+      <div className="flex flex-col min-w-0 flex-1">
+        <span className={`text-[10px] font-black uppercase tracking-tighter italic leading-none mb-0.5 ${labelClass}`}>
+          {label}
+        </span>
+        <span
+          className={`text-sm font-bold leading-none truncate ${
+            player ? 'text-white' : 'text-gray-500 italic'
+          }`}
+        >
+          {player ? player.user.name : emptyLabel}
+        </span>
       </div>
-    )}
-    <div className="flex flex-col min-w-0">
-      <span className={`text-[10px] font-black uppercase tracking-tighter italic leading-none mb-0.5 ${labelClass}`}>
-        {label}
-      </span>
-      <span
-        className={`text-sm font-bold leading-none truncate ${
-          player ? 'text-white' : 'text-gray-500 italic'
-        }`}
-      >
-        {player ? player.user.name : emptyLabel}
-      </span>
-    </div>
-  </button>
-);
+
+      {player && (
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11px] font-bold tabular-nums leading-none">
+            <span className="text-neon-primary">{wins}W</span>
+            <span className="text-gray-500 mx-0.5">/</span>
+            <span className="text-red-400">{losses}L</span>
+          </span>
+          <div className="bg-navy-base px-2.5 py-1.5 flex flex-col items-center justify-center min-w-[52px]">
+            <span className="text-[8px] font-bold text-gray-500 uppercase tracking-wider leading-none mb-1">
+              {metric === 'matches' ? 'Matches' : 'Win Rate'}
+            </span>
+            <span
+              className={`text-sm font-black italic tabular-nums leading-none ${
+                metric === 'winRate' ? metricAccent : 'text-white'
+              }`}
+            >
+              {metric === 'matches' ? total : `${winRatePct}%`}
+            </span>
+          </div>
+        </div>
+      )}
+    </button>
+  );
+};
 
 const Profile: React.FC<ProfileProps> = ({
   user,
@@ -551,6 +606,8 @@ const Profile: React.FC<ProfileProps> = ({
               player={socialSynergies.frequentDuo}
               emptyLabel="No Data Yet"
               icon={<Users size={16} className="text-gray-600" />}
+              metric="matches"
+              kind="with"
               onClick={
                 socialSynergies.frequentDuo
                   ? () => onPlayerClick?.(socialSynergies.frequentDuo!.user.id)
@@ -565,6 +622,8 @@ const Profile: React.FC<ProfileProps> = ({
               player={socialSynergies.duoPartner}
               emptyLabel="No Data Yet"
               icon={<Users size={16} className="text-gray-600" />}
+              metric="winRate"
+              kind="with"
               onClick={
                 socialSynergies.duoPartner
                   ? () => onPlayerClick?.(socialSynergies.duoPartner!.user.id)
@@ -579,6 +638,8 @@ const Profile: React.FC<ProfileProps> = ({
               player={socialSynergies.easyTarget}
               emptyLabel="No Enemies Yet"
               icon={<Swords size={16} className="text-gray-600" />}
+              metric="winRate"
+              kind="against"
               onClick={
                 socialSynergies.easyTarget
                   ? () => onPlayerClick?.(socialSynergies.easyTarget!.user.id)
@@ -593,6 +654,9 @@ const Profile: React.FC<ProfileProps> = ({
               player={socialSynergies.archNemesis}
               emptyLabel="No Enemies Yet"
               icon={<Swords size={16} className="text-gray-600" />}
+              metric="winRate"
+              kind="against"
+              metricAccent="text-red-500"
               onClick={
                 socialSynergies.archNemesis
                   ? () => onPlayerClick?.(socialSynergies.archNemesis!.user.id)
