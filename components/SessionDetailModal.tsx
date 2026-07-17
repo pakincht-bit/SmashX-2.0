@@ -494,8 +494,13 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  Courts
  </h3>
  {isHost && (
- <button onClick={() => { triggerHaptic('light'); onAddCourt?.(session.id); }} className="bg-[#001645] text-[#00FF41] border border-[#00FF41] px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2">
- <Plus size={14} /> Add Court
+ <button
+ type="button"
+ onClick={() => { triggerHaptic('light'); onAddCourt?.(session.id); }}
+ className="p-2 -mr-1 text-neon-primary transition-all active:scale-95"
+ aria-label="Add court"
+ >
+ <Plus size={18} strokeWidth={2.5} />
  </button>
  )}
  </div>
