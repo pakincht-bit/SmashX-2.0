@@ -1640,17 +1640,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </div>
  )}
  </div>
- <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] flex gap-3 shrink-0">
- <button
- onClick={() => { triggerHaptic('light'); closeInviteSheet(); }}
- className="flex-1 py-3.5 border border-[#002266] bg-[#001645] text-gray-400 transition-all font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] active:scale-95"
- >
- <span className="skew-x-[6deg] inline-block">Cancel</span>
- </button>
+ <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] shrink-0">
  <button
  onClick={() => { triggerHaptic('medium'); handleConfirmInvitePlayers(); }}
  disabled={selectedInvitePlayerIds.length === 0}
- className={`flex-[2] py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all active:scale-95 ${selectedInvitePlayerIds.length > 0 ? 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.3)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}
+ className={`w-full py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] shadow-lg flex items-center justify-center transition-all active:scale-95 ${selectedInvitePlayerIds.length > 0 ? 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.3)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}
  >
  <span className="skew-x-[6deg] inline-flex items-center gap-2">
  <UserPlus size={14} />
