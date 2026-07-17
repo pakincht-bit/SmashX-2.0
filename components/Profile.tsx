@@ -13,7 +13,6 @@ import {
   formatTime,
   getDateParts,
 } from '../utils';
-import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { supabase } from '../services/supabaseClient';
 import { RANK_TIERS } from './ArenaTiersModal';
@@ -310,13 +309,24 @@ const Profile: React.FC<ProfileProps> = ({
               Player <span className="text-neon-primary">Profile</span>
             </h2>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('medium');
+              onLogout();
+            }}
+            className="p-2 -mr-2 text-red-400 transition-all active:scale-95"
+            aria-label="Log out"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </div>
 
       {/* Ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg aspect-square bg-neon-primary rounded-full blur-[160px] opacity-[0.05] pointer-events-none z-0" />
 
-      <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-8 md:pt-12 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)]">
+      <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-8 md:pt-12 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-24">
         {/* Identity row */}
         <div className="flex items-center gap-5 w-full mb-8">
           <div className="relative shrink-0">
@@ -576,22 +586,6 @@ const Profile: React.FC<ProfileProps> = ({
           </div>
         </section>
 
-        {/* Logout */}
-        <div className="w-full pt-4 pb-24 flex justify-center mt-auto">
-          <Button
-            type="button"
-            variant="danger"
-            size="md"
-            skewed
-            className="w-full py-4"
-            onClick={() => {
-              triggerHaptic('medium');
-              onLogout();
-            }}
-          >
-            <LogOut size={16} /> Log Out
-          </Button>
-        </div>
       </div>
 
       {/* Day sessions sheet */}
