@@ -79,10 +79,6 @@ const Profile: React.FC<ProfileProps> = ({
   const [isLoadingActivity, setIsLoadingActivity] = useState(true);
 
   const now = useMemo(() => new Date(), []);
-  const monthLabel = useMemo(
-    () => now.toLocaleString('default', { month: 'long', year: 'numeric' }),
-    [now]
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -182,11 +178,6 @@ const Profile: React.FC<ProfileProps> = ({
     }
     return weeks;
   }, [activityMap, now]);
-
-  const activeDays = useMemo(
-    () => Object.values(activityMap).reduce((sum, d) => sum + (d.count > 0 ? 1 : 0), 0),
-    [activityMap]
-  );
 
   const monthSessionCount = useMemo(
     () => Object.values(activityMap).reduce((sum, d) => sum + d.count, 0),
