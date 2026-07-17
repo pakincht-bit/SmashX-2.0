@@ -375,7 +375,7 @@ const Profile: React.FC<ProfileProps> = ({
             triggerHaptic('light');
             onOpenStats();
           }}
-          className="w-full mb-4 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
+          className="w-full mb-2 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
         >
           <div className="flex items-start gap-4 mb-3">
             <div className="flex flex-col">
@@ -443,7 +443,7 @@ const Profile: React.FC<ProfileProps> = ({
             triggerHaptic('light');
             onOpenActivity();
           }}
-          className="w-full mb-8 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
+          className="w-full mb-6 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
         >
           {isLoadingActivity ? (
             <div className="flex items-center justify-center py-6">
