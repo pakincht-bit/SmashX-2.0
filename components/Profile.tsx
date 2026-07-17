@@ -323,10 +323,10 @@ const Profile: React.FC<ProfileProps> = ({
                 triggerHaptic('light');
                 onOpenSettings();
               }}
-              className="absolute -bottom-1 -right-1 p-1.5 bg-navy-card text-gray-400 border-2 border-navy-base transition-all active:scale-95 z-10"
+              className="absolute -bottom-1 -right-1 p-1.5 bg-neon-primary text-navy-base border-2 border-navy-base transition-all active:scale-95 z-10"
               aria-label="Open settings"
             >
-              <Settings size={14} strokeWidth={2} />
+              <Settings size={14} strokeWidth={2.5} />
             </button>
           </div>
         </div>
