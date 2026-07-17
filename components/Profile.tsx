@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { User, Session } from '../types';
-import { Settings, LogOut, ArrowLeft, Loader2, Lock, ChevronRight } from 'lucide-react';
+import { Settings, LogOut, ArrowLeft, Loader2, Lock, ChevronRight, Users, Swords } from 'lucide-react';
 import {
   getAvatarColor,
   triggerHaptic,
@@ -17,6 +17,7 @@ import {
   isAllTimeSessionsCacheFresh,
   mergeSessionsWithLive,
 } from '../services/allTimeSessions';
+import { computeSocialSynergies, SynergyPlayer } from '../utils/socialSynergies';
 
 interface ProfileProps {
   user: User;
@@ -28,6 +29,7 @@ interface ProfileProps {
   onOpenInstallGuide: () => void;
   onOpenActivity: () => void;
   onOpenStats: () => void;
+  onPlayerClick?: (userId: string) => void;
   onLogout: () => void;
   onClose: () => void;
 }
@@ -73,6 +75,64 @@ const getDotClass = (count: number, pts: number, isFuture: boolean, isCurrentMon
   return 'bg-gray-500';
 };
 
+const SynergyRow = ({
+  label,
+  labelClass,
+  borderClass,
+  bgClass,
+  player,
+  emptyLabel,
+  icon,
+  onClick,
+}: {
+  label: string;
+  labelClass: string;
+  borderClass: string;
+  bgClass: string;
+  player: SynergyPlayer | null;
+  emptyLabel: string;
+  icon: React.ReactNode;
+  onClick?: () => void;
+}) => (
+  <button
+    type="button"
+    disabled={!player}
+    onClick={() => {
+      if (!player || !onClick) return;
+      triggerHaptic('light');
+      onClick();
+    }}
+    className={`w-full flex items-center gap-3 p-3 bg-gradient-to-r ${bgClass} border-l-2 ${borderClass} text-left transition-all ${
+      player ? 'active:scale-[0.99]' : 'opacity-70'
+    }`}
+  >
+    {player ? (
+      <img
+        src={player.user.avatar}
+        className="w-10 h-10 rounded-full object-cover border-2 border-navy-base shrink-0"
+        style={{ backgroundColor: getAvatarColor(player.user.avatar) }}
+        alt={player.user.name}
+      />
+    ) : (
+      <div className="w-10 h-10 rounded-full border-2 border-navy-border bg-navy-base flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+    )}
+    <div className="flex flex-col min-w-0">
+      <span className={`text-[10px] font-black uppercase tracking-tighter italic leading-none mb-0.5 ${labelClass}`}>
+        {label}
+      </span>
+      <span
+        className={`text-sm font-bold leading-none truncate ${
+          player ? 'text-white' : 'text-gray-500 italic'
+        }`}
+      >
+        {player ? player.user.name : emptyLabel}
+      </span>
+    </div>
+  </button>
+);
+
 const Profile: React.FC<ProfileProps> = ({
   user,
   sessions,
@@ -80,6 +140,7 @@ const Profile: React.FC<ProfileProps> = ({
   onOpenSettings,
   onOpenActivity,
   onOpenStats,
+  onPlayerClick,
   onLogout,
   onClose,
 }) => {
@@ -299,6 +360,11 @@ const Profile: React.FC<ProfileProps> = ({
     return { streakCount, streakType, maxWinStreak, last10 };
   }, [formSessions, user.id]);
 
+  const socialSynergies = useMemo(
+    () => computeSocialSynergies(formSessions, user.id, allUsers),
+    [formSessions, user.id, allUsers]
+  );
+
   const rank = useMemo(() => {
     const sorted = [...allUsers].sort((a, b) => b.points - a.points);
     return sorted.findIndex((u) => u.id === user.id) + 1;
@@ -503,6 +569,85 @@ const Profile: React.FC<ProfileProps> = ({
             )}
           </div>
         </button>
+
+        {/* Social Synergies — highlight cards only (no encounter table) */}
+        <section className="w-full mb-2">
+          <div className="flex items-end justify-between mb-3">
+            <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
+              Social <span className="text-gray-500">Synergy</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                onOpenStats();
+              }}
+              className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1 active:scale-95"
+            >
+              View stats
+              <ChevronRight size={12} className="text-neon-primary" />
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <SynergyRow
+              label="Most Played"
+              labelClass="text-blue-400"
+              borderClass="border-l-blue-500/50"
+              bgClass="from-blue-500/10 to-transparent"
+              player={socialSynergies.frequentDuo}
+              emptyLabel="No Data Yet"
+              icon={<Users size={16} className="text-gray-600" />}
+              onClick={
+                socialSynergies.frequentDuo
+                  ? () => onPlayerClick?.(socialSynergies.frequentDuo!.user.id)
+                  : undefined
+              }
+            />
+            <SynergyRow
+              label="Best Duo"
+              labelClass="text-neon-primary"
+              borderClass="border-l-neon-primary/50"
+              bgClass="from-neon-primary/10 to-transparent"
+              player={socialSynergies.duoPartner}
+              emptyLabel="No Data Yet"
+              icon={<Users size={16} className="text-gray-600" />}
+              onClick={
+                socialSynergies.duoPartner
+                  ? () => onPlayerClick?.(socialSynergies.duoPartner!.user.id)
+                  : undefined
+              }
+            />
+            <SynergyRow
+              label="Most Wins"
+              labelClass="text-orange-500"
+              borderClass="border-l-orange-500/50"
+              bgClass="from-orange-500/10 to-transparent"
+              player={socialSynergies.easyTarget}
+              emptyLabel="No Enemies Yet"
+              icon={<Swords size={16} className="text-gray-600" />}
+              onClick={
+                socialSynergies.easyTarget
+                  ? () => onPlayerClick?.(socialSynergies.easyTarget!.user.id)
+                  : undefined
+              }
+            />
+            <SynergyRow
+              label="Most Losses"
+              labelClass="text-red-500"
+              borderClass="border-l-red-500/50"
+              bgClass="from-red-500/10 to-transparent"
+              player={socialSynergies.archNemesis}
+              emptyLabel="No Enemies Yet"
+              icon={<Swords size={16} className="text-gray-600" />}
+              onClick={
+                socialSynergies.archNemesis
+                  ? () => onPlayerClick?.(socialSynergies.archNemesis!.user.id)
+                  : undefined
+              }
+            />
+          </div>
+        </section>
 
         {/* Activity — opens full calendar heatmap */}
         <button

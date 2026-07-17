@@ -1845,6 +1845,7 @@ const App: React.FC = () => {
  setIsSettingsOpen(false);
  handleTabChange('stats');
  }}
+ onPlayerClick={setViewingPlayerId}
  onLogout={handleLogout}
  onClose={() => {
  setIsProfileOpen(false);
