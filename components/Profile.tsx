@@ -459,7 +459,7 @@ const Profile: React.FC<ProfileProps> = ({
                   triggerHaptic('light');
                   onOpenSettings();
                 }}
-                className="absolute -bottom-1 -right-1 p-1.5 bg-neon-primary text-navy-base border-2 border-navy-struct transition-all active:scale-95 z-10"
+                className="absolute -bottom-1 -right-1 p-1.5 bg-navy-card text-neon-primary border-2 border-navy-struct transition-all active:scale-95 z-10"
                 aria-label="Edit profile"
               >
                 <Pencil size={14} strokeWidth={2.5} />
