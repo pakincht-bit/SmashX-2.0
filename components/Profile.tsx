@@ -471,25 +471,17 @@ const Profile: React.FC<ProfileProps> = ({
               </span>
             </div>
 
-            <div className="flex-1 min-w-0 flex flex-col items-end justify-end pointer-events-none">
+            <div className="flex-1 min-w-0 flex flex-col items-end justify-center pointer-events-none">
               {formTeaser.last10.length === 0 ? (
-                <div
-                  className="flex items-center justify-center shrink-0"
-                  style={activityVisualSize}
-                >
-                  <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest text-right">
-                    No matches yet
-                  </span>
-                </div>
+                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest text-right">
+                  No matches yet
+                </span>
               ) : (
-                <div
-                  className="grid grid-cols-5 gap-1 content-center shrink-0"
-                  style={activityVisualSize}
-                >
+                <div className="flex items-center justify-end gap-1">
                   {formTeaser.last10.map((won, idx) => (
                     <span
                       key={idx}
-                      className={`flex items-center justify-center text-[11px] font-black italic uppercase leading-none ${
+                      className={`w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-black italic uppercase leading-none ${
                         won
                           ? 'bg-neon-primary text-navy-base'
                           : 'bg-red-500 text-white'
@@ -501,10 +493,8 @@ const Profile: React.FC<ProfileProps> = ({
                   {Array.from({ length: Math.max(0, 10 - formTeaser.last10.length) }).map((_, idx) => (
                     <span
                       key={`empty-${idx}`}
-                      className="flex items-center justify-center bg-white/10 text-[11px] font-black italic uppercase leading-none text-transparent"
-                    >
-                      —
-                    </span>
+                      className="w-5 h-5 shrink-0 bg-white/10"
+                    />
                   ))}
                 </div>
               )}
