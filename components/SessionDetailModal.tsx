@@ -99,6 +99,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const [isInviteOpen, setIsInviteOpen] = useState(false);
  const [inviteSearchQuery, setInviteSearchQuery] = useState('');
  const [selectedInvitePlayerIds, setSelectedInvitePlayerIds] = useState<string[]>([]);
+ const [inviteGroupFilterId, setInviteGroupFilterId] = useState<string | null>(null);
 
 
 
@@ -248,7 +249,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  return (
  <div className="-mx-4 sm:-mx-6 px-4 sm:px-6 mb-4">
  <button
- onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); }}
+ onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); setInviteGroupFilterId(null); }}
  className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-[#00FF41]/30 bg-[#001645] text-[#00FF41] transition-all active:scale-95"
  >
  <UserPlus size={16} />
@@ -287,32 +288,31 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  setIsInviteOpen(false);
  setInviteSearchQuery('');
  setSelectedInvitePlayerIds([]);
+ setInviteGroupFilterId(null);
  };
 
  // Inviteable (not already on roster) member ids for a group
  const getGroupInviteableIds = (group: PlayerGroup) => group.memberIds.filter(id => inviteableIdSet.has(id));
 
- // Selecting a group pre-checks all its inviteable members; selecting it again clears them.
- // Individual players can still be toggled freely on top of this.
- const toggleInviteGroupSelection = (group: PlayerGroup) => {
- const ids = getGroupInviteableIds(group);
- if (ids.length === 0) return;
+ // Tap a group to filter the list to that crew; tap again to clear the filter.
+ const toggleInviteGroupFilter = (group: PlayerGroup) => {
  triggerHaptic('light');
- setSelectedInvitePlayerIds(prev => {
- const allSelected = ids.every(id => prev.includes(id));
- if (allSelected) {
- const removeSet = new Set(ids);
- return prev.filter(id => !removeSet.has(id));
- }
- const merged = new Set(prev);
- ids.forEach(id => merged.add(id));
- return Array.from(merged);
- });
+ setInviteGroupFilterId(prev => (prev === group.id ? null : group.id));
  };
 
- const filteredInvitePlayers = inviteablePlayers.filter(u =>
- u.name.toLowerCase().includes(inviteSearchQuery.toLowerCase().trim())
- );
+ const inviteGroupFilterMemberIds = (() => {
+ if (!inviteGroupFilterId) return null;
+ const group = playerGroups.find(g => g.id === inviteGroupFilterId);
+ if (!group) return null;
+ return new Set(group.memberIds);
+ })();
+
+ const filteredInvitePlayers = inviteablePlayers.filter(u => {
+ const matchesSearch = u.name.toLowerCase().includes(inviteSearchQuery.toLowerCase().trim());
+ if (!matchesSearch) return false;
+ if (!inviteGroupFilterMemberIds) return true;
+ return inviteGroupFilterMemberIds.has(u.id);
+ });
 
  let activeTab = selectedTab;
  if (!activeTab) {
@@ -1588,18 +1588,17 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  {playerGroups.map(group => {
  const groupInviteableIds = getGroupInviteableIds(group);
  const invitable = groupInviteableIds.length;
- const selectedInGroup = groupInviteableIds.filter(id => selectedInviteIdSet.has(id)).length;
- const isGroupActive = invitable > 0 && selectedInGroup === invitable;
+ const isGroupActive = inviteGroupFilterId === group.id;
  return (
  <button
  key={group.id}
- onClick={() => toggleInviteGroupSelection(group)}
+ onClick={() => toggleInviteGroupFilter(group)}
  disabled={invitable === 0}
  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${invitable === 0 ? 'border-[#002266] bg-[#001030] text-gray-600 cursor-not-allowed' : isGroupActive ? 'border-[#00FF41] bg-[#00FF41]/15 text-[#00FF41]' : 'border-[#002266] bg-[#001645] text-gray-300'}`}
  >
  {isGroupActive ? <Check size={11} strokeWidth={3} /> : <Users size={11} />}
  <span>{group.name}</span>
- <span className="tabular-nums opacity-70">{invitable === 0 ? 'all in' : `${selectedInGroup}/${invitable}`}</span>
+ <span className="tabular-nums opacity-70">{invitable === 0 ? 'all in' : invitable}</span>
  </button>
  );
  })}
@@ -1609,7 +1608,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className="flex flex-col items-center justify-center py-16">
  <Users size={32} className="text-gray-600 mb-3" />
  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
- {inviteablePlayers.length === 0 ? 'All players are already on the roster' : 'No players match your search'}
+ {inviteablePlayers.length === 0
+ ? 'All players are already on the roster'
+ : inviteGroupFilterId
+ ? 'No inviteable players in this group'
+ : 'No players match your search'}
  </p>
  </div>
  ) : (
