@@ -634,27 +634,25 @@ const Profile: React.FC<ProfileProps> = ({
         </section>
 
         {/* Danger Zone */}
-        <section className="w-full mb-10 flex items-center justify-between gap-4 py-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <AlertTriangle className="text-red-500/70 shrink-0" size={14} />
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-red-500/70">
-                Danger Zone
-              </h3>
-            </div>
-            <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
-              Permanently purge your profile, pts, and match history.
-            </p>
+        <section className="w-full mb-10 py-3">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="text-red-500/70 shrink-0" size={14} />
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-red-500/70">
+              Danger Zone
+            </h3>
           </div>
+          <p className="text-[11px] text-gray-500 font-medium leading-relaxed mb-3">
+            Permanently purge your profile, pts, and match history.
+          </p>
           <button
             type="button"
             onClick={() => {
               triggerHaptic('medium');
               setIsDeleteConfirmOpen(true);
             }}
-            className="shrink-0 text-[10px] font-black uppercase tracking-widest text-red-500/80 transition-all active:scale-95"
+            className="text-[10px] font-black uppercase tracking-widest text-red-500/80 transition-all active:scale-95"
           >
-            Delete
+            Delete account
           </button>
         </section>
       </div>
