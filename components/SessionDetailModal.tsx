@@ -1581,6 +1581,8 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </div>
  </div>
  )}
+ </div>
+ <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
  {playerGroups.length > 0 && (
  <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-0.5">
  {playerGroups.map(group => {
@@ -1603,8 +1605,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  })}
  </div>
  )}
- </div>
- <div className="p-4 sm:p-6 overflow-y-auto flex-1">
  {filteredInvitePlayers.length === 0 ? (
  <div className="flex flex-col items-center justify-center py-16">
  <Users size={32} className="text-gray-600 mb-3" />
