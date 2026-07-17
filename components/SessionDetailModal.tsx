@@ -247,15 +247,14 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const renderInviteButton = () => {
  if (!isHost || status === 'END') return null;
  return (
- <div className="-mx-4 sm:-mx-6 px-4 sm:px-6 mb-4">
  <button
+ type="button"
  onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); setInviteGroupFilterId(null); }}
- className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-[#00FF41]/30 bg-[#001645] text-[#00FF41] transition-all active:scale-95"
+ className="p-2 -mr-2 text-neon-primary transition-all active:scale-95"
+ aria-label="Invite players"
  >
- <UserPlus size={16} />
- <span className="text-xs font-black uppercase tracking-wider">Invite Players</span>
+ <UserPlus size={18} />
  </button>
- </div>
  );
  };
 
@@ -756,7 +755,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
     return (
       <div>
-        {renderInviteButton()}
         <div className="-mx-4 sm:-mx-6 flex flex-col space-y-4">
           {checkedInPlayers.length > 0 && (
             <div>
@@ -799,7 +797,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  const renderNormalPlayerList = () => (
  <div>
+ <div className="flex items-center justify-between mb-4">
+ <h3 className="text-lg font-black italic text-white uppercase tracking-wider">Players</h3>
  {renderInviteButton()}
+ </div>
  <div className="-mx-4 sm:-mx-6 flex flex-col">
  <div className="">
  {players.map((player) => (
@@ -1280,7 +1281,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
        <>
          {renderLiveCourts()}
          <div>
-           <h3 className="text-lg font-black italic text-white uppercase tracking-wider mb-4">Players</h3>
+           <div className="flex items-center justify-between mb-4">
+             <h3 className="text-lg font-black italic text-white uppercase tracking-wider">Players</h3>
+             {renderInviteButton()}
+           </div>
            {renderCheckInList()}
          </div>
        </>
