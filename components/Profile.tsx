@@ -213,8 +213,6 @@ const Profile: React.FC<ProfileProps> = ({
     return { played, wins, losses, winRate };
   }, [user.wins, user.losses]);
 
-  const rankProgression = useMemo(() => getNextTierProgress(user.points), [user.points]);
-
   const rank = useMemo(() => {
     const sorted = [...allUsers].sort((a, b) => b.points - a.points);
     return sorted.findIndex((u) => u.id === user.id) + 1;
@@ -412,26 +410,6 @@ const Profile: React.FC<ProfileProps> = ({
                 {stats.winRate}%
               </span>
             </div>
-          </div>
-        </div>
-
-        {/* Tier progress */}
-        <div className="w-full mb-10">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">
-              Next tier
-            </span>
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-neon-primary">
-              {rankProgression.nextTierName === 'Max'
-                ? 'Max rank'
-                : `${rankProgression.remaining} pts to go`}
-            </span>
-          </div>
-          <div className="h-1.5 w-full bg-navy-struct overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-[#00A82B] to-neon-primary shadow-[0_0_10px_#00FF41] transition-all duration-700"
-              style={{ width: `${rankProgression.progress}%` }}
-            />
           </div>
         </div>
 
