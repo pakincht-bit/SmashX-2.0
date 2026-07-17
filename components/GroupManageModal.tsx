@@ -179,6 +179,37 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
             </span>
           )}
         </div>
+        {isCreateMode && createStep === 'members' && selectedMembers.length > 0 && (
+          <div className="px-4 sm:px-6 pb-3">
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-neon-primary tabular-nums">
+                {selectedMembers.length} selected
+              </p>
+            </div>
+            <div className="flex overflow-x-auto hide-scrollbar gap-2 -mx-1 px-1">
+              {selectedMembers.map((user) => (
+                <button
+                  key={user.id}
+                  type="button"
+                  onClick={() => toggleMemberSelection(user.id)}
+                  className="shrink-0 flex items-center gap-2 bg-navy-card px-2 py-1.5 active:scale-95 transition-all"
+                  aria-label={`Remove ${user.name}`}
+                >
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-7 h-7 rounded-full object-cover border border-navy-base"
+                    style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                  />
+                  <span className="text-[11px] font-bold text-white max-w-[72px] truncate">
+                    {user.name}
+                  </span>
+                  <X size={12} className="text-gray-500 shrink-0" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {isCreateMode ? (
@@ -197,12 +228,6 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
                     autoFocus
                   />
                 </div>
-
-                {selectedMemberIds.length > 0 && (
-                  <p className="text-[10px] font-black uppercase tracking-widest text-neon-primary tabular-nums">
-                    {selectedMemberIds.length} selected
-                  </p>
-                )}
 
                 <div className="space-y-2">
                   {selectableUsers.length === 0 ? (
