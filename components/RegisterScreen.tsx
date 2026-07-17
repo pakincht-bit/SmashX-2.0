@@ -115,7 +115,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
  {step === 1 && (
  <div className="flex-1 flex flex-col justify-start pt-12 animate-fade-in">
  <div className="mb-8">
- <div className="w-12 h-12 rounded-full bg-[#00FF41]/10 flex items-center justify-center mb-4"><User className="text-[#00FF41]"size={24} /></div>
  <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">Create <span className="text-[#00FF41]">Username</span></h2>
  </div>
  <input type="text" value={name} onChange={(e) => { setName(e.target.value); setNameError(''); }} className={`w-full bg-[#001645] border text-white p-4 rounded-none outline-none font-bold text-lg ${nameError ? 'border-red-500' : 'border-[#002266] focus:border-[#00FF41]'}`} placeholder="e.g. BadmintonKing" autoFocus />
@@ -127,7 +126,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
  {step === 2 && (
  <div className="flex-1 flex flex-col justify-start pt-12 animate-fade-in">
  <div className="mb-8">
- <div className="w-12 h-12 rounded-full bg-[#00FF41]/10 flex items-center justify-center mb-4"><Lock className="text-[#00FF41]"size={24} /></div>
  <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">Create <span className="text-[#00FF41]">Password</span></h2>
  </div>
  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#001645] border border-[#002266] text-white p-4 rounded-none focus:border-[#00FF41] outline-none font-bold text-lg tracking-widest" placeholder="••••••••" autoFocus />
@@ -155,6 +153,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onBack }) =
  )}
 
  <div className="pt-2 mt-auto">
+ {step === 3 && (
+ <p className="text-center text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3">
+ You can change this later in your Profile
+ </p>
+ )}
  <button
  type="submit"
  disabled={(step === 1 && (!name.trim() || isCheckingName)) || (step === 2 && password.length < 6) || isRegistering}
