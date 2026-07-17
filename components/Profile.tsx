@@ -3,7 +3,6 @@ import { User, Session } from '../types';
 import { Settings, LogOut, ArrowLeft, Loader2, X, Lock } from 'lucide-react';
 import {
   getAvatarColor,
-  getNextTierProgress,
   triggerHaptic,
   getWinRateColor,
   getRankFrameClass,
@@ -205,6 +204,21 @@ const Profile: React.FC<ProfileProps> = ({
     [activityMap]
   );
 
+  const monthSessionCount = useMemo(
+    () => Object.values(activityMap).reduce((sum, d) => sum + d.count, 0),
+    [activityMap]
+  );
+
+  const monthNetPts = useMemo(
+    () => Object.values(activityMap).reduce((sum, d) => sum + d.pts, 0),
+    [activityMap]
+  );
+
+  const daysInMonth = useMemo(
+    () => new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
+    [now]
+  );
+
   const stats = useMemo(() => {
     const wins = user.wins;
     const losses = user.losses;
@@ -379,71 +393,91 @@ const Profile: React.FC<ProfileProps> = ({
           </div>
         </div>
 
-        {/* Stats strip */}
-        <div className="w-full mb-3">
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-gradient-to-r from-neon-primary/10 to-transparent border-l-2 border-l-neon-primary/50 pl-3 py-3">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">
+        {/* Career stats — compact block */}
+        <section className="w-full mb-4 bg-navy-struct p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">
+              Care<span className="text-neon-primary">er</span>
+            </h3>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+              All time
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
                 Played
               </span>
-              <span className="text-2xl sm:text-3xl tabular-nums font-black italic tracking-tighter text-white">
+              <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
                 {stats.played}
               </span>
             </div>
-            <div className="bg-gradient-to-r from-neon-primary/10 to-transparent border-l-2 border-l-neon-primary/50 pl-3 py-3">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
                 W-L
               </span>
-              <div className="flex items-center text-2xl sm:text-3xl font-black italic tracking-tighter">
+              <div className="flex items-center text-xl font-black italic tracking-tighter leading-none">
                 <span className="text-green-500">{stats.wins}</span>
-                <span className="text-gray-600 mx-1">/</span>
+                <span className="text-gray-600 mx-0.5">/</span>
                 <span className="text-red-500">{stats.losses}</span>
               </div>
             </div>
-            <div className="bg-gradient-to-r from-neon-primary/10 to-transparent border-l-2 border-l-neon-primary/50 pl-3 py-3">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
                 Win Rate
               </span>
               <span
-                className={`text-2xl sm:text-3xl tabular-nums font-black italic tracking-tighter ${getWinRateColor(stats.winRate)}`}
+                className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${getWinRateColor(stats.winRate)}`}
               >
                 {stats.winRate}%
               </span>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Activity — current month */}
-        <section className="w-full mb-10">
-          <div className="flex items-end justify-between mb-4">
-            <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">
-              Activ<span className="text-neon-primary">ity</span>
-            </h3>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-              {monthLabel}
-              {!isLoadingActivity ? (
-                <span className="text-neon-primary ml-2">{activeDays} days</span>
-              ) : null}
-            </span>
+        {/* Activity — compact current month */}
+        <section className="w-full mb-8 bg-navy-struct p-4">
+          <div className="flex items-start justify-between mb-3 gap-3">
+            <div className="min-w-0">
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white leading-none">
+                Activ<span className="text-neon-primary">ity</span>
+              </h3>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1 block">
+                {monthLabel}
+              </span>
+            </div>
+            <div className="flex flex-col items-end shrink-0">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">
+                Active days
+              </span>
+              <span className="text-lg font-black italic tabular-nums tracking-tighter text-white leading-none">
+                {isLoadingActivity ? '—' : (
+                  <>
+                    {activeDays}
+                    <span className="text-gray-600">/{daysInMonth}</span>
+                  </>
+                )}
+              </span>
+            </div>
           </div>
 
           {isLoadingActivity ? (
-            <div className="flex flex-col items-center justify-center py-10 bg-navy-struct">
-              <Loader2 size={24} className="animate-spin text-neon-primary mb-3" />
-              <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em]">
-                Loading month…
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 size={20} className="animate-spin text-neon-primary mb-2" />
+              <span className="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em]">
+                Loading…
               </span>
             </div>
           ) : (
-            <div className="w-full">
-              <div className="grid grid-cols-7 gap-1.5 text-[8px] font-black text-gray-500 uppercase tracking-widest mb-2 text-center">
+            <>
+              <div className="grid grid-cols-7 gap-1 text-[7px] font-black text-gray-500 uppercase tracking-widest mb-1.5 text-center">
                 {WEEKDAY_LABELS.map((label) => (
                   <span key={label}>{label}</span>
                 ))}
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1">
                 {calendarWeeks.map((week, wIdx) => (
-                  <div key={wIdx} className="grid grid-cols-7 gap-1.5">
+                  <div key={wIdx} className="grid grid-cols-7 gap-1">
                     {week.map((day) => {
                       const isSelected = selectedDate === day.dateStr;
                       const isClickable =
@@ -454,17 +488,17 @@ const Profile: React.FC<ProfileProps> = ({
                           type="button"
                           disabled={!isClickable}
                           onClick={() => handleDateClick(day)}
-                          className={`aspect-square w-full rounded-none flex items-center justify-center ${getIntensityColor(day.count, day.pts, day.isFuture, day.isCurrentMonth)} relative transition-all ${isClickable ? 'cursor-pointer active:scale-90' : ''} ${isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-navy-base scale-105 z-10' : ''}`}
+                          className={`aspect-square w-full rounded-none flex items-center justify-center ${getIntensityColor(day.count, day.pts, day.isFuture, day.isCurrentMonth)} relative transition-all ${isClickable ? 'cursor-pointer active:scale-90' : ''} ${isSelected ? 'ring-1 ring-white ring-offset-1 ring-offset-navy-struct scale-105 z-10' : ''}`}
                         >
                           <span
-                            className={`text-[10px] font-black ${
+                            className={`text-[9px] font-black ${
                               !day.isCurrentMonth
                                 ? 'text-transparent'
                                 : day.count >= 1 && !day.isFuture
                                   ? day.pts < 0
                                     ? 'text-white'
                                     : 'text-navy-base'
-                                  : 'text-white/40'
+                                  : 'text-white/35'
                             }`}
                           >
                             {day.dayNum}
@@ -475,18 +509,35 @@ const Profile: React.FC<ProfileProps> = ({
                   </div>
                 ))}
               </div>
-              <div className="flex items-center gap-3 mt-3 text-[8px] font-black uppercase tracking-widest text-gray-500">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-neon-primary" /> Gain
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-red-500" /> Loss
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-gray-500" /> Flat
-                </span>
+
+              <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-navy-border/60">
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                    Sessions
+                  </span>
+                  <span className="text-base font-black italic tabular-nums tracking-tighter text-white leading-none">
+                    {monthSessionCount}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                    Net pts
+                  </span>
+                  <span
+                    className={`text-base font-black italic tabular-nums tracking-tighter leading-none ${
+                      monthNetPts > 0
+                        ? 'text-neon-primary'
+                        : monthNetPts < 0
+                          ? 'text-red-500'
+                          : 'text-white'
+                    }`}
+                  >
+                    {monthNetPts > 0 ? '+' : ''}
+                    {monthNetPts}
+                  </span>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </section>
 
