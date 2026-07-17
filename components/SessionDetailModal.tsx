@@ -1616,26 +1616,26 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </p>
  </div>
  ) : (
- <div className="space-y-2">
+ <div className="space-y-1">
  {filteredInvitePlayers.map(player => {
  const isSelected = selectedInviteIdSet.has(player.id);
  return (
  <button
  key={player.id}
  onClick={() => toggleInvitePlayerSelection(player.id)}
- className={`w-full flex items-center justify-between p-3 rounded-none transition-all active:scale-[0.98] ${isSelected ? 'bg-[#00FF41]/10 border border-[#00FF41]/50' : 'bg-[#001645] border border-transparent'}`}
+ className={`w-full flex items-center justify-between px-3 py-2 rounded-none transition-all active:scale-[0.98] ${isSelected ? 'bg-[#00FF41]/10 border border-[#00FF41]/50' : 'bg-[#001645] border border-transparent'}`}
  >
- <div className="flex items-center gap-3 flex-1 min-w-0">
- <div className={`relative shrink-0 rounded-full transition-all duration-500 ${getRankFrameClass(player.rankFrame).replace('ring-4', 'ring-2')}`}>
- <img src={player.avatar} alt={player.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(player.avatar) }} />
+ <div className="flex items-center gap-2.5 flex-1 min-w-0">
+ <img
+ src={player.avatar}
+ alt={player.name}
+ className="w-8 h-8 rounded-full border border-[#000B29] object-cover shrink-0"
+ style={{ backgroundColor: getAvatarColor(player.avatar) }}
+ />
+ <span className="text-sm font-bold text-white truncate text-left">{player.name}</span>
  </div>
- <div className="flex-1 min-w-0 pr-2 text-left">
- <span className="text-sm font-bold text-white block truncate">{player.name}</span>
- <span className="text-[10px] font-mono text-yellow-500 font-bold">{player.points} pts</span>
- </div>
- </div>
- <div className={`w-6 h-6 shrink-0 flex items-center justify-center border transition-all ${isSelected ? 'bg-[#00FF41] border-[#00FF41] text-[#000B29]' : 'border-[#002266] text-transparent'}`}>
- <Check size={14} strokeWidth={3} />
+ <div className={`w-5 h-5 shrink-0 flex items-center justify-center border transition-all ${isSelected ? 'bg-[#00FF41] border-[#00FF41] text-[#000B29]' : 'border-[#002266] text-transparent'}`}>
+ <Check size={12} strokeWidth={3} />
  </div>
  </button>
  );
