@@ -86,6 +86,13 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
       .filter(Boolean) as User[];
   }, [selectedMemberIds, usersMap]);
 
+  const currentUser = usersMap.get(currentUserId);
+
+  const previewMembers = useMemo(() => {
+    if (!currentUser) return selectedMembers;
+    return [currentUser, ...selectedMembers];
+  }, [currentUser, selectedMembers]);
+
   if (!isOpen) return null;
 
   const handleClose = () => {
@@ -197,34 +204,42 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-neon-primary tabular-nums">
-                    {selectedMembers.length} selected
+                    {previewMembers.length} selected
                   </p>
                 </div>
                 <div className="flex overflow-x-auto hide-scrollbar gap-3 -mx-1 px-1">
-                  {selectedMembers.map((user) => (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() => toggleMemberSelection(user.id)}
-                      className="shrink-0 w-14 flex flex-col items-center gap-1 active:scale-95 transition-all relative"
-                      aria-label={`Remove ${user.name}`}
-                    >
-                      <div className="relative">
-                        <img
-                          src={user.avatar}
-                          alt={user.name}
-                          className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
-                          style={{ backgroundColor: getAvatarColor(user.avatar) }}
-                        />
-                        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-navy-card flex items-center justify-center">
-                          <X size={10} className="text-gray-400" strokeWidth={3} />
+                  {previewMembers.map((user) => {
+                    const isSelf = user.id === currentUserId;
+                    return (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => {
+                          if (!isSelf) toggleMemberSelection(user.id);
+                        }}
+                        disabled={isSelf}
+                        className={`shrink-0 w-14 flex flex-col items-center gap-1 transition-all relative ${isSelf ? 'cursor-default' : 'active:scale-95'}`}
+                        aria-label={isSelf ? `${user.name} (you)` : `Remove ${user.name}`}
+                      >
+                        <div className="relative">
+                          <img
+                            src={user.avatar}
+                            alt={user.name}
+                            className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
+                            style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                          />
+                          {!isSelf && (
+                            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-navy-card flex items-center justify-center">
+                              <X size={10} className="text-gray-400" strokeWidth={3} />
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
+                          {isSelf ? 'You' : user.name}
                         </span>
-                      </div>
-                      <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
-                        {user.name}
-                      </span>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -303,27 +318,30 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
                     Selected members
                   </p>
                   <p className="text-[10px] font-black uppercase tracking-widest text-neon-primary tabular-nums">
-                    {selectedMembers.length}
+                    {previewMembers.length}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap gap-x-3 gap-y-4">
-                  {selectedMembers.map(user => (
-                    <div
-                      key={user.id}
-                      className="w-14 flex flex-col items-center gap-1"
-                    >
-                      <img
-                        src={user.avatar}
-                        alt={user.name}
-                        className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
-                        style={{ backgroundColor: getAvatarColor(user.avatar) }}
-                      />
-                      <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
-                        {user.name}
-                      </span>
-                    </div>
-                  ))}
+                  {previewMembers.map(user => {
+                    const isSelf = user.id === currentUserId;
+                    return (
+                      <div
+                        key={user.id}
+                        className="w-14 flex flex-col items-center gap-1"
+                      >
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
+                          style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                        />
+                        <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
+                          {isSelf ? 'You' : user.name}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
