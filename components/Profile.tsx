@@ -14,7 +14,6 @@ import {
 } from '../utils';
 import { Badge } from './ui/Badge';
 import { supabase } from '../services/supabaseClient';
-import { RANK_TIERS } from './ArenaTiersModal';
 
 interface ProfileProps {
   user: User;
