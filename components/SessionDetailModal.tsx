@@ -1206,36 +1206,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  {/* Scrollable Content */}
  <PullToRefresh onRefresh={onRefresh} className="flex-1 min-h-0 overflow-y-auto">
- {status === 'PLAYING' ? (
-  <div className="bg-[#001645] border-b border-[#002266] p-2.5 relative flex flex-col justify-center shadow-lg z-10 overflow-hidden">
-    {/* LED Grid Overlay */}
-    <div className="absolute inset-0 opacity-15 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#00FF41 1px, transparent 1px)', backgroundSize: '3px 3px' }}></div>
-    {/* Scanline Overlay */}
-    <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(transparent 50%, rgba(0, 0, 0, 0.5) 50%)', backgroundSize: '100% 4px' }}></div>
-    
-    <div className="relative z-10 flex items-center justify-between w-full font-mono uppercase tracking-widest text-[10px] sm:text-xs text-[#00FF41]">
-      <div className="flex items-center gap-1.5 sm:gap-2 drop-shadow-[0_0_8px_rgba(0,255,65,0.8)] font-black min-w-0 pr-2">
-        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#00FF41] rounded-full animate-pulse shadow-[0_0_10px_#00FF41] shrink-0"></span>
-        <span className="truncate">{session.title || session.location}</span>
-      </div>
-      <div className="flex items-center justify-end gap-2 sm:gap-3 font-bold opacity-90 drop-shadow-[0_0_5px_rgba(0,255,65,0.5)] shrink-0">
-        {session.title && (
-          <>
-            <span className="flex items-center gap-1 sm:gap-1.5 truncate max-w-[80px] sm:max-w-[150px]">
-              <MapPin size={10} className="opacity-70 shrink-0 sm:w-3 sm:h-3" />
-              <span className="truncate">{session.location}</span>
-            </span>
-            <span className="opacity-40 text-[8px] shrink-0">•</span>
-          </>
-        )}
-        <span className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <Clock size={10} className="opacity-70 shrink-0 sm:w-3 sm:h-3" />
-          {formatTime(session.startTime)} - {formatTime(session.endTime)}
-        </span>
-      </div>
-    </div>
-  </div>
- ) : (
+ {status !== 'PLAYING' && (
  <div className="bg-[#001645] p-4">
  <div className="flex items-center gap-4">
  <div className="bg-[#000B29] w-12 h-14 rounded-none flex flex-col items-center justify-center shrink-0 shadow-lg">
