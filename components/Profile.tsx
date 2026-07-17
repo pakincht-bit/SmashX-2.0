@@ -525,7 +525,7 @@ const Profile: React.FC<ProfileProps> = ({
           ) : (
             <div className="flex items-stretch gap-4">
               <div className="shrink-0 flex flex-col pt-0.5">
-                <div className="flex items-start gap-4">
+                <div className="flex flex-col items-start gap-3">
                   <div className="flex flex-col">
                     <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
                       Sessions
