@@ -428,9 +428,9 @@ const Profile: React.FC<ProfileProps> = ({
                 <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2 text-right">
                   {activeDays} active day{activeDays === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
                 </div>
-                <div className="flex flex-col gap-px">
+                <div className="flex flex-col gap-1.5">
                   {calendarWeeks.map((week, wIdx) => (
-                    <div key={wIdx} className="flex gap-px justify-end">
+                    <div key={wIdx} className="flex gap-1.5 justify-end">
                       {week.map((day) => {
                         const isClickable =
                           day.count > 0 && !day.isFuture && day.isCurrentMonth;
