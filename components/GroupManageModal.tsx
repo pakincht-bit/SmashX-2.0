@@ -186,25 +186,29 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
                 {selectedMembers.length} selected
               </p>
             </div>
-            <div className="flex overflow-x-auto hide-scrollbar gap-2 -mx-1 px-1">
+            <div className="flex overflow-x-auto hide-scrollbar gap-3 -mx-1 px-1">
               {selectedMembers.map((user) => (
                 <button
                   key={user.id}
                   type="button"
                   onClick={() => toggleMemberSelection(user.id)}
-                  className="shrink-0 flex items-center gap-2 bg-navy-card px-2 py-1.5 active:scale-95 transition-all"
+                  className="shrink-0 w-14 flex flex-col items-center gap-1 active:scale-95 transition-all relative"
                   aria-label={`Remove ${user.name}`}
                 >
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-7 h-7 rounded-full object-cover border border-navy-base"
-                    style={{ backgroundColor: getAvatarColor(user.avatar) }}
-                  />
-                  <span className="text-[11px] font-bold text-white max-w-[72px] truncate">
+                  <div className="relative">
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
+                      style={{ backgroundColor: getAvatarColor(user.avatar) }}
+                    />
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-navy-card flex items-center justify-center">
+                      <X size={10} className="text-gray-400" strokeWidth={3} />
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
                     {user.name}
                   </span>
-                  <X size={12} className="text-gray-500 shrink-0" />
                 </button>
               ))}
             </div>
