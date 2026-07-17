@@ -306,18 +306,18 @@ const Profile: React.FC<ProfileProps> = ({
     <div className="relative w-full min-h-screen bg-navy-base text-white overflow-y-auto pb-20 font-sans">
       {/* Sticky Navigation Header */}
       <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur border-b border-navy-border pt-[env(safe-area-inset-top)] shrink-0">
-        <div className="flex items-center gap-3 py-3 px-4 sm:px-6">
+        <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
           <button
             onClick={() => {
               triggerHaptic('light');
               onClose();
             }}
-            className="p-2 -ml-2 text-gray-400 rounded-full transition-colors active:scale-95"
+            className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={18} />
           </button>
-          <div className="flex items-center flex-1">
-            <h2 className="text-lg font-black italic uppercase text-white tracking-wider">
+          <div className="flex items-center flex-1 min-w-0">
+            <h2 className="text-base font-black italic uppercase text-white tracking-wider truncate">
               Player <span className="text-neon-primary">Profile</span>
             </h2>
           </div>
@@ -327,10 +327,10 @@ const Profile: React.FC<ProfileProps> = ({
               triggerHaptic('medium');
               onLogout();
             }}
-            className="p-2 -mr-2 text-red-400 transition-all active:scale-95"
+            className="p-1.5 -mr-1.5 text-red-400 transition-all active:scale-95"
             aria-label="Log out"
           >
-            <LogOut size={20} />
+            <LogOut size={18} />
           </button>
         </div>
       </div>
@@ -338,26 +338,26 @@ const Profile: React.FC<ProfileProps> = ({
       {/* Ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg aspect-square bg-neon-primary rounded-full blur-[160px] opacity-[0.05] pointer-events-none z-0" />
 
-      <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-8 md:pt-12 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-24">
+      <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-5 md:pt-8 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-24">
         {/* Identity row */}
-        <div className="flex items-center gap-5 w-full mb-8">
+        <div className="flex items-center gap-3.5 w-full mb-5">
           <div className="relative shrink-0">
-            <div className={`absolute inset-0 ${rankInfo.dot} blur-[16px] opacity-20 rounded-full`} />
+            <div className={`absolute inset-0 ${rankInfo.dot} blur-[12px] opacity-20 rounded-full`} />
             <div
-              className={`w-24 h-24 relative rounded-full bg-navy-struct shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${getRankFrameClass(user.rankFrame)}`}
+              className={`w-16 h-16 relative rounded-full bg-navy-struct shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${getRankFrameClass(user.rankFrame)}`}
             >
               <img
                 src={user.avatar}
-                className="w-full h-full rounded-full object-cover border-[3px] border-navy-base"
+                className="w-full h-full rounded-full object-cover border-2 border-navy-base"
                 style={{ backgroundColor: getAvatarColor(user.avatar) }}
                 alt={user.name}
               />
             </div>
           </div>
 
-          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-2xl font-black text-white italic tracking-tighter truncate leading-none">
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h1 className="text-lg font-black text-white italic tracking-tighter truncate leading-none">
                 {user.name}
               </h1>
               <button
@@ -365,29 +365,24 @@ const Profile: React.FC<ProfileProps> = ({
                   triggerHaptic('light');
                   onOpenSettings();
                 }}
-                className="shrink-0 p-2 bg-navy-card text-gray-400 transition-all shadow-[0_8px_32px_rgba(0,0,0,0.4)] active:scale-95"
+                className="shrink-0 p-1.5 text-gray-400 transition-all active:scale-95"
                 aria-label="Open settings"
               >
-                <Settings size={16} strokeWidth={2} />
+                <Settings size={14} strokeWidth={2} />
               </button>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${rankInfo.color}`}>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`text-[9px] font-bold uppercase tracking-[0.15em] ${rankInfo.color}`}>
                 {rankInfo.name}
               </span>
-              <span className="text-[10px] text-neon-primary">•</span>
-              <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400">
-                Rank #{rank}
+              <span className="text-[9px] text-neon-primary">•</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.15em] italic text-gray-400">
+                #{rank}
               </span>
-            </div>
-
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-xl font-black italic tabular-nums text-neon-primary tracking-tighter">
-                {user.points}
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                pts
+              <span className="text-[9px] text-gray-600">•</span>
+              <span className="text-[9px] font-black italic tabular-nums text-neon-primary tracking-wider">
+                {user.points} pts
               </span>
             </div>
           </div>
