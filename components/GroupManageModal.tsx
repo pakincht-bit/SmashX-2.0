@@ -511,27 +511,16 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          {members.map(member => (
-            <div
-              key={member.id}
-              className="flex items-center justify-between p-3 bg-[#001645] rounded-none"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`rounded-full shrink-0 ${getRankFrameClass(member.rankFrame).replace('ring-4', 'ring-2')}`}>
-                  <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(member.avatar) }} />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-bold text-white truncate">{member.name}</div>
-                  <div className="text-[10px] font-mono text-yellow-500">{member.points} pts</div>
-                </div>
-              </div>
-              {member.id === group.ownerId ? (
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#00FF41] shrink-0 ml-2">Owner</span>
-              ) : isOwner ? (
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div className="flex flex-wrap gap-x-3 gap-y-4">
+            {members.map(member => {
+              const canRemove = isOwner && member.id !== group.ownerId;
+              return (
                 <button
+                  key={member.id}
                   type="button"
                   onClick={() => {
+                    if (!canRemove) return;
                     triggerHaptic('light');
                     setConfirmConfig({
                       title: 'Remove Member',
@@ -541,14 +530,34 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
                       action: () => onRemoveMember(group.id, member.id),
                     });
                   }}
-                  aria-label={`Remove ${member.name}`}
-                  className="p-2 text-gray-500 active:text-red-400 transition-colors shrink-0"
+                  disabled={!canRemove}
+                  className={`w-14 flex flex-col items-center gap-1 relative ${canRemove ? 'active:scale-95 transition-all' : 'cursor-default'}`}
+                  aria-label={canRemove ? `Remove ${member.name}` : member.name}
                 >
-                  <X size={16} />
+                  <div className="relative">
+                    <img
+                      src={member.avatar}
+                      alt={member.name}
+                      className="w-11 h-11 rounded-full object-cover border-2 border-neon-primary/40"
+                      style={{ backgroundColor: getAvatarColor(member.avatar) }}
+                    />
+                    {member.id === group.ownerId ? (
+                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[7px] font-black uppercase tracking-wider text-neon-primary bg-navy-base px-1">
+                        Owner
+                      </span>
+                    ) : canRemove ? (
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-navy-card flex items-center justify-center">
+                        <X size={10} className="text-gray-400" strokeWidth={3} />
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="text-[9px] font-bold text-white w-full text-center truncate leading-tight">
+                    {member.name}
+                  </span>
                 </button>
-              ) : null}
-            </div>
-          ))}
+              );
+            })}
+          </div>
         </div>
       </div>
       )}
