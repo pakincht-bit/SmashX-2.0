@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { User, Session } from '../types';
-import { Pencil, LogOut, ArrowLeft, Loader2, ChevronRight, Users, Swords, Trash2, AlertTriangle } from 'lucide-react';
+import { Pencil, LogOut, ArrowLeft, Loader2, ChevronRight, Users, Swords, AlertTriangle } from 'lucide-react';
 import {
   getAvatarColor,
   triggerHaptic,
@@ -634,27 +634,27 @@ const Profile: React.FC<ProfileProps> = ({
         </section>
 
         {/* Danger Zone */}
-        <section className="w-full mb-10 bg-gradient-to-r from-red-500/10 to-transparent border-l-2 border-l-red-500/50 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="text-red-500 shrink-0" size={16} />
-            <h3 className="text-sm font-black italic uppercase tracking-wider text-red-500">
-              Danger Zone
-            </h3>
+        <section className="w-full mb-10 flex items-center justify-between gap-4 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle className="text-red-500/70 shrink-0" size={14} />
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-red-500/70">
+                Danger Zone
+              </h3>
+            </div>
+            <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
+              Permanently purge your profile, pts, and match history.
+            </p>
           </div>
-          <p className="text-xs text-gray-400 font-medium mb-4 leading-relaxed">
-            Deleting your account is permanent. All pts, match history, and profile data will be purged.
-          </p>
           <button
             type="button"
             onClick={() => {
               triggerHaptic('medium');
               setIsDeleteConfirmOpen(true);
             }}
-            className="w-full py-3.5 bg-transparent text-red-500 font-black uppercase tracking-widest text-xs -skew-x-12 transition-all active:scale-[0.98]"
+            className="shrink-0 text-[10px] font-black uppercase tracking-widest text-red-500/80 transition-all active:scale-95"
           >
-            <span className="skew-x-12 inline-flex items-center justify-center gap-2">
-              <Trash2 size={16} /> Delete Account
-            </span>
+            Delete
           </button>
         </section>
       </div>
