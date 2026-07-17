@@ -446,10 +446,10 @@ const Profile: React.FC<ProfileProps> = ({
                   triggerHaptic('light');
                   onOpenSettings();
                 }}
-                className="mt-1 inline-flex items-center gap-1.5 self-start text-[9px] font-black uppercase tracking-widest text-gray-500 transition-all active:scale-95"
+                className="mt-1 inline-flex items-center gap-1.5 self-start px-2.5 py-1.5 bg-neon-primary text-navy-base text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
                 aria-label="Open settings"
               >
-                <Settings size={12} strokeWidth={2.5} className="text-neon-primary" />
+                <Settings size={12} strokeWidth={2.5} />
                 Settings
               </button>
             </div>
