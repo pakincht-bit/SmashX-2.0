@@ -223,6 +223,18 @@ const Profile: React.FC<ProfileProps> = ({
     [activityMap]
   );
 
+  // Match activity heatmap geometry: 7 × w-3.5 dots with gap-1.5
+  const activityVisualSize = useMemo(() => {
+    const rows = Math.max(calendarWeeks.length, 1);
+    const cols = 7;
+    const cell = 14; // w-3.5 / h-3.5
+    const gap = 6; // gap-1.5
+    return {
+      width: cols * cell + (cols - 1) * gap,
+      height: rows * cell + (rows - 1) * gap,
+    };
+  }, [calendarWeeks.length]);
+
   const stats = useMemo(() => {
     const wins = user.wins;
     const losses = user.losses;
@@ -459,13 +471,21 @@ const Profile: React.FC<ProfileProps> = ({
               </span>
             </div>
 
-            <div className="flex-1 min-w-0 flex flex-col justify-center pointer-events-none">
+            <div className="flex-1 min-w-0 flex flex-col items-end justify-end pointer-events-none">
               {formTeaser.last10.length === 0 ? (
-                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest text-right">
-                  No matches yet
-                </span>
+                <div
+                  className="flex items-center justify-center shrink-0"
+                  style={activityVisualSize}
+                >
+                  <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest text-right">
+                    No matches yet
+                  </span>
+                </div>
               ) : (
-                <div className="flex items-stretch justify-end gap-1 h-[88px] w-full">
+                <div
+                  className="flex items-stretch justify-between shrink-0"
+                  style={activityVisualSize}
+                >
                   {formTeaser.last10.map((won, idx) => (
                     <div
                       key={idx}
@@ -536,7 +556,7 @@ const Profile: React.FC<ProfileProps> = ({
               </div>
 
               <div className="flex-1 min-w-0 flex flex-col items-end justify-end pointer-events-none">
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 shrink-0" style={activityVisualSize}>
                   {calendarWeeks.map((week, wIdx) => (
                     <div key={wIdx} className="flex gap-1.5 justify-end">
                       {week.map((day) => (
