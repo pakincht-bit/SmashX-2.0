@@ -292,21 +292,9 @@ const Profile: React.FC<ProfileProps> = ({
         {/* Identity row */}
         <div className="flex items-center gap-4 w-full mb-6">
           <div className="flex-1 min-w-0 flex flex-col gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter truncate leading-none">
-                {user.name}
-              </h1>
-              <button
-                onClick={() => {
-                  triggerHaptic('light');
-                  onOpenSettings();
-                }}
-                className="shrink-0 p-2 bg-navy-card text-gray-400 transition-all active:scale-95"
-                aria-label="Open settings"
-              >
-                <Settings size={16} strokeWidth={2} />
-              </button>
-            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter truncate leading-none">
+              {user.name}
+            </h1>
 
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400 shrink-0">
@@ -330,6 +318,16 @@ const Profile: React.FC<ProfileProps> = ({
                 alt={user.name}
               />
             </div>
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                onOpenSettings();
+              }}
+              className="absolute -bottom-1 -right-1 p-1.5 bg-navy-card text-gray-400 border-2 border-navy-base transition-all active:scale-95 z-10"
+              aria-label="Open settings"
+            >
+              <Settings size={14} strokeWidth={2} />
+            </button>
           </div>
         </div>
 
