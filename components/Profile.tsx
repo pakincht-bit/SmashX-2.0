@@ -330,7 +330,7 @@ const Profile: React.FC<ProfileProps> = ({
         <div className="flex items-center gap-4 w-full mb-6">
           <div className="flex-1 min-w-0 flex flex-col gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter truncate leading-none">
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter truncate leading-none">
                 {user.name}
               </h1>
               <button
@@ -357,7 +357,6 @@ const Profile: React.FC<ProfileProps> = ({
           </div>
 
           <div className="relative shrink-0">
-            <div className={`absolute inset-0 ${rankGlow} blur-[14px] opacity-25 rounded-full`} />
             <div
               className={`w-20 h-20 relative rounded-full bg-navy-struct shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${getRankFrameClass(user.rankFrame)}`}
             >
