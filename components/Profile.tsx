@@ -1,15 +1,13 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { User, Session } from '../types';
-import { Pencil, LogOut, ArrowLeft, Loader2, Lock, ChevronRight, Users, Swords } from 'lucide-react';
+import { Pencil, LogOut, ArrowLeft, Loader2, ChevronRight, Users, Swords } from 'lucide-react';
 import {
   getAvatarColor,
   triggerHaptic,
   getWinRateColor,
   getRankFrameClass,
-  getUnlockedFrames,
   getPlayerMatchDelta,
 } from '../utils';
-import { Badge } from './ui/Badge';
 import { supabase } from '../services/supabaseClient';
 import {
   fetchAllTimeSessions,
@@ -33,29 +31,6 @@ interface ProfileProps {
   onLogout: () => void;
   onClose: () => void;
 }
-
-const FRAME_LABELS: Record<string, string> = {
-  unpolished: 'Cocoon',
-  spark: 'Spark',
-  combustion: 'Combustion',
-  void: 'Void',
-  ascended: 'Ascended',
-  cat: 'Cat',
-  dog: 'Dog',
-  frog: 'Frog',
-  panda: 'Panda',
-};
-
-const FRAME_CATALOG: { id: string; minPoints: number; kind: 'rank' | 'cosmetic' }[] = [
-  { id: 'spark', minPoints: 1100, kind: 'rank' },
-  { id: 'combustion', minPoints: 1300, kind: 'rank' },
-  { id: 'void', minPoints: 1600, kind: 'rank' },
-  { id: 'ascended', minPoints: 2000, kind: 'rank' },
-  { id: 'cat', minPoints: 0, kind: 'cosmetic' },
-  { id: 'dog', minPoints: 0, kind: 'cosmetic' },
-  { id: 'frog', minPoints: 0, kind: 'cosmetic' },
-  { id: 'panda', minPoints: 0, kind: 'cosmetic' },
-];
 
 type DayCell = {
   dateStr: string;
@@ -379,20 +354,6 @@ const Profile: React.FC<ProfileProps> = ({
     return sorted.findIndex((u) => u.id === user.id) + 1;
   }, [allUsers, user.id]);
 
-  const unlockedSet = useMemo(
-    () => new Set(getUnlockedFrames(user.points, user.specialFrame)),
-    [user.points, user.specialFrame]
-  );
-
-  const handleFrameTap = (frameId: string, unlocked: boolean) => {
-    if (!unlocked) {
-      triggerHaptic('light');
-      return;
-    }
-    triggerHaptic('medium');
-    onOpenSettings();
-  };
-
   return (
     <div className="relative w-full min-h-screen bg-navy-base text-white overflow-y-auto pb-20 font-sans">
       {/* Sticky Navigation Header */}
@@ -581,7 +542,7 @@ const Profile: React.FC<ProfileProps> = ({
         </button>
 
         {/* Social Synergies — highlight cards only (no encounter table) */}
-        <section className="w-full mb-6 bg-navy-card p-4">
+        <section className="w-full mb-10 bg-navy-card p-4">
           <div className="flex items-end justify-between mb-3">
             <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
               Social <span className="text-gray-500">Synergy</span>
@@ -665,80 +626,6 @@ const Profile: React.FC<ProfileProps> = ({
                   : undefined
               }
             />
-          </div>
-        </section>
-
-        {/* Frames achievements */}
-        <section className="w-full mb-10">
-          <div className="flex items-end justify-between mb-3">
-            <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
-              Fram<span className="text-neon-primary">es</span>
-            </h3>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-              {FRAME_CATALOG.filter((f) => unlockedSet.has(f.id)).length}/{FRAME_CATALOG.length}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {FRAME_CATALOG.map((frame) => {
-              const unlocked = unlockedSet.has(frame.id);
-              const equipped = user.rankFrame === frame.id;
-              return (
-                <button
-                  key={frame.id}
-                  type="button"
-                  onClick={() => handleFrameTap(frame.id, unlocked)}
-                  className={`relative flex flex-col items-center justify-center gap-3 p-5 bg-navy-struct transition-all active:scale-[0.98] ${
-                    equipped ? 'ring-1 ring-neon-primary/60' : ''
-                  } ${!unlocked ? 'opacity-50' : ''}`}
-                >
-                  {equipped ? (
-                    <div className="absolute top-2 right-2">
-                      <Badge variant="live" skewed className="!px-1.5 !py-0.5">
-                        Equipped
-                      </Badge>
-                    </div>
-                  ) : null}
-
-                  <div className="relative">
-                    <div
-                      className={`w-16 h-16 rounded-full bg-navy-base ${getRankFrameClass(frame.id)} ${
-                        !unlocked ? 'grayscale' : ''
-                      }`}
-                    >
-                      <img
-                        src={user.avatar}
-                        className="w-full h-full rounded-full object-cover border-2 border-navy-base"
-                        style={{ backgroundColor: getAvatarColor(user.avatar) }}
-                        alt={FRAME_LABELS[frame.id] || frame.id}
-                      />
-                    </div>
-                    {!unlocked ? (
-                      <div className="absolute inset-0 flex items-center justify-center rounded-full bg-navy-base/50">
-                        <Lock size={14} className="text-gray-400" />
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="flex flex-col items-center text-center gap-0.5">
-                    <span
-                      className={`text-[10px] font-black uppercase tracking-[0.15em] ${
-                        unlocked ? 'text-white' : 'text-gray-500'
-                      }`}
-                    >
-                      {FRAME_LABELS[frame.id] || frame.id}
-                    </span>
-                    <span className="text-[9px] font-mono text-gray-600 tracking-wider">
-                      {unlocked
-                        ? frame.kind === 'cosmetic'
-                          ? 'Cosmetic'
-                          : 'Unlocked'
-                        : `${frame.minPoints.toLocaleString()}+ pts`}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
           </div>
         </section>
 
