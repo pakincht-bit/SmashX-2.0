@@ -358,7 +358,7 @@ const Profile: React.FC<ProfileProps> = ({
               <div className="shrink-0 flex flex-col pt-0.5">
                 <div className="flex items-start gap-4">
                   <div className="flex flex-col">
-                    <span className="text-4xl font-black tabular-nums tracking-tighter text-white leading-none">
+                    <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
                       {monthSessionCount}
                     </span>
                     <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1.5">
@@ -367,7 +367,7 @@ const Profile: React.FC<ProfileProps> = ({
                   </div>
                   <div className="flex flex-col">
                     <span
-                      className={`text-4xl font-black tabular-nums tracking-tighter leading-none ${
+                      className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
                         monthNetPts > 0
                           ? 'text-neon-primary'
                           : monthNetPts < 0
