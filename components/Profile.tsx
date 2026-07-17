@@ -51,8 +51,6 @@ const FRAME_CATALOG: { id: string; minPoints: number; kind: 'rank' | 'cosmetic' 
   { id: 'panda', minPoints: 0, kind: 'cosmetic' },
 ];
 
-const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-
 type DayCell = {
   dateStr: string;
   dayNum: number;
@@ -62,21 +60,13 @@ type DayCell = {
   isCurrentMonth: boolean;
 };
 
-const getIntensityColor = (count: number, pts: number, isFuture: boolean, isCurrentMonth: boolean) => {
-  let colorClass = 'bg-navy-base border border-white/5';
-  if (count >= 1) {
-    if (pts > 0) {
-      colorClass = 'bg-neon-primary shadow-[0_0_8px_rgba(0,255,65,0.4)] border border-neon-primary';
-    } else if (pts < 0) {
-      colorClass = 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)] border border-red-500';
-    } else {
-      colorClass = 'bg-gray-500 shadow-[0_0_6px_rgba(107,114,128,0.3)] border border-gray-500';
-    }
-  }
-
-  if (isFuture) colorClass = 'bg-navy-base border border-transparent opacity-30';
-  if (!isCurrentMonth) return `${colorClass} opacity-10`;
-  return colorClass;
+const getDotClass = (count: number, pts: number, isFuture: boolean, isCurrentMonth: boolean) => {
+  if (!isCurrentMonth) return 'bg-transparent';
+  if (isFuture) return 'bg-white/5';
+  if (count < 1) return 'bg-white/10';
+  if (pts > 0) return 'bg-neon-primary shadow-[0_0_6px_rgba(0,255,65,0.35)]';
+  if (pts < 0) return 'bg-red-500';
+  return 'bg-gray-500';
 };
 
 const Profile: React.FC<ProfileProps> = ({
@@ -211,11 +201,6 @@ const Profile: React.FC<ProfileProps> = ({
   const monthNetPts = useMemo(
     () => Object.values(activityMap).reduce((sum, d) => sum + d.pts, 0),
     [activityMap]
-  );
-
-  const daysInMonth = useMemo(
-    () => new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
-    [now]
   );
 
   const stats = useMemo(() => {
@@ -403,110 +388,81 @@ const Profile: React.FC<ProfileProps> = ({
           </div>
         </section>
 
-        {/* Activity — compact current month */}
+        {/* Activity — streak-style compact month */}
         <section className="w-full mb-8 bg-navy-struct p-4">
-          <div className="flex items-start justify-between mb-2 gap-3">
-            <div className="min-w-0">
-              <h3 className="text-sm font-black italic uppercase tracking-wider text-white leading-none">
-                Activ<span className="text-neon-primary">ity</span>
-              </h3>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1 block">
-                {monthLabel}
-              </span>
-            </div>
-            <div className="flex flex-col items-end shrink-0">
-              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">
-                Active days
-              </span>
-              <span className="text-lg font-black italic tabular-nums tracking-tighter text-white leading-none">
-                {isLoadingActivity ? '—' : (
-                  <>
-                    {activeDays}
-                    <span className="text-gray-600">/{daysInMonth}</span>
-                  </>
-                )}
-              </span>
-            </div>
-          </div>
-
           {isLoadingActivity ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <Loader2 size={20} className="animate-spin text-neon-primary mb-2" />
-              <span className="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em]">
-                Loading…
-              </span>
+            <div className="flex items-center justify-center py-6">
+              <Loader2 size={18} className="animate-spin text-neon-primary" />
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-7 gap-1 text-[7px] font-black text-gray-500 uppercase tracking-widest mb-1.5 text-center">
-                {WEEKDAY_LABELS.map((label) => (
-                  <span key={label}>{label}</span>
-                ))}
-              </div>
-              <div className="flex flex-col gap-1">
-                {calendarWeeks.map((week, wIdx) => (
-                  <div key={wIdx} className="grid grid-cols-7 gap-1">
-                    {week.map((day) => {
-                      const isSelected = selectedDate === day.dateStr;
-                      const isClickable =
-                        day.count > 0 && !day.isFuture && day.isCurrentMonth;
-                      return (
-                        <button
-                          key={day.dateStr}
-                          type="button"
-                          disabled={!isClickable}
-                          onClick={() => handleDateClick(day)}
-                          className={`aspect-square w-full rounded-none flex items-center justify-center ${getIntensityColor(day.count, day.pts, day.isFuture, day.isCurrentMonth)} relative transition-all ${isClickable ? 'cursor-pointer active:scale-90' : ''} ${isSelected ? 'ring-1 ring-white ring-offset-1 ring-offset-navy-struct scale-105 z-10' : ''}`}
-                        >
-                          <span
-                            className={`text-[9px] font-black ${
-                              !day.isCurrentMonth
-                                ? 'text-transparent'
-                                : day.count >= 1 && !day.isFuture
-                                  ? day.pts < 0
-                                    ? 'text-white'
-                                    : 'text-navy-base'
-                                  : 'text-white/35'
-                            }`}
-                          >
-                            {day.dayNum}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
+            <div className="flex items-start gap-4">
+              <div className="shrink-0 flex flex-col pt-0.5 min-w-[4.5rem]">
+                <span className="text-4xl font-black tabular-nums tracking-tighter text-white leading-none">
+                  {activeDays}
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1.5">
+                  Active days
+                </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-navy-border/60">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                    Sessions
-                  </span>
-                  <span className="text-base font-black italic tabular-nums tracking-tighter text-white leading-none">
-                    {monthSessionCount}
-                  </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2 text-right">
+                  {monthSessionCount} session{monthSessionCount === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                    Net pts
-                  </span>
-                  <span
-                    className={`text-base font-black italic tabular-nums tracking-tighter leading-none ${
-                      monthNetPts > 0
-                        ? 'text-neon-primary'
-                        : monthNetPts < 0
-                          ? 'text-red-500'
-                          : 'text-white'
-                    }`}
-                  >
-                    {monthNetPts > 0 ? '+' : ''}
-                    {monthNetPts}
-                  </span>
+                <div className="flex flex-col gap-[5px]">
+                  {calendarWeeks.map((week, wIdx) => (
+                    <div key={wIdx} className="grid grid-cols-7 gap-[5px] justify-items-end">
+                      {week.map((day) => {
+                        const isClickable =
+                          day.count > 0 && !day.isFuture && day.isCurrentMonth;
+                        const isSelected = selectedDate === day.dateStr;
+                        return (
+                          <button
+                            key={day.dateStr}
+                            type="button"
+                            disabled={!isClickable}
+                            onClick={() => handleDateClick(day)}
+                            aria-label={day.isCurrentMonth ? `${day.dateStr}` : undefined}
+                            className={`w-2.5 h-2.5 rounded-full transition-all ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)} ${isClickable ? 'active:scale-75' : ''} ${isSelected ? 'ring-1 ring-white ring-offset-1 ring-offset-navy-struct' : ''}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
-            </>
+            </div>
           )}
+
+          {!isLoadingActivity ? (
+            <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-navy-border/60">
+              <div className="flex flex-col">
+                <span className="text-base font-black italic tabular-nums tracking-tighter text-white leading-none">
+                  {monthSessionCount}
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1">
+                  Sessions
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span
+                  className={`text-base font-black italic tabular-nums tracking-tighter leading-none ${
+                    monthNetPts > 0
+                      ? 'text-neon-primary'
+                      : monthNetPts < 0
+                        ? 'text-red-500'
+                        : 'text-white'
+                  }`}
+                >
+                  {monthNetPts > 0 ? '+' : ''}
+                  {monthNetPts}
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1">
+                  Net pts
+                </span>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         {/* Frames achievements */}
