@@ -350,7 +350,7 @@ const Profile: React.FC<ProfileProps> = ({
                 W-L
               </span>
               <div className="flex items-center text-xl font-black italic tracking-tighter leading-none">
-                <span className="text-green-500">{stats.wins}</span>
+                <span className="text-neon-primary">{stats.wins}</span>
                 <span className="text-gray-600 mx-0.5">/</span>
                 <span className="text-red-500">{stats.losses}</span>
               </div>
