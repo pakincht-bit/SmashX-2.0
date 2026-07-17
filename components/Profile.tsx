@@ -83,7 +83,9 @@ const Profile: React.FC<ProfileProps> = ({
   onLogout,
   onClose,
 }) => {
-  const [activityMap, setActivityMap] = useState<Record<string, { count: number; pts: number }>>({});
+  const [activityMap, setActivityMap] = useState<
+    Record<string, { count: number; matches: number; pts: number }>
+  >({});
   const [isLoadingActivity, setIsLoadingActivity] = useState(true);
   const cachedAllTime = getCachedAllTimeSessions(user.id);
   const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(cachedAllTime ?? sessions);
@@ -133,7 +135,7 @@ const Profile: React.FC<ProfileProps> = ({
 
         if (error) throw error;
 
-        const map: Record<string, { count: number; pts: number }> = {};
+        const map: Record<string, { count: number; matches: number; pts: number }> = {};
         (data || []).forEach((s) => {
           const dateObj = new Date(s.start_time);
           const yyyy = dateObj.getFullYear();
@@ -142,17 +144,20 @@ const Profile: React.FC<ProfileProps> = ({
           const dateStr = `${yyyy}-${mm}-${dd}`;
 
           let dayPts = 0;
+          let dayMatches = 0;
           if (s.matches && Array.isArray(s.matches)) {
             s.matches.forEach((m: any) => {
               const isT1 = m.team1Ids?.includes(user.id);
               const isT2 = m.team2Ids?.includes(user.id);
               if (!isT1 && !isT2) return;
+              dayMatches += 1;
               dayPts += getPlayerMatchDelta(m, user.id);
             });
           }
 
-          if (!map[dateStr]) map[dateStr] = { count: 0, pts: 0 };
+          if (!map[dateStr]) map[dateStr] = { count: 0, matches: 0, pts: 0 };
           map[dateStr].count += 1;
+          map[dateStr].matches += dayMatches;
           map[dateStr].pts += dayPts;
         });
 
@@ -213,8 +218,8 @@ const Profile: React.FC<ProfileProps> = ({
     return weeks;
   }, [activityMap, now]);
 
-  const monthSessionCount = useMemo(
-    () => Object.values(activityMap).reduce((sum, d) => sum + d.count, 0),
+  const monthMatchCount = useMemo(
+    () => Object.values(activityMap).reduce((sum, d) => sum + d.matches, 0),
     [activityMap]
   );
 
@@ -528,10 +533,10 @@ const Profile: React.FC<ProfileProps> = ({
                 <div className="flex flex-col items-start gap-3">
                   <div className="flex flex-col">
                     <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                      Sessions
+                      Matches
                     </span>
                     <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
-                      {monthSessionCount}
+                      {monthMatchCount}
                     </span>
                   </div>
                   <div className="flex flex-col">
