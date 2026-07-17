@@ -221,6 +221,18 @@ const Profile: React.FC<ProfileProps> = ({
 
     let streakCount = 0;
     let streakType: 'W' | 'L' = 'W';
+    let maxWinStreak = 0;
+    let tempWinStr = 0;
+
+    for (const m of myMatches) {
+      if (m.won) {
+        tempWinStr++;
+        if (tempWinStr > maxWinStreak) maxWinStreak = tempWinStr;
+      } else {
+        tempWinStr = 0;
+      }
+    }
+
     if (myMatches.length > 0) {
       streakType = myMatches[myMatches.length - 1].won ? 'W' : 'L';
       for (let i = myMatches.length - 1; i >= 0; i--) {
@@ -230,7 +242,7 @@ const Profile: React.FC<ProfileProps> = ({
     }
 
     const last10 = myMatches.slice(-10).map((m) => m.won);
-    return { streakCount, streakType, last10 };
+    return { streakCount, streakType, maxWinStreak, last10 };
   }, [sessions, user.id]);
 
   const rank = useMemo(() => {
@@ -395,12 +407,10 @@ const Profile: React.FC<ProfileProps> = ({
             </div>
             <div className="flex flex-col">
               <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                Last 10
+                Best
               </span>
               <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
-                {formTeaser.last10.filter(Boolean).length}
-                <span className="text-gray-600 mx-0.5">/</span>
-                {formTeaser.last10.filter((w) => !w).length}
+                {formTeaser.maxWinStreak > 0 ? `${formTeaser.maxWinStreak}W` : '—'}
               </span>
             </div>
           </div>
