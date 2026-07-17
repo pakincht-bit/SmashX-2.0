@@ -221,8 +221,8 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  ))}
  </div>
 
- {/* Grid of Feature Thumbnails — no max-height so options aren't clipped */}
- <div className="grid grid-cols-4 sm:grid-cols-5 gap-1 p-1">
+ {/* Grid of Feature Thumbnails */}
+ <div className="grid grid-cols-4 sm:grid-cols-5 gap-1 p-1 max-h-[320px] overflow-y-auto no-scrollbar" style={{ scrollbarWidth: 'none' }}>
  {dynamicCategories.find(c => c.id === activeTab)?.options.map((optionLabel) => {
  const isNullOption = optionLabel === 'none';
  const isFrameTab = activeTab === 'frame';
