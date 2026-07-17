@@ -9,7 +9,6 @@ import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import FrameUnlockModal from './components/FrameUnlockModal';
 import PullToRefresh from './components/PullToRefresh';
-import PlayerGroupsSection from './components/PlayerGroupsSection';
 import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users, Wifi } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
@@ -29,6 +28,7 @@ const InstallGuideModal = lazy(() => import('./components/InstallGuideModal'));
 const ShareReportModal = lazy(() => import('./components/ShareReportModal'));
 const GroupManageModal = lazy(() => import('./components/GroupManageModal'));
 const GroupLeaderboardModal = lazy(() => import('./components/GroupLeaderboardModal'));
+const GroupsPage = lazy(() => import('./components/GroupsPage'));
 const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })));
 
 const SESSIONS_PER_PAGE = 10;
@@ -89,6 +89,7 @@ const App: React.FC = () => {
 
  // Player Groups
  const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>([]);
+ const [isGroupsOpen, setIsGroupsOpen] = useState(false);
  const [isGroupManageOpen, setIsGroupManageOpen] = useState(false);
  const [managingGroup, setManagingGroup] = useState<PlayerGroup | null>(null);
  const [rankingGroup, setRankingGroup] = useState<PlayerGroup | null>(null);
@@ -1643,13 +1644,6 @@ const App: React.FC = () => {
  </div>
  )}
 
- <PlayerGroupsSection
- groups={playerGroups}
- allUsers={users}
- onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }}
- onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }}
- />
-
  {/* Recent Battles */}
  {recentSessions.length > 0 && (
  <div className="space-y-4 mt-8 mb-4">
@@ -1711,7 +1705,7 @@ const App: React.FC = () => {
               <Loader2 size={12} className="animate-spin" /><span>Syncing Arena Data...</span>
             </div>
           )}
-          <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} />
+          <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} onOpenGroups={() => setIsGroupsOpen(true)} />
         </div>
  <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</main>
  </div>
@@ -1853,6 +1847,27 @@ const App: React.FC = () => {
  }}
  />
  )}
+ </Suspense>
+ </div>
+ </div>
+ )}
+ {isGroupsOpen && (
+ <div className="fixed inset-0 z-[200] bg-navy-base overflow-y-auto animate-in fade-in duration-300">
+ <div className="mx-auto min-h-screen relative w-full px-0 py-0">
+ <Suspense
+ fallback={
+ <div className="flex items-center justify-center min-h-screen">
+ <Loader2 className="animate-spin text-neon-primary" size={32} />
+ </div>
+ }
+ >
+ <GroupsPage
+ groups={playerGroups}
+ allUsers={users}
+ onClose={() => setIsGroupsOpen(false)}
+ onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }}
+ onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }}
+ />
  </Suspense>
  </div>
  </div>
