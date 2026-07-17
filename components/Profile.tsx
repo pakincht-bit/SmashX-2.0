@@ -164,7 +164,7 @@ const SynergyRow = ({
       </div>
 
       {player && (
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-4 shrink-0">
           <span className="text-[11px] font-bold tabular-nums leading-none">
             <span className="text-neon-primary">{wins}W</span>
             <span className="text-gray-500 mx-0.5">/</span>
