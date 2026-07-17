@@ -1711,7 +1711,7 @@ const App: React.FC = () => {
               <Loader2 size={12} className="animate-spin" /><span>Syncing Arena Data...</span>
             </div>
           )}
-          <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} onOpenHistory={() => setIsHistoryOpen(true)} onOpenActivity={() => setIsActivityOpen(true)} />
+          <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} />
         </div>
  <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</main>
  </div>

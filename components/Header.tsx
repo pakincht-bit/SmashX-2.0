@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { User, Session } from '../types';
-import { LogOut, History, Calendar } from 'lucide-react';
-import { triggerHaptic, getAvatarColor, getRankFrameClass, getDateParts, formatTime } from '../utils';
+import { LogOut } from 'lucide-react';
+import { triggerHaptic, getAvatarColor, getRankFrameClass } from '../utils';
 
 interface HeaderProps {
  currentUser: User;
@@ -13,8 +13,6 @@ interface HeaderProps {
  showLogoutButton?: boolean;
  onLogoClick?: () => void;
  sessions?: Session[];
- onOpenHistory?: () => void;
- onOpenActivity?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = React.memo(({
@@ -25,9 +23,6 @@ const Header: React.FC<HeaderProps> = React.memo(({
  onLogout,
  showLogoutButton = false,
  onLogoClick,
- sessions = [],
- onOpenHistory,
- onOpenActivity
 }) => {
  const rank = useMemo(() => {
  if (!currentUser || !allUsers) return '-';
@@ -40,7 +35,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
  <header className="w-full">
  <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative">
  
- {/* Left Block: Profile + History Toggle */}
+ {/* Left Block: Profile */}
  <div className="flex items-center">
  <div
  onClick={() => {
@@ -71,24 +66,13 @@ const Header: React.FC<HeaderProps> = React.memo(({
 
  {/* Right Block: Actions */}
  <div className="flex items-center gap-3 sm:gap-4">
- <button
- onClick={(e) => {
- e.stopPropagation();
- triggerHaptic('light');
- onOpenActivity?.();
- }}
- className="p-2 sm:p-2.5 rounded-full transition-all shrink-0 bg-[#000B29]/50 text-gray-400 border border-transparent "
- title="Activity Log"
- >
- <Calendar size={18} className="" />
- </button>
  {showCreateButton && (
  <button
  onClick={() => {
  triggerHaptic('medium');
  onOpenCreate();
  }}
- className="hidden sm:block bg-[#00FF41] text-[#000B29] px-5 py-2.5 rounded-none -skew-x-12 text-sm font-black uppercase tracking-wider shadow-[0_0_20px_rgba(0,255,65,0.2)] transition-all (255,255,255,0.4)] active:scale-95 items-center gap-2"
+ className="hidden sm:block bg-[#00FF41] text-[#000B29] px-5 py-2.5 rounded-none -skew-x-12 text-sm font-black uppercase tracking-wider shadow-[0_0_20px_rgba(0,255,65,0.2)] transition-all active:scale-95 items-center gap-2"
  >
  <span className="skew-x-12 inline-block whitespace-nowrap">+ New Session</span>
  </button>
