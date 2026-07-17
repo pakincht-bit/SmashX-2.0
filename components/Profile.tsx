@@ -394,7 +394,7 @@ const Profile: React.FC<ProfileProps> = ({
       {/* Ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg aspect-square bg-neon-primary rounded-full blur-[160px] opacity-[0.05] pointer-events-none z-0" />
 
-      <div className="relative z-10 w-full max-w-xl mx-auto px-6 sm:px-8 pt-6 md:pt-8 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-24">
+      <div className="relative z-10 w-full max-w-xl mx-auto px-4 sm:px-6 pt-4 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-20">
         {/* Identity + career — single static group */}
         <section className="w-full mb-2 p-4">
           <div className="flex items-center gap-8 w-full mb-4">
