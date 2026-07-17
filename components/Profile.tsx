@@ -395,8 +395,8 @@ const Profile: React.FC<ProfileProps> = ({
               <Loader2 size={18} className="animate-spin text-neon-primary" />
             </div>
           ) : (
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 flex flex-col gap-2 pt-0.5">
+            <div className="flex items-stretch gap-4">
+              <div className="shrink-0 flex flex-col pt-0.5">
                 <div className="flex items-start gap-4">
                   <div className="flex flex-col">
                     <span className="text-4xl font-black tabular-nums tracking-tighter text-white leading-none">
@@ -424,12 +424,12 @@ const Profile: React.FC<ProfileProps> = ({
                     </span>
                   </div>
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-auto">
                   {activeDays} active day{activeDays === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
                 </span>
               </div>
 
-              <div className="flex-1 min-w-0 flex flex-col items-end justify-center">
+              <div className="flex-1 min-w-0 flex flex-col items-end justify-end">
                 <div className="flex flex-col gap-1.5">
                   {calendarWeeks.map((week, wIdx) => (
                     <div key={wIdx} className="flex gap-1.5 justify-end">
