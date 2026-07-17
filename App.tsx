@@ -7,7 +7,6 @@ import SessionCard from './components/SessionCard';
 import BottomNav from './components/BottomNav';
 import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
-import InstallBanner from './components/InstallBanner';
 import FrameUnlockModal from './components/FrameUnlockModal';
 import PullToRefresh from './components/PullToRefresh';
 import PlayerGroupsSection from './components/PlayerGroupsSection';
@@ -1692,7 +1691,6 @@ const App: React.FC = () => {
  <PullToRefresh onRefresh={handlePullToRefresh}>
  <div className="min-h-screen pb-24 bg-[#000B29] text-white">
         <div className="sticky top-0 z-[60] flex flex-col w-full bg-[#000B29]/90 backdrop-blur-md pt-[env(safe-area-inset-top)] border-b border-white/5">
-          <InstallBanner onOpenGuide={() => setShowInstallGuide(true)} />
           {/* Connection Status Indicator (realtime-sync skill §1) */}
           {(connectionStatus === 'reconnecting' || connectionStatus === 'disconnected' || isOffline) && (
             <div className={`flex items-center justify-center gap-2 py-1.5 px-4 text-[10px] font-black uppercase tracking-[0.15em] transition-all ${
