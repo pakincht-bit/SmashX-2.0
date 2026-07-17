@@ -1647,7 +1647,7 @@ const App: React.FC = () => {
  {/* Recent Battles */}
  {recentSessions.length > 0 && (
  <div className="space-y-4 mt-8 mb-4">
- <h3 className="text-base font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-3">
+ <h3 className="text-sm font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-3">
  <span>Recent <span className="text-[#00FF41]">Battles</span></span>
  </h3>
  <div className="space-y-2">
