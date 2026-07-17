@@ -79,6 +79,7 @@ Login uses email derived from username: `${name.replace(/\s/g, '').toLowerCase()
 
 ## Cursor Cloud specific instructions
 
+- Git workflow: commit and push changes **directly to `main`**. Do NOT open a pull request unless the user explicitly asks for one.
 - Dev server: `npm run dev` (Vite) serves on `http://localhost:3000` (port fixed in `vite.config.ts`). Standard commands live in the `## Commands` section above; there is no test suite or linter.
 - Backend is live and shared: Supabase URL + anon key are hardcoded in `services/supabaseClient.ts`, so no env vars/secrets are needed to run. Registering accounts and creating/editing sessions write to the **real, shared** Supabase project — use throwaway usernames when testing and avoid mutating other users' data.
 - The Gemini "parse session from text" feature (`services/geminiService.ts`) reads `process.env.API_KEY`, which is not defined in the browser bundle. That AI paste flow will silently fail, but manual session creation works fine — it does not block running or testing the app.
