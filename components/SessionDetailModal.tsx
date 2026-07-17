@@ -99,7 +99,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const [isInviteOpen, setIsInviteOpen] = useState(false);
  const [inviteSearchQuery, setInviteSearchQuery] = useState('');
  const [selectedInvitePlayerIds, setSelectedInvitePlayerIds] = useState<string[]>([]);
- const [inviteSheetTab, setInviteSheetTab] = useState<'players' | 'groups'>('players');
 
 
 
@@ -139,6 +138,10 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  .filter(u => !rosterSet.has(u.id))
  .sort((a, b) => a.name.localeCompare(b.name));
  }, [allUsers, session?.playerIds]);
+
+ // O(1) lookup sets for the invite sheet (players that can still be invited, and current selection)
+ const inviteableIdSet = useMemo(() => new Set(inviteablePlayers.map(p => p.id)), [inviteablePlayers]);
+ const selectedInviteIdSet = useMemo(() => new Set(selectedInvitePlayerIds), [selectedInvitePlayerIds]);
 
 
 
@@ -239,7 +242,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  return (
  <div className="-mx-4 sm:-mx-6 px-4 sm:px-6 mb-4">
  <button
- onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); setInviteSheetTab('players'); }}
+ onClick={() => { triggerHaptic('light'); setIsInviteOpen(true); setInviteSearchQuery(''); setSelectedInvitePlayerIds([]); }}
  className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-[#00FF41]/30 bg-[#001645] text-[#00FF41] transition-all active:scale-95"
  >
  <UserPlus size={16} />
@@ -278,32 +281,26 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  setIsInviteOpen(false);
  setInviteSearchQuery('');
  setSelectedInvitePlayerIds([]);
- setInviteSheetTab('players');
  };
 
- const handleInviteGroup = (group: PlayerGroup) => {
- const inviteIds = group.memberIds.filter(id => !session.playerIds.includes(id));
- if (inviteIds.length === 0) {
- setConfirmConfig({
- isOpen: true,
- title: 'Invite Group',
- message: `All members of "${group.name}" are already on the roster.`,
- action: () => {},
- isDestructive: false,
- confirmLabel: 'OK',
- });
- return;
+ // Inviteable (not already on roster) member ids for a group
+ const getGroupInviteableIds = (group: PlayerGroup) => group.memberIds.filter(id => inviteableIdSet.has(id));
+
+ // Selecting a group pre-checks all its inviteable members; selecting it again clears them.
+ // Individual players can still be toggled freely on top of this.
+ const toggleInviteGroupSelection = (group: PlayerGroup) => {
+ const ids = getGroupInviteableIds(group);
+ if (ids.length === 0) return;
+ triggerHaptic('light');
+ setSelectedInvitePlayerIds(prev => {
+ const allSelected = ids.every(id => prev.includes(id));
+ if (allSelected) {
+ const removeSet = new Set(ids);
+ return prev.filter(id => !removeSet.has(id));
  }
- setConfirmConfig({
- isOpen: true,
- title: 'Invite Group',
- message: `Add ${inviteIds.length} player${inviteIds.length === 1 ? '' : 's'} from "${group.name}" to this session?`,
- action: () => {
- onInvitePlayers(session.id, inviteIds);
- closeInviteSheet();
- },
- isDestructive: false,
- confirmLabel: `Invite ${inviteIds.length}`,
+ const merged = new Set(prev);
+ ids.forEach(id => merged.add(id));
+ return Array.from(merged);
  });
  };
 
@@ -1532,23 +1529,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <X size={20} />
  </button>
  </div>
- {playerGroups.length > 0 && (
- <div className="flex border-b border-[#002266] px-4 sm:px-6 shrink-0">
- <button
- onClick={() => { triggerHaptic('light'); setInviteSheetTab('players'); }}
- className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${inviteSheetTab === 'players' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent'}`}
- >
- Players
- </button>
- <button
- onClick={() => { triggerHaptic('light'); setInviteSheetTab('groups'); }}
- className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${inviteSheetTab === 'groups' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent'}`}
- >
- Groups
- </button>
- </div>
- )}
- {inviteSheetTab === 'players' ? (
  <>
  <div className="px-4 sm:px-6 py-3 border-b border-[#002266] shrink-0">
  <div className="flex items-center gap-2 bg-[#001645] px-3 py-2.5">
@@ -1562,6 +1542,28 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  autoFocus
  />
  </div>
+ {playerGroups.length > 0 && (
+ <div className="flex gap-2 mt-3 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-0.5">
+ {playerGroups.map(group => {
+ const groupInviteableIds = getGroupInviteableIds(group);
+ const invitable = groupInviteableIds.length;
+ const selectedInGroup = groupInviteableIds.filter(id => selectedInviteIdSet.has(id)).length;
+ const isGroupActive = invitable > 0 && selectedInGroup === invitable;
+ return (
+ <button
+ key={group.id}
+ onClick={() => toggleInviteGroupSelection(group)}
+ disabled={invitable === 0}
+ className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${invitable === 0 ? 'border-[#002266] bg-[#001030] text-gray-600 cursor-not-allowed' : isGroupActive ? 'border-[#00FF41] bg-[#00FF41]/15 text-[#00FF41]' : 'border-[#002266] bg-[#001645] text-gray-300'}`}
+ >
+ {isGroupActive ? <Check size={11} strokeWidth={3} /> : <Users size={11} />}
+ <span>{group.name}</span>
+ <span className="tabular-nums opacity-70">{invitable === 0 ? 'all in' : `${selectedInGroup}/${invitable}`}</span>
+ </button>
+ );
+ })}
+ </div>
+ )}
  {selectedInvitePlayerIds.length > 0 && (
  <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-[#00FF41] tabular-nums">
  {selectedInvitePlayerIds.length} selected
@@ -1579,7 +1581,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  ) : (
  <div className="space-y-2">
  {filteredInvitePlayers.map(player => {
- const isSelected = selectedInvitePlayerIds.includes(player.id);
+ const isSelected = selectedInviteIdSet.has(player.id);
  return (
  <button
  key={player.id}
@@ -1623,48 +1625,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </button>
  </div>
  </>
- ) : (
- <>
- <div className="p-4 sm:p-6 overflow-y-auto flex-1">
- {playerGroups.length === 0 ? (
- <div className="flex flex-col items-center justify-center py-16">
- <Users size={32} className="text-gray-600 mb-3" />
- <p className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Create a group on the Arena page first</p>
- </div>
- ) : (
- <div className="space-y-2">
- {playerGroups.map(group => {
- const pendingCount = group.memberIds.filter(id => !session.playerIds.includes(id)).length;
- return (
- <button
- key={group.id}
- onClick={() => { triggerHaptic('light'); handleInviteGroup(group); }}
- disabled={pendingCount === 0}
- className={`w-full flex items-center justify-between p-4 rounded-none transition-all active:scale-[0.98] ${pendingCount > 0 ? 'bg-[#001645]' : 'bg-[#001030] opacity-60'}`}
- >
- <div className="text-left min-w-0">
- <div className="text-sm font-black italic uppercase text-white truncate">{group.name}</div>
- <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1 tabular-nums">
- {group.memberIds.length} members · {pendingCount > 0 ? `${pendingCount} to invite` : 'all invited'}
- </div>
- </div>
- <UserPlus size={16} className={`shrink-0 ${pendingCount > 0 ? 'text-[#00FF41]' : 'text-gray-600'}`} />
- </button>
- );
- })}
- </div>
- )}
- </div>
- <div className="p-4 sm:px-6 bg-[#000B29] border-t border-[#002266] shrink-0">
- <button
- onClick={() => { triggerHaptic('light'); closeInviteSheet(); }}
- className="w-full py-3.5 border border-[#002266] bg-[#001645] text-gray-400 transition-all font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] active:scale-95"
- >
- <span className="skew-x-[6deg] inline-block">Close</span>
- </button>
- </div>
- </>
- )}
  <div className="pb-[env(safe-area-inset-bottom)] shrink-0 bg-[#000B29]" />
  </div>
  </div>
