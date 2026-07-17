@@ -14,6 +14,11 @@ Move player groups off the Arena home page onto a dedicated full-screen page ope
 - New Group action + empty-state CTA → same create flow
 - Arena home no longer renders the groups carousel
 
+## Create flow
+1. Select members (searchable checklist; you are auto-included)
+2. Name group — name input in the header section; body shows selected members as avatar + name only (no pts)
+3. Create Group
+
 ## Data
 - Reuse existing `playerGroups` state and create/manage/delete handlers in `App.tsx`
 - No schema or RPC changes
