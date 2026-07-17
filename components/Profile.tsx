@@ -530,7 +530,7 @@ const Profile: React.FC<ProfileProps> = ({
                       {week.map((day) => (
                         <span
                           key={day.dateStr}
-                          className={`w-3.5 h-3.5 shrink-0 rounded-full ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)}`}
+                          className={`w-3.5 h-3.5 shrink-0 rounded-none ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)}`}
                         />
                       ))}
                     </div>
