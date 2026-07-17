@@ -308,14 +308,6 @@ const Profile: React.FC<ProfileProps> = ({
 
         {/* Career stats — compact block */}
         <section className="w-full mb-4 bg-navy-struct p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
-              Care<span className="text-neon-primary">er</span>
-            </h3>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-              All time
-            </span>
-          </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col">
               <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
