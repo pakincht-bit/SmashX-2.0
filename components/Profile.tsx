@@ -11,6 +11,12 @@ import {
 } from '../utils';
 import { Badge } from './ui/Badge';
 import { supabase } from '../services/supabaseClient';
+import {
+  fetchAllTimeSessions,
+  getCachedAllTimeSessions,
+  isAllTimeSessionsCacheFresh,
+  mergeSessionsWithLive,
+} from '../services/allTimeSessions';
 
 interface ProfileProps {
   user: User;
@@ -79,8 +85,34 @@ const Profile: React.FC<ProfileProps> = ({
 }) => {
   const [activityMap, setActivityMap] = useState<Record<string, { count: number; pts: number }>>({});
   const [isLoadingActivity, setIsLoadingActivity] = useState(true);
+  const cachedAllTime = getCachedAllTimeSessions(user.id);
+  const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(cachedAllTime ?? sessions);
 
   const now = useMemo(() => new Date(), []);
+
+  // Same all-time match history as Stats page (needed for accurate streak / best / last-10)
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAllTime = async () => {
+      if (isAllTimeSessionsCacheFresh(user.id)) {
+        const cached = getCachedAllTimeSessions(user.id);
+        if (cached && !cancelled) setAllTimeSessions(cached);
+        return;
+      }
+      try {
+        const mapped = await fetchAllTimeSessions(user.id);
+        if (!cancelled) setAllTimeSessions(mapped);
+      } catch (err) {
+        console.error('Profile: failed to fetch all-time sessions', err);
+      }
+    };
+
+    loadAllTime();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,17 +231,22 @@ const Profile: React.FC<ProfileProps> = ({
     return { played, wins, losses, winRate };
   }, [user.wins, user.losses]);
 
+  const formSessions = useMemo(
+    () => mergeSessionsWithLive(allTimeSessions, sessions),
+    [allTimeSessions, sessions]
+  );
+
   const formTeaser = useMemo(() => {
     const myMatches: { won: boolean; timestamp: number }[] = [];
 
-    sessions.forEach((session) => {
+    formSessions.forEach((session) => {
       (session.matches || []).forEach((match) => {
         const isTeam1 = match.team1Ids.includes(user.id);
         const isTeam2 = match.team2Ids.includes(user.id);
         if (!isTeam1 && !isTeam2) return;
-        const won =
-          (isTeam1 && match.winningTeamIndex === 1) ||
-          (isTeam2 && match.winningTeamIndex === 2);
+        // Match StatsPage win logic exactly
+        const team1Won = match.winningTeamIndex === 1;
+        const won = (isTeam1 && team1Won) || (isTeam2 && !team1Won);
         myMatches.push({
           won,
           timestamp: new Date(match.timestamp || session.startTime).getTime(),
@@ -243,7 +280,7 @@ const Profile: React.FC<ProfileProps> = ({
 
     const last10 = myMatches.slice(-10).map((m) => m.won);
     return { streakCount, streakType, maxWinStreak, last10 };
-  }, [sessions, user.id]);
+  }, [formSessions, user.id]);
 
   const rank = useMemo(() => {
     const sorted = [...allUsers].sort((a, b) => b.points - a.points);

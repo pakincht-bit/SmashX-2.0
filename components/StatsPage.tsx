@@ -1,8 +1,13 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { User, Session } from '../types';
 import { Trophy, Activity, Swords, Users, ChevronRight, Loader2 } from 'lucide-react';
-import { getAvatarColor, getNextTierProgress, getWinRateColor, triggerHaptic, mapSessionFromDB, getRankFrameClass } from '../utils';
-import { supabase } from '../services/supabaseClient';
+import { getAvatarColor, getNextTierProgress, getWinRateColor, triggerHaptic, getRankFrameClass } from '../utils';
+import {
+    fetchAllTimeSessions,
+    getCachedAllTimeSessions,
+    isAllTimeSessionsCacheFresh,
+    mergeSessionsWithLive,
+} from '../services/allTimeSessions';
 
 interface StatsPageProps {
     currentUser: User;
@@ -12,20 +17,12 @@ interface StatsPageProps {
     onPlayerClick?: (userId: string) => void;
 }
 
-// Module-level cache for all-time sessions (offline-resilience pattern)
-let globalAllTimeSessions: Session[] | null = null;
-let globalAllTimeSessionsUserId: string | null = null;
-let globalAllTimeSessionsFetchTime: number = 0;
-
 const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, onOpenTiers, onPlayerClick }) => {
     const rankProgression = useMemo(() => getNextTierProgress(currentUser.points), [currentUser.points]);
 
-    const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(
-        globalAllTimeSessions && globalAllTimeSessionsUserId === currentUser.id ? globalAllTimeSessions : sessions
-    );
-    const [isLoadingData, setIsLoadingData] = useState<boolean>(
-        !globalAllTimeSessions || globalAllTimeSessionsUserId !== currentUser.id
-    );
+    const cached = getCachedAllTimeSessions(currentUser.id);
+    const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(cached ?? sessions);
+    const [isLoadingData, setIsLoadingData] = useState<boolean>(!cached);
     const [encounterTab, setEncounterTab] = useState<'teammates' | 'opponents'>('teammates');
     const [encounterSort, setEncounterSort] = useState<{ col: 'gp' | 'w' | 'l' | 'wr'; dir: 'desc' | 'asc' }>({ col: 'gp', dir: 'desc' });
 
@@ -35,29 +32,14 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
 
     useEffect(() => {
         const fetchAllTimeHistory = async () => {
-            const now = Date.now();
-            const hasValidCache = globalAllTimeSessions && 
-                                  globalAllTimeSessionsUserId === currentUser.id && 
-                                  (now - globalAllTimeSessionsFetchTime < 5 * 60 * 1000);
+            if (isAllTimeSessionsCacheFresh(currentUser.id)) return;
 
-            if (hasValidCache) return;
-
-            if (!globalAllTimeSessions || globalAllTimeSessionsUserId !== currentUser.id) {
+            if (!getCachedAllTimeSessions(currentUser.id)) {
                 setIsLoadingData(true);
             }
             try {
-                const { data, error } = await supabase
-                    .from('sessions')
-                    .select('*')
-                    .contains('player_ids', [currentUser.id]);
-
-                if (data && !error) {
-                    const mapped = data.map(mapSessionFromDB);
-                    setAllTimeSessions(mapped);
-                    globalAllTimeSessions = mapped;
-                    globalAllTimeSessionsUserId = currentUser.id;
-                    globalAllTimeSessionsFetchTime = Date.now();
-                }
+                const mapped = await fetchAllTimeSessions(currentUser.id);
+                setAllTimeSessions(mapped);
             } catch (err) {
                 console.error("StatsPage: failed to fetch all time history", err);
             } finally {
@@ -69,13 +51,10 @@ const StatsPage: React.FC<StatsPageProps> = ({ currentUser, allUsers, sessions, 
     }, [currentUser.id]);
 
     // Merge cached all-time sessions with live incoming sessions from App.tsx
-    const mergedSessions = useMemo(() => {
-        const sessionMap = new Map<string, Session>();
-        allTimeSessions.forEach(s => sessionMap.set(s.id, s));
-        sessions.forEach(s => sessionMap.set(s.id, s));
-        return Array.from(sessionMap.values());
-    }, [allTimeSessions, sessions]);
-
+    const mergedSessions = useMemo(
+        () => mergeSessionsWithLive(allTimeSessions, sessions),
+        [allTimeSessions, sessions]
+    );
     // 2. Global Analytics Computation
     const {
         duoPartner, frequentDuo, archNemesis, easyTarget,
