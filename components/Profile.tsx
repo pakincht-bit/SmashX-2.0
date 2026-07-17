@@ -507,6 +507,15 @@ const Profile: React.FC<ProfileProps> = ({
           }}
           className="w-full mb-6 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
         >
+          <div className="flex items-end justify-between mb-3">
+            <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
+              Activ<span className="text-neon-primary">ity</span>
+            </h3>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+              {now.toLocaleString('en-US', { month: 'short', year: 'numeric' })}
+            </span>
+          </div>
+
           {isLoadingActivity ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 size={18} className="animate-spin text-neon-primary" />
