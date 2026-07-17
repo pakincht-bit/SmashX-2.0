@@ -490,28 +490,18 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 tabular-nums">{members.length} members</p>
           </div>
           {isOwner && (
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={toggleAddPanel}
-                aria-label="Add member"
-                className="p-2.5 rounded-none transition-all active:scale-95 bg-[#001645] text-[#00FF41]"
-              >
-                <UserPlus size={18} strokeWidth={2.5} />
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteGroup}
-                aria-label="Delete group"
-                className="p-2.5 rounded-none bg-[#001645] text-red-400 transition-all active:scale-95"
-              >
-                <Trash2 size={18} strokeWidth={2.5} />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleDeleteGroup}
+              aria-label="Delete group"
+              className="p-2.5 rounded-none bg-[#001645] text-red-400 transition-all active:scale-95 shrink-0"
+            >
+              <Trash2 size={18} strokeWidth={2.5} />
+            </button>
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="grid grid-cols-4 gap-x-3 gap-y-4">
             {members.map(member => {
               const canRemove = isOwner && member.id !== group.ownerId;
@@ -559,6 +549,21 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
             })}
           </div>
         </div>
+
+        {isOwner && (
+          <div className="shrink-0 p-4 sm:px-6 bg-navy-base border-t border-navy-border pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <button
+              type="button"
+              onClick={toggleAddPanel}
+              className="w-full py-3.5 font-black uppercase tracking-wider text-xs rounded-none skew-x-[-6deg] flex items-center justify-center transition-all active:scale-95 bg-neon-primary text-navy-base"
+            >
+              <span className="skew-x-[6deg] inline-flex items-center gap-2">
+                <UserPlus size={14} />
+                Add Members
+              </span>
+            </button>
+          </div>
+        )}
       </div>
       )}
 
