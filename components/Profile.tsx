@@ -442,7 +442,7 @@ const Profile: React.FC<ProfileProps> = ({
                             disabled={!isClickable}
                             onClick={() => handleDateClick(day)}
                             aria-label={day.isCurrentMonth ? `${day.dateStr}` : undefined}
-                            className={`w-2 h-2 shrink-0 rounded-full transition-all ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)} ${isClickable ? 'active:scale-75' : ''} ${isSelected ? 'ring-1 ring-white ring-offset-1 ring-offset-navy-struct' : ''}`}
+                            className={`w-3.5 h-3.5 shrink-0 rounded-full transition-all ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)} ${isClickable ? 'active:scale-75' : ''} ${isSelected ? 'ring-1 ring-white ring-offset-1 ring-offset-navy-struct' : ''}`}
                           />
                         );
                       })}
