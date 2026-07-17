@@ -323,7 +323,7 @@ const Profile: React.FC<ProfileProps> = ({
     [activityMap]
   );
 
-  // Match activity heatmap geometry: 7 × w-3.5 dots with gap-1.5
+  // Match activity heatmap geometry: 7 × w-3.5 cells with gap-1.5
   const activityVisualSize = useMemo(() => {
     const rows = Math.max(calendarWeeks.length, 1);
     const cols = 7;
