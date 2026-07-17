@@ -496,6 +496,79 @@ const Profile: React.FC<ProfileProps> = ({
           </div>
         </section>
 
+        {/* Activity — opens full calendar heatmap */}
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('light');
+            onOpenActivity();
+          }}
+          className="w-full mb-2 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
+              {now.toLocaleString('en-US', { month: 'short', year: 'numeric' })}
+            </h3>
+            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1">
+              View activity log
+              <ChevronRight size={12} className="text-neon-primary" />
+            </span>
+          </div>
+
+          {isLoadingActivity ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 size={18} className="animate-spin text-neon-primary" />
+            </div>
+          ) : (
+            <div className="flex items-stretch gap-4">
+              <div className="shrink-0 flex flex-col pt-0.5">
+                <div className="flex flex-col items-start gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                      Matches
+                    </span>
+                    <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
+                      {monthMatchCount}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                      Net pts
+                    </span>
+                    <span
+                      className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
+                        monthNetPts > 0
+                          ? 'text-neon-primary'
+                          : monthNetPts < 0
+                            ? 'text-red-500'
+                            : 'text-white'
+                      }`}
+                    >
+                      {monthNetPts > 0 ? '+' : ''}
+                      {monthNetPts}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0 flex flex-col items-end justify-end pointer-events-none">
+                <div className="flex flex-col gap-1.5 shrink-0" style={activityVisualSize}>
+                  {calendarWeeks.map((week, wIdx) => (
+                    <div key={wIdx} className="flex gap-1.5 justify-end">
+                      {week.map((day) => (
+                        <span
+                          key={day.dateStr}
+                          className={`w-3.5 h-3.5 shrink-0 rounded-full ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)}`}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </button>
+
         {/* Form teaser — opens full Stats tab */}
         <button
           type="button"
@@ -571,7 +644,7 @@ const Profile: React.FC<ProfileProps> = ({
         </button>
 
         {/* Social Synergies — highlight cards only (no encounter table) */}
-        <section className="w-full mb-2">
+        <section className="w-full mb-6">
           <div className="flex items-end justify-between mb-3">
             <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
               Social <span className="text-gray-500">Synergy</span>
@@ -648,79 +721,6 @@ const Profile: React.FC<ProfileProps> = ({
             />
           </div>
         </section>
-
-        {/* Activity — opens full calendar heatmap */}
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('light');
-            onOpenActivity();
-          }}
-          className="w-full mb-6 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
-              {now.toLocaleString('en-US', { month: 'short', year: 'numeric' })}
-            </h3>
-            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1">
-              View activity log
-              <ChevronRight size={12} className="text-neon-primary" />
-            </span>
-          </div>
-
-          {isLoadingActivity ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 size={18} className="animate-spin text-neon-primary" />
-            </div>
-          ) : (
-            <div className="flex items-stretch gap-4">
-              <div className="shrink-0 flex flex-col pt-0.5">
-                <div className="flex flex-col items-start gap-3">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                      Matches
-                    </span>
-                    <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
-                      {monthMatchCount}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                      Net pts
-                    </span>
-                    <span
-                      className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
-                        monthNetPts > 0
-                          ? 'text-neon-primary'
-                          : monthNetPts < 0
-                            ? 'text-red-500'
-                            : 'text-white'
-                      }`}
-                    >
-                      {monthNetPts > 0 ? '+' : ''}
-                      {monthNetPts}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 min-w-0 flex flex-col items-end justify-end pointer-events-none">
-                <div className="flex flex-col gap-1.5 shrink-0" style={activityVisualSize}>
-                  {calendarWeeks.map((week, wIdx) => (
-                    <div key={wIdx} className="flex gap-1.5 justify-end">
-                      {week.map((day) => (
-                        <span
-                          key={day.dateStr}
-                          className={`w-3.5 h-3.5 shrink-0 rounded-full ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)}`}
-                        />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </button>
 
         {/* Frames achievements */}
         <section className="w-full mb-10">
