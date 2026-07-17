@@ -384,7 +384,7 @@ const Profile: React.FC<ProfileProps> = ({
                   </div>
                 </div>
                 <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-auto inline-flex items-center gap-1">
-                  {activeDays} active day{activeDays === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
+                  View activity log
                   <ChevronRight size={12} className="text-neon-primary" />
                 </span>
               </div>
