@@ -205,9 +205,9 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ initialOptions, onUrlChan
  </div>
 
  {/* Editing Controls */}
- <div className="w-full bg-[#001645] border border-[#002266] shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-none p-4 space-y-4 relative overflow-hidden">
+ <div className="w-full space-y-4 relative">
  {/* Tabs */}
- <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar px-1 -mx-1"style={{ scrollbarWidth: 'none' }}>
+ <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar" style={{ scrollbarWidth: 'none' }}>
  {dynamicCategories.map(cat => (
  <button
  key={cat.id}
