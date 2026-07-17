@@ -434,36 +434,42 @@ const Profile: React.FC<ProfileProps> = ({
           }}
           className="w-full mb-2 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
         >
-          <div className="flex items-start gap-4 mb-3">
-            <div className="flex flex-col">
-              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                Streak
-              </span>
-              <span
-                className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
-                  formTeaser.streakCount > 0
-                    ? formTeaser.streakType === 'W'
-                      ? 'text-neon-primary'
-                      : 'text-red-500'
-                    : 'text-gray-400'
-                }`}
-              >
-                {formTeaser.streakCount > 0
-                  ? `${formTeaser.streakCount}${formTeaser.streakType}`
-                  : '—'}
-              </span>
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-start gap-4">
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                  Streak
+                </span>
+                <span
+                  className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
+                    formTeaser.streakCount > 0
+                      ? formTeaser.streakType === 'W'
+                        ? 'text-neon-primary'
+                        : 'text-red-500'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  {formTeaser.streakCount > 0
+                    ? `${formTeaser.streakCount}${formTeaser.streakType}`
+                    : '—'}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                  Best
+                </span>
+                <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
+                  {formTeaser.maxWinStreak > 0 ? `${formTeaser.maxWinStreak}W` : '—'}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                Best
-              </span>
-              <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
-                {formTeaser.maxWinStreak > 0 ? `${formTeaser.maxWinStreak}W` : '—'}
-              </span>
-            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1 shrink-0 pt-0.5">
+              View stats
+              <ChevronRight size={12} className="text-neon-primary" />
+            </span>
           </div>
 
-          <div className="mb-3">
+          <div>
             {formTeaser.last10.length === 0 ? (
               <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
                 No matches yet
@@ -491,11 +497,6 @@ const Profile: React.FC<ProfileProps> = ({
               </div>
             )}
           </div>
-
-          <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1">
-            View stats
-            <ChevronRight size={12} className="text-neon-primary" />
-          </span>
         </button>
 
         {/* Activity — opens full calendar heatmap */}
