@@ -433,20 +433,13 @@ const Profile: React.FC<ProfileProps> = ({
         {/* Identity + career — single static group */}
         <section className="w-full mb-2 bg-navy-struct p-4">
           <div className="flex items-center gap-8 w-full mb-4">
-            <div className="flex-1 min-w-0 flex flex-col gap-2">
+            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400">
+                Rank #{rank}
+              </span>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter truncate leading-none">
                 {user.name}
               </h1>
-
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold uppercase tracking-[0.2em] italic text-gray-400 shrink-0">
-                  Rank #{rank}
-                </span>
-                <span className="text-[10px] text-neon-primary shrink-0">•</span>
-                <span className="text-sm font-black italic tabular-nums text-neon-primary tracking-tighter shrink-0">
-                  {user.points} <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">pts</span>
-                </span>
-              </div>
             </div>
 
             <div className="relative shrink-0">
@@ -473,7 +466,15 @@ const Profile: React.FC<ProfileProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-2">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                Pts
+              </span>
+              <span className="text-xl tabular-nums font-black italic tracking-tighter text-neon-primary leading-none">
+                {user.points}
+              </span>
+            </div>
             <div className="flex flex-col">
               <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
                 Played
