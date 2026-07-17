@@ -231,15 +231,6 @@ const Profile: React.FC<ProfileProps> = ({
     return sorted.findIndex((u) => u.id === user.id) + 1;
   }, [allUsers, user.id]);
 
-  const rankGlow = useMemo(() => {
-    const p = user.points;
-    if (p >= 2000) return 'bg-yellow-400 shadow-[0_0_12px_gold]';
-    if (p >= 1600) return 'bg-purple-500 shadow-[0_0_12px_#a855f7]';
-    if (p >= 1300) return 'bg-orange-500 shadow-[0_0_12px_#f97316]';
-    if (p >= 1100) return 'bg-cyan-400 shadow-[0_0_12px_#22d3ee]';
-    return 'bg-gray-500';
-  }, [user.points]);
-
   const unlockedSet = useMemo(
     () => new Set(getUnlockedFrames(user.points, user.specialFrame)),
     [user.points, user.specialFrame]
