@@ -390,8 +390,8 @@ const Profile: React.FC<ProfileProps> = ({
 
         {/* Career stats — compact block */}
         <section className="w-full mb-4 bg-navy-struct p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
               Care<span className="text-neon-primary">er</span>
             </h3>
             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
@@ -432,9 +432,9 @@ const Profile: React.FC<ProfileProps> = ({
 
         {/* Activity — compact current month */}
         <section className="w-full mb-8 bg-navy-struct p-4">
-          <div className="flex items-start justify-between mb-3 gap-3">
+          <div className="flex items-start justify-between mb-2 gap-3">
             <div className="min-w-0">
-              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white leading-none">
+              <h3 className="text-sm font-black italic uppercase tracking-wider text-white leading-none">
                 Activ<span className="text-neon-primary">ity</span>
               </h3>
               <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1 block">
@@ -538,8 +538,8 @@ const Profile: React.FC<ProfileProps> = ({
 
         {/* Frames achievements */}
         <section className="w-full mb-10">
-          <div className="flex items-end justify-between mb-4">
-            <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">
+          <div className="flex items-end justify-between mb-3">
+            <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
               Fram<span className="text-neon-primary">es</span>
             </h3>
             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
