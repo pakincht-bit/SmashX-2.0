@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { User, Session } from '../types';
-import { Settings, LogOut, ArrowLeft, Loader2, X, Lock } from 'lucide-react';
+import { Settings, LogOut, ArrowLeft, Loader2, Lock, ChevronRight } from 'lucide-react';
 import {
   getAvatarColor,
   triggerHaptic,
@@ -8,9 +8,6 @@ import {
   getRankFrameClass,
   getUnlockedFrames,
   getPlayerMatchDelta,
-  mapSessionFromDB,
-  formatTime,
-  getDateParts,
 } from '../utils';
 import { Badge } from './ui/Badge';
 import { supabase } from '../services/supabaseClient';
@@ -23,6 +20,7 @@ interface ProfileProps {
   onSessionClick: (sessionId: string) => void;
   onOpenTiers: () => void;
   onOpenInstallGuide: () => void;
+  onOpenActivity: () => void;
   onLogout: () => void;
   onClose: () => void;
 }
@@ -73,15 +71,12 @@ const Profile: React.FC<ProfileProps> = ({
   user,
   allUsers,
   onOpenSettings,
-  onSessionClick,
+  onOpenActivity,
   onLogout,
   onClose,
 }) => {
   const [activityMap, setActivityMap] = useState<Record<string, { count: number; pts: number }>>({});
   const [isLoadingActivity, setIsLoadingActivity] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [daySessions, setDaySessions] = useState<Session[]>([]);
-  const [isLoadingDay, setIsLoadingDay] = useState(false);
 
   const now = useMemo(() => new Date(), []);
   const monthLabel = useMemo(
@@ -221,41 +216,6 @@ const Profile: React.FC<ProfileProps> = ({
     [user.points, user.specialFrame]
   );
 
-  const handleDateClick = async (day: DayCell) => {
-    if (day.count === 0 || day.isFuture || !day.isCurrentMonth) return;
-    triggerHaptic('light');
-
-    if (selectedDate === day.dateStr) {
-      setSelectedDate(null);
-      setDaySessions([]);
-      return;
-    }
-
-    setSelectedDate(day.dateStr);
-    setIsLoadingDay(true);
-
-    try {
-      const dayStart = new Date(`${day.dateStr}T00:00:00`);
-      const dayEnd = new Date(`${day.dateStr}T23:59:59`);
-
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('*')
-        .contains('player_ids', [user.id])
-        .gte('start_time', dayStart.toISOString())
-        .lte('start_time', dayEnd.toISOString())
-        .order('start_time', { ascending: true });
-
-      if (error) throw error;
-      setDaySessions(data ? data.map(mapSessionFromDB) : []);
-    } catch (err) {
-      console.error('Failed to fetch day sessions:', err);
-      setDaySessions([]);
-    } finally {
-      setIsLoadingDay(false);
-    }
-  };
-
   const handleFrameTap = (frameId: string, unlocked: boolean) => {
     if (!unlocked) {
       triggerHaptic('light');
@@ -388,8 +348,15 @@ const Profile: React.FC<ProfileProps> = ({
           </div>
         </section>
 
-        {/* Activity — streak-style compact month */}
-        <section className="w-full mb-8 bg-navy-struct p-4">
+        {/* Activity — opens full calendar heatmap */}
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('light');
+            onOpenActivity();
+          }}
+          className="w-full mb-8 bg-navy-card p-4 text-left transition-all active:scale-[0.99] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+        >
           {isLoadingActivity ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 size={18} className="animate-spin text-neon-primary" />
@@ -424,37 +391,29 @@ const Profile: React.FC<ProfileProps> = ({
                     </span>
                   </div>
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-auto">
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-auto inline-flex items-center gap-1">
                   {activeDays} active day{activeDays === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
+                  <ChevronRight size={12} className="text-neon-primary" />
                 </span>
               </div>
 
-              <div className="flex-1 min-w-0 flex flex-col items-end justify-end">
+              <div className="flex-1 min-w-0 flex flex-col items-end justify-end pointer-events-none">
                 <div className="flex flex-col gap-1.5">
                   {calendarWeeks.map((week, wIdx) => (
                     <div key={wIdx} className="flex gap-1.5 justify-end">
-                      {week.map((day) => {
-                        const isClickable =
-                          day.count > 0 && !day.isFuture && day.isCurrentMonth;
-                        const isSelected = selectedDate === day.dateStr;
-                        return (
-                          <button
-                            key={day.dateStr}
-                            type="button"
-                            disabled={!isClickable}
-                            onClick={() => handleDateClick(day)}
-                            aria-label={day.isCurrentMonth ? `${day.dateStr}` : undefined}
-                            className={`w-3.5 h-3.5 shrink-0 rounded-full transition-all ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)} ${isClickable ? 'active:scale-75' : ''} ${isSelected ? 'ring-1 ring-white ring-offset-1 ring-offset-navy-struct' : ''}`}
-                          />
-                        );
-                      })}
+                      {week.map((day) => (
+                        <span
+                          key={day.dateStr}
+                          className={`w-3.5 h-3.5 shrink-0 rounded-full ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)}`}
+                        />
+                      ))}
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           )}
-        </section>
+        </button>
 
         {/* Frames achievements */}
         <section className="w-full mb-10">
@@ -531,133 +490,6 @@ const Profile: React.FC<ProfileProps> = ({
         </section>
 
       </div>
-
-      {/* Day sessions sheet */}
-      {selectedDate ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
-          onClick={() => {
-            setSelectedDate(null);
-            setDaySessions([]);
-          }}
-        >
-          <div
-            className="relative bg-navy-card w-full max-w-xl h-[50vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {(() => {
-              const { month, day, weekday } = getDateParts(selectedDate + 'T12:00:00');
-              return (
-                <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-navy-border bg-navy-base shrink-0">
-                  <div className="flex items-end gap-3">
-                    <span className="text-4xl font-black italic tracking-tighter leading-none text-white">
-                      {day}
-                    </span>
-                    <div className="flex flex-col leading-none pb-0.5">
-                      <span className="text-sm font-black uppercase text-neon-primary tracking-widest">
-                        {month}
-                      </span>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
-                        {weekday}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      triggerHaptic('light');
-                      setSelectedDate(null);
-                      setDaySessions([]);
-                    }}
-                    className="p-1 text-gray-400 active:scale-95 transition-all"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              );
-            })()}
-
-            <div className="flex-1 overflow-y-auto bg-navy-base">
-              {isLoadingDay ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 size={24} className="animate-spin text-neon-primary" />
-                </div>
-              ) : daySessions.length === 0 ? (
-                <div className="py-10 text-center">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                    No sessions found
-                  </span>
-                </div>
-              ) : (
-                <div className="divide-y divide-navy-border">
-                  {daySessions.map((session) => (
-                    <div
-                      key={session.id}
-                      onClick={() => {
-                        triggerHaptic('medium');
-                        setSelectedDate(null);
-                        setDaySessions([]);
-                        onSessionClick(session.id);
-                      }}
-                      className="px-4 sm:px-6 py-4 flex items-start gap-3 transition-all bg-navy-card cursor-pointer active:bg-white/5"
-                    >
-                      <div className="flex flex-col gap-1.5 w-full">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-white leading-none shrink-0">
-                            {formatTime(session.startTime)}
-                          </span>
-                          <span className="text-sm font-bold text-white leading-none truncate flex-1">
-                            {session.title || 'Badminton Session'}
-                          </span>
-                          {(() => {
-                            let wins = 0;
-                            let losses = 0;
-                            let pts = 0;
-                            (session.matches || []).forEach((m) => {
-                              const isT1 = m.team1Ids.includes(user.id);
-                              const isT2 = m.team2Ids.includes(user.id);
-                              if (!isT1 && !isT2) return;
-                              const won =
-                                (isT1 && m.winningTeamIndex === 1) ||
-                                (isT2 && m.winningTeamIndex === 2);
-                              if (won) wins++;
-                              else losses++;
-                              pts += getPlayerMatchDelta(m, user.id);
-                            });
-                            if (wins === 0 && losses === 0) return null;
-                            return (
-                              <div className="flex items-center gap-3 shrink-0">
-                                <div className="flex items-center gap-1 text-xs font-black uppercase tracking-widest">
-                                  <span className="text-neon-primary">{wins}W</span>
-                                  <span className="text-gray-600">/</span>
-                                  <span className="text-red-500">{losses}L</span>
-                                </div>
-                                <span
-                                  className={`text-sm font-black italic tracking-tighter ${
-                                    pts >= 0 ? 'text-neon-primary' : 'text-red-500'
-                                  }`}
-                                >
-                                  {pts > 0 ? '+' : ''}
-                                  {pts}
-                                </span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        {session.location ? (
-                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider truncate block">
-                            {session.location}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="pb-[env(safe-area-inset-bottom)] shrink-0" />
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 };

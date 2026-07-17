@@ -217,7 +217,7 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ currentUser, sessio
 
 
  return (
- <div className="fixed inset-0 z-50 bg-[#000B29] flex flex-col font-sans overflow-hidden">
+ <div className="fixed inset-0 z-[250] bg-[#000B29] flex flex-col font-sans overflow-hidden">
  {/* Sticky Navigation Header */}
  <div className="sticky top-0 z-50 w-full bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)] shrink-0">
  <div className="flex items-center gap-3 py-3 px-4 sm:px-6">

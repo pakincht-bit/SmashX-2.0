@@ -1831,6 +1831,7 @@ const App: React.FC = () => {
  onSessionClick={setSelectedSessionId}
  onOpenTiers={() => setShowTiers(true)}
  onOpenInstallGuide={() => setShowInstallGuide(true)}
+ onOpenActivity={() => setIsActivityOpen(true)}
  onLogout={handleLogout}
  onClose={() => setIsProfileOpen(false)}
  />
