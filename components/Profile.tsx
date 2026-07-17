@@ -483,22 +483,28 @@ const Profile: React.FC<ProfileProps> = ({
                 </div>
               ) : (
                 <div
-                  className="flex items-stretch justify-between shrink-0"
+                  className="grid grid-cols-5 gap-1 content-center shrink-0"
                   style={activityVisualSize}
                 >
                   {formTeaser.last10.map((won, idx) => (
-                    <div
+                    <span
                       key={idx}
-                      className={`w-1.5 self-stretch shrink-0 rounded-none ${
-                        won ? 'bg-neon-primary' : 'bg-red-500'
+                      className={`flex items-center justify-center text-[11px] font-black italic uppercase leading-none ${
+                        won
+                          ? 'bg-neon-primary text-navy-base'
+                          : 'bg-red-500 text-white'
                       }`}
-                    />
+                    >
+                      {won ? 'W' : 'L'}
+                    </span>
                   ))}
                   {Array.from({ length: Math.max(0, 10 - formTeaser.last10.length) }).map((_, idx) => (
-                    <div
+                    <span
                       key={`empty-${idx}`}
-                      className="w-1.5 self-stretch shrink-0 rounded-none bg-white/10"
-                    />
+                      className="flex items-center justify-center bg-white/10 text-[11px] font-black italic uppercase leading-none text-transparent"
+                    >
+                      —
+                    </span>
                   ))}
                 </div>
               )}
