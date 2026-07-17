@@ -39,7 +39,6 @@ const FRAME_LABELS: Record<string, string> = {
 };
 
 const FRAME_CATALOG: { id: string; minPoints: number; kind: 'rank' | 'cosmetic' }[] = [
-  { id: 'unpolished', minPoints: 0, kind: 'rank' },
   { id: 'spark', minPoints: 1100, kind: 'rank' },
   { id: 'combustion', minPoints: 1300, kind: 'rank' },
   { id: 'void', minPoints: 1600, kind: 'rank' },
