@@ -359,7 +359,7 @@ const Profile: React.FC<ProfileProps> = ({
   }, [allUsers, user.id]);
 
   return (
-    <div className="relative w-full min-h-screen bg-navy-base text-white overflow-y-auto pb-20 font-sans">
+    <div className="relative w-full min-h-screen bg-navy-base text-white overflow-y-auto pb-8 font-sans">
       {/* Sticky Navigation Header */}
       <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur border-b border-navy-border pt-[env(safe-area-inset-top)] shrink-0">
         <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
@@ -394,7 +394,7 @@ const Profile: React.FC<ProfileProps> = ({
       {/* Ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg aspect-square bg-neon-primary rounded-full blur-[160px] opacity-[0.05] pointer-events-none z-0" />
 
-      <div className="relative z-10 w-full max-w-xl mx-auto px-4 sm:px-6 pt-4 animate-fade-in-up flex flex-col min-h-[calc(100dvh-80px)] pb-20">
+      <div className="relative z-10 w-full max-w-xl mx-auto px-4 sm:px-6 pt-4 animate-fade-in-up flex flex-col pb-4">
         {/* Identity + career — single static group */}
         <section className="w-full mb-2 p-4">
           <div className="flex items-center gap-8 w-full mb-4">
@@ -634,7 +634,7 @@ const Profile: React.FC<ProfileProps> = ({
         </section>
 
         {/* Danger Zone — quiet / de-emphasized */}
-        <section className="w-full mb-10 bg-navy-struct/60 p-3">
+        <section className="w-full mb-4 bg-navy-struct/60 p-3">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle className="text-gray-600 shrink-0" size={12} />
             <h3 className="text-[9px] font-black uppercase tracking-widest text-gray-600">
