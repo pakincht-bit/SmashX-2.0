@@ -1825,13 +1825,17 @@ const App: React.FC = () => {
  ) : (
  <Profile
  user={activeUser}
- sessions={sessions}
+ sessions={allSessions}
  allUsers={users}
  onOpenSettings={() => setIsSettingsOpen(true)}
  onSessionClick={setSelectedSessionId}
  onOpenTiers={() => setShowTiers(true)}
  onOpenInstallGuide={() => setShowInstallGuide(true)}
  onOpenActivity={() => setIsActivityOpen(true)}
+ onOpenStats={() => {
+   setIsProfileOpen(false);
+   handleTabChange('stats');
+ }}
  onLogout={handleLogout}
  onClose={() => setIsProfileOpen(false)}
  />

@@ -21,6 +21,7 @@ interface ProfileProps {
   onOpenTiers: () => void;
   onOpenInstallGuide: () => void;
   onOpenActivity: () => void;
+  onOpenStats: () => void;
   onLogout: () => void;
   onClose: () => void;
 }
@@ -69,9 +70,11 @@ const getDotClass = (count: number, pts: number, isFuture: boolean, isCurrentMon
 
 const Profile: React.FC<ProfileProps> = ({
   user,
+  sessions,
   allUsers,
   onOpenSettings,
   onOpenActivity,
+  onOpenStats,
   onLogout,
   onClose,
 }) => {
@@ -196,6 +199,40 @@ const Profile: React.FC<ProfileProps> = ({
     const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
     return { played, wins, losses, winRate };
   }, [user.wins, user.losses]);
+
+  const formTeaser = useMemo(() => {
+    const myMatches: { won: boolean; timestamp: number }[] = [];
+
+    sessions.forEach((session) => {
+      (session.matches || []).forEach((match) => {
+        const isTeam1 = match.team1Ids.includes(user.id);
+        const isTeam2 = match.team2Ids.includes(user.id);
+        if (!isTeam1 && !isTeam2) return;
+        const won =
+          (isTeam1 && match.winningTeamIndex === 1) ||
+          (isTeam2 && match.winningTeamIndex === 2);
+        myMatches.push({
+          won,
+          timestamp: new Date(match.timestamp || session.startTime).getTime(),
+        });
+      });
+    });
+
+    myMatches.sort((a, b) => a.timestamp - b.timestamp);
+
+    let streakCount = 0;
+    let streakType: 'W' | 'L' = 'W';
+    if (myMatches.length > 0) {
+      streakType = myMatches[myMatches.length - 1].won ? 'W' : 'L';
+      for (let i = myMatches.length - 1; i >= 0; i--) {
+        if ((myMatches[i].won ? 'W' : 'L') === streakType) streakCount++;
+        else break;
+      }
+    }
+
+    const last10 = myMatches.slice(-10).map((m) => m.won);
+    return { streakCount, streakType, last10 };
+  }, [sessions, user.id]);
 
   const rank = useMemo(() => {
     const sorted = [...allUsers].sort((a, b) => b.points - a.points);
@@ -330,6 +367,74 @@ const Profile: React.FC<ProfileProps> = ({
             </div>
           </div>
         </section>
+
+        {/* Form teaser — opens full Stats tab */}
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('light');
+            onOpenStats();
+          }}
+          className="w-full mb-4 bg-navy-struct p-4 text-left transition-all active:scale-[0.99]"
+        >
+          <div className="flex items-start gap-4 mb-3">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                Streak
+              </span>
+              <span
+                className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
+                  formTeaser.streakCount > 0
+                    ? formTeaser.streakType === 'W'
+                      ? 'text-neon-primary'
+                      : 'text-red-500'
+                    : 'text-gray-400'
+                }`}
+              >
+                {formTeaser.streakCount > 0
+                  ? `${formTeaser.streakCount}${formTeaser.streakType}`
+                  : '—'}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                Last 10
+              </span>
+              <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
+                {formTeaser.last10.filter(Boolean).length}
+                <span className="text-gray-600 mx-0.5">/</span>
+                {formTeaser.last10.filter((w) => !w).length}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 w-full mb-3">
+            {formTeaser.last10.length === 0 ? (
+              <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                No matches yet
+              </span>
+            ) : (
+              <>
+                {formTeaser.last10.map((won, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex-1 h-1.5 rounded-none ${
+                      won ? 'bg-neon-primary' : 'bg-red-500'
+                    }`}
+                  />
+                ))}
+                {Array.from({ length: Math.max(0, 10 - formTeaser.last10.length) }).map((_, idx) => (
+                  <div key={`empty-${idx}`} className="flex-1 h-1.5 rounded-none bg-white/10" />
+                ))}
+              </>
+            )}
+          </div>
+
+          <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1">
+            View stats
+            <ChevronRight size={12} className="text-neon-primary" />
+          </span>
+        </button>
 
         {/* Activity — opens full calendar heatmap */}
         <button
