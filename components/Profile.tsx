@@ -396,38 +396,40 @@ const Profile: React.FC<ProfileProps> = ({
             </div>
           ) : (
             <div className="flex items-start gap-4">
-              <div className="shrink-0 flex items-start gap-4 pt-0.5">
-                <div className="flex flex-col">
-                  <span className="text-4xl font-black tabular-nums tracking-tighter text-white leading-none">
-                    {monthSessionCount}
-                  </span>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1.5">
-                    Sessions
-                  </span>
+              <div className="shrink-0 flex flex-col gap-2 pt-0.5">
+                <div className="flex items-start gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-4xl font-black tabular-nums tracking-tighter text-white leading-none">
+                      {monthSessionCount}
+                    </span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1.5">
+                      Sessions
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span
+                      className={`text-4xl font-black tabular-nums tracking-tighter leading-none ${
+                        monthNetPts > 0
+                          ? 'text-neon-primary'
+                          : monthNetPts < 0
+                            ? 'text-red-500'
+                            : 'text-white'
+                      }`}
+                    >
+                      {monthNetPts > 0 ? '+' : ''}
+                      {monthNetPts}
+                    </span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1.5">
+                      Net pts
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <span
-                    className={`text-4xl font-black tabular-nums tracking-tighter leading-none ${
-                      monthNetPts > 0
-                        ? 'text-neon-primary'
-                        : monthNetPts < 0
-                          ? 'text-red-500'
-                          : 'text-white'
-                    }`}
-                  >
-                    {monthNetPts > 0 ? '+' : ''}
-                    {monthNetPts}
-                  </span>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1.5">
-                    Net pts
-                  </span>
-                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">
+                  {activeDays} active day{activeDays === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
+                </span>
               </div>
 
-              <div className="flex-1 min-w-0 flex flex-col items-end">
-                <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2 text-right">
-                  {activeDays} active day{activeDays === 1 ? '' : 's'} in {monthLabel.split(' ')[0]}
-                </div>
+              <div className="flex-1 min-w-0 flex flex-col items-end justify-center">
                 <div className="flex flex-col gap-1.5">
                   {calendarWeeks.map((week, wIdx) => (
                     <div key={wIdx} className="flex gap-1.5 justify-end">
