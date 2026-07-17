@@ -383,7 +383,7 @@ const Profile: React.FC<ProfileProps> = ({
               triggerHaptic('medium');
               onLogout();
             }}
-            className="p-1.5 -mr-1.5 text-red-400 transition-all active:scale-95"
+            className="p-1.5 -mr-1.5 text-gray-400 transition-all active:scale-95"
             aria-label="Log out"
           >
             <LogOut size={18} />
