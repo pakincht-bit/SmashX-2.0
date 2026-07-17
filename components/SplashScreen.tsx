@@ -128,19 +128,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onLoginClick, onRegisterCli
 
  {/* Hero Content */}
  <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 pt-10">
- {/* Animated Logo */}
- <div className="mb-8 relative group">
- <div className="absolute inset-0 bg-[#00FF41] blur-2xl opacity-20 transition-opacity duration-500"></div>
- <div className="w-24 h-24 bg-[#00FF41] -skew-x-12 flex items-center justify-center shadow-[0_0_30px_rgba(0,255,65,0.3)] relative overflow-hidden">
- {/* Cracks for SX Logo */}
- <div className="absolute top-[-10%] left-[20%] w-[2px] h-[50%] bg-[#000B29]/30 rotate-[15deg]"></div>
- <div className="absolute bottom-[-10%] right-[20%] w-[2px] h-[50%] bg-[#000B29]/30 -rotate-[25deg]"></div>
- <div className="absolute top-[50%] left-[-10%] w-[120%] h-[2px] bg-[#000B29]/30 rotate-[5deg]"></div>
-
- <span className="text-[#000B29] font-black text-4xl skew-x-12 tracking-tighter relative z-10">SX</span>
- </div>
- </div>
-
  <h1 className="text-4xl md:text-6xl font-black text-white italic tracking-tighter mb-4 leading-none drop-shadow-xl">
  Smash<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00FF41] to-teal-400">X</span>
  </h1>
