@@ -361,7 +361,7 @@ const Profile: React.FC<ProfileProps> = ({
   return (
     <div className="relative w-full min-h-screen bg-navy-base text-white overflow-y-auto pb-8 font-sans">
       {/* Sticky Navigation Header */}
-      <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur border-b border-navy-border pt-[env(safe-area-inset-top)] shrink-0">
+      <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)] shrink-0">
         <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
           <button
             onClick={() => {
