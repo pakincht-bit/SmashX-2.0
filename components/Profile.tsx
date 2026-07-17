@@ -435,71 +435,68 @@ const Profile: React.FC<ProfileProps> = ({
           }}
           className="w-full mb-2 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
         >
-          <div className="flex items-stretch gap-4">
-            <div className="shrink-0 flex flex-col pt-0.5">
-              <div className="flex items-start gap-4">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                    Streak
-                  </span>
-                  <span
-                    className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
-                      formTeaser.streakCount > 0
-                        ? formTeaser.streakType === 'W'
-                          ? 'text-neon-primary'
-                          : 'text-red-500'
-                        : 'text-gray-400'
-                    }`}
-                  >
-                    {formTeaser.streakCount > 0
-                      ? `${formTeaser.streakCount}${formTeaser.streakType}`
-                      : '—'}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                    Best
-                  </span>
-                  <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
-                    {formTeaser.maxWinStreak > 0 ? `${formTeaser.maxWinStreak}W` : '—'}
-                  </span>
-                </div>
-              </div>
-              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-auto inline-flex items-center gap-1">
-                View stats
-                <ChevronRight size={12} className="text-neon-primary" />
+          <div className="flex items-start gap-4 mb-3">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                Streak
+              </span>
+              <span
+                className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
+                  formTeaser.streakCount > 0
+                    ? formTeaser.streakType === 'W'
+                      ? 'text-neon-primary'
+                      : 'text-red-500'
+                    : 'text-gray-400'
+                }`}
+              >
+                {formTeaser.streakCount > 0
+                  ? `${formTeaser.streakCount}${formTeaser.streakType}`
+                  : '—'}
               </span>
             </div>
-
-            <div className="flex-1 min-w-0 flex flex-col items-end justify-center pointer-events-none">
-              {formTeaser.last10.length === 0 ? (
-                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest text-right">
-                  No matches yet
-                </span>
-              ) : (
-                <div className="flex items-center justify-end gap-1">
-                  {formTeaser.last10.map((won, idx) => (
-                    <span
-                      key={idx}
-                      className={`w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-black italic uppercase leading-none ${
-                        won
-                          ? 'bg-neon-primary text-navy-base'
-                          : 'bg-red-500 text-white'
-                      }`}
-                    >
-                      {won ? 'W' : 'L'}
-                    </span>
-                  ))}
-                  {Array.from({ length: Math.max(0, 10 - formTeaser.last10.length) }).map((_, idx) => (
-                    <span
-                      key={`empty-${idx}`}
-                      className="w-5 h-5 shrink-0 bg-white/10"
-                    />
-                  ))}
-                </div>
-              )}
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                Best
+              </span>
+              <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
+                {formTeaser.maxWinStreak > 0 ? `${formTeaser.maxWinStreak}W` : '—'}
+              </span>
             </div>
           </div>
+
+          <div className="mb-3">
+            {formTeaser.last10.length === 0 ? (
+              <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                No matches yet
+              </span>
+            ) : (
+              <div className="flex items-center gap-1">
+                {formTeaser.last10.map((won, idx) => (
+                  <span
+                    key={idx}
+                    className={`w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-black italic uppercase leading-none ${
+                      won
+                        ? 'bg-neon-primary text-navy-base'
+                        : 'bg-red-500 text-white'
+                    }`}
+                  >
+                    {won ? 'W' : 'L'}
+                  </span>
+                ))}
+                {Array.from({ length: Math.max(0, 10 - formTeaser.last10.length) }).map((_, idx) => (
+                  <span
+                    key={`empty-${idx}`}
+                    className="w-5 h-5 shrink-0 bg-white/10"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1">
+            View stats
+            <ChevronRight size={12} className="text-neon-primary" />
+          </span>
         </button>
 
         {/* Activity — opens full calendar heatmap */}
