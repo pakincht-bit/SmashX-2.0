@@ -1299,30 +1299,20 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </PullToRefresh>
 
  {/* Fixed Action Bar at Bottom */}
+ {!(status === 'END' && (isHost || isJoined)) && (
  <div className="shrink-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-[#000B29]/95 backdrop-blur-xl border-t border-[#002266] z-40">
  {isHost ? (
  <div className={`grid gap-4 ${status === 'OPEN' ? 'grid-cols-[1fr_2fr]' : 'grid-cols-1'}`}>
  {status === 'OPEN' && <button onClick={() => setConfirmConfig({ isOpen: true, title: 'Delete Session', message: 'This action is permanent and will remove the session from the arena. Proceed?', action: () => { triggerHaptic('heavy'); onDelete(session.id); }, isDestructive: true, confirmLabel: 'Delete Session' })} className="flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] bg-red-900/20 border border-red-900/50 text-red-500 transition-colors font-black uppercase tracking-wider text-sm"><span className="skew-x-[6deg] flex items-center"><Trash2 size={16} className="mr-2" />Delete</span></button>}
  {status === 'OPEN' && <button onClick={handleStartSession} disabled={isTooEarlyToStart} className={`flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${isTooEarlyToStart ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] (0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{isTooEarlyToStart ? <><Lock size={16} className="mr-2" />Wait until {formatTime(new Date(startTimeObj.getTime() - START_THRESHOLD_MINUTES * 60000).toISOString())}</> : <><Play size={18} className="mr-2 fill-current" />Start Session</>}</div></button>}
- {status === 'END' && (
- <div className="flex flex-col gap-3">
- <button onClick={() => setIsShareReportOpen(true)} className="w-full flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] bg-[#00FF41] text-[#000B29] transition-colors font-black uppercase tracking-widest text-sm shadow-[0_0_20px_rgba(0,255,65,0.3)]"><span className="skew-x-[6deg] flex items-center gap-2"><Share2 size={18} />Share Results</span></button>
- </div>
- )}
-
  </div>
  ) : (
  <div className="w-full">
- {isJoined ? (
- <div className="flex flex-col gap-3">
- {status === 'END' && (
- <button onClick={() => setIsShareReportOpen(true)} className="w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] bg-[#00FF41] text-[#000B29] transition-colors font-black uppercase tracking-widest text-sm shadow-[0_0_20px_rgba(0,255,65,0.3)]"><span className="skew-x-[6deg] flex items-center gap-2"><Share2 size={18} />Share Results</span></button>
- )}
- </div>
- ) : <button onClick={() => { triggerHaptic('success'); onJoin(session.id); }} disabled={status === 'END'} className={`w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${status === 'END' ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{status === 'END' ? 'Session Ended' : 'Join Session'}</div></button>}
+ {isJoined ? null : <button onClick={() => { triggerHaptic('success'); onJoin(session.id); }} disabled={status === 'END'} className={`w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${status === 'END' ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{status === 'END' ? 'Session Ended' : 'Join Session'}</div></button>}
  </div>
  )}
  </div>
+ )}
 
  {/* Modals */}
  <ShareReportModal
