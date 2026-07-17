@@ -1827,7 +1827,6 @@ const App: React.FC = () => {
  <SettingsScreen
  currentUser={activeUser}
  onUpdateUser={handleUpdateUser}
- onDeleteAccount={handleDeleteAccount}
  onBack={() => setIsSettingsOpen(false)}
  />
  ) : (
@@ -1846,6 +1845,7 @@ const App: React.FC = () => {
  handleTabChange('stats');
  }}
  onPlayerClick={setViewingPlayerId}
+ onDeleteAccount={handleDeleteAccount}
  onLogout={handleLogout}
  onClose={() => {
  setIsProfileOpen(false);

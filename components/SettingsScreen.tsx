@@ -1,15 +1,13 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { ArrowLeft, Save, User as UserIcon, Sparkles, Trash2, AlertTriangle, LogOut } from 'lucide-react';
-import { getRankFrameClass, triggerHaptic, getUnlockedFrames } from '../utils';
-import ConfirmationModal from './ConfirmationModal';
+import { ArrowLeft, Save } from 'lucide-react';
+import { triggerHaptic, getUnlockedFrames } from '../utils';
 import AvatarBuilder, { AvatarOptions } from './AvatarBuilder';
 
 interface SettingsScreenProps {
  currentUser: User;
  onUpdateUser: (updatedUser: User) => void;
- onDeleteAccount: () => void;
  onBack: () => void;
 }
 
@@ -31,9 +29,7 @@ const BG_COLORS = [
  { name: 'Deep Space', hex: '1e293b' },
 ];
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUser, onDeleteAccount, onBack }) => {
- const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUser, onBack }) => {
  const parseCurrentSettings = (): Partial<AvatarOptions> => {
  try {
  const url = new URL(currentUser.avatar);
@@ -103,48 +99,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
  <div className="pt-4 flex flex-col gap-8">
  <button
  type="submit"
- className="w-full py-4 bg-[#00FF41] text-[#000B29] font-black uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(0,255,65,0.2)] (255,255,255,0.4)] transition-all transform active:scale-[0.98] -skew-x-12"
+ className="w-full py-4 bg-[#00FF41] text-[#000B29] font-black uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(0,255,65,0.2)] transition-all transform active:scale-[0.98] -skew-x-12"
  >
  <span className="skew-x-12 inline-flex items-center gap-3">
  <Save size={20} /> Update Persona
  </span>
  </button>
-
- <div className="pt-8 border-t border-[#002266] flex flex-col gap-4">
- <div className="bg-red-500/5 border border-red-500/20 rounded-none p-6 mt-4">
- <div className="flex items-center gap-3 mb-4">
- <AlertTriangle className="text-red-500" size={20} />
- <h3 className="text-sm font-black uppercase tracking-widest text-red-500">Danger Zone</h3>
- </div>
- <p className="text-xs text-gray-400 font-medium mb-6 leading-relaxed">
- Deleting your account is permanent. All pts, match history, and profile data will be purged.
- </p>
- <button
- type="button"
- onClick={() => setIsDeleteConfirmOpen(true)}
- className="w-full py-4 bg-transparent text-red-500 border border-red-500/50 transition-all font-black uppercase tracking-widest text-xs rounded -skew-x-12"
- >
- <span className="skew-x-12 inline-flex items-center gap-2">
- <Trash2 size={16} /> Delete Account
- </span>
- </button>
- </div>
- </div>
  </div>
  </form>
-
- <ConfirmationModal
- isOpen={isDeleteConfirmOpen}
- title="Purge Identity?"
- message="This will permanently delete your profile and rank from SmashX. This action cannot be undone."
- confirmLabel="Confirm Purge"
- isDestructive={true}
- onConfirm={() => {
- setIsDeleteConfirmOpen(false);
- onDeleteAccount();
- }}
- onCancel={() => setIsDeleteConfirmOpen(false)}
- />
  </div>
  </div>
  );

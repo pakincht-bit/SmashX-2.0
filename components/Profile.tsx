@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { User, Session } from '../types';
-import { Pencil, LogOut, ArrowLeft, Loader2, ChevronRight, Users, Swords } from 'lucide-react';
+import { Pencil, LogOut, ArrowLeft, Loader2, ChevronRight, Users, Swords, Trash2, AlertTriangle } from 'lucide-react';
 import {
   getAvatarColor,
   triggerHaptic,
@@ -16,6 +16,7 @@ import {
   mergeSessionsWithLive,
 } from '../services/allTimeSessions';
 import { computeSocialSynergies, SynergyPlayer } from '../utils/socialSynergies';
+import ConfirmationModal from './ConfirmationModal';
 
 interface ProfileProps {
   user: User;
@@ -28,6 +29,7 @@ interface ProfileProps {
   onOpenActivity: () => void;
   onOpenStats: () => void;
   onPlayerClick?: (userId: string) => void;
+  onDeleteAccount: () => void;
   onLogout: () => void;
   onClose: () => void;
 }
@@ -171,6 +173,7 @@ const Profile: React.FC<ProfileProps> = ({
   onOpenActivity,
   onOpenStats,
   onPlayerClick,
+  onDeleteAccount,
   onLogout,
   onClose,
 }) => {
@@ -178,6 +181,7 @@ const Profile: React.FC<ProfileProps> = ({
     Record<string, { count: number; matches: number; pts: number }>
   >({});
   const [isLoadingActivity, setIsLoadingActivity] = useState(true);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const cachedAllTime = getCachedAllTimeSessions(user.id);
   const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(cachedAllTime ?? sessions);
 
@@ -542,7 +546,7 @@ const Profile: React.FC<ProfileProps> = ({
         </button>
 
         {/* Social Synergies — highlight cards only (no encounter table) */}
-        <section className="w-full mb-10 bg-navy-card p-4">
+        <section className="w-full mb-6 bg-navy-card p-4">
           <div className="flex items-end justify-between mb-3">
             <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
               Social <span className="text-gray-500">Synergy</span>
@@ -629,7 +633,44 @@ const Profile: React.FC<ProfileProps> = ({
           </div>
         </section>
 
+        {/* Danger Zone */}
+        <section className="w-full mb-10 bg-gradient-to-r from-red-500/10 to-transparent border-l-2 border-l-red-500/50 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="text-red-500 shrink-0" size={16} />
+            <h3 className="text-sm font-black italic uppercase tracking-wider text-red-500">
+              Danger Zone
+            </h3>
+          </div>
+          <p className="text-xs text-gray-400 font-medium mb-4 leading-relaxed">
+            Deleting your account is permanent. All pts, match history, and profile data will be purged.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('medium');
+              setIsDeleteConfirmOpen(true);
+            }}
+            className="w-full py-3.5 bg-transparent text-red-500 font-black uppercase tracking-widest text-xs -skew-x-12 transition-all active:scale-[0.98]"
+          >
+            <span className="skew-x-12 inline-flex items-center justify-center gap-2">
+              <Trash2 size={16} /> Delete Account
+            </span>
+          </button>
+        </section>
       </div>
+
+      <ConfirmationModal
+        isOpen={isDeleteConfirmOpen}
+        title="Purge Identity?"
+        message="This will permanently delete your profile and rank from SmashX. This action cannot be undone."
+        confirmLabel="Confirm Purge"
+        isDestructive={true}
+        onConfirm={() => {
+          setIsDeleteConfirmOpen(false);
+          onDeleteAccount();
+        }}
+        onCancel={() => setIsDeleteConfirmOpen(false)}
+      />
     </div>
   );
 };
