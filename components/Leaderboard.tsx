@@ -1,8 +1,8 @@
 
-import React, { useMemo, useCallback, useState } from 'react';
-import { User, Session, MatchResult } from '../types';
-import { Trophy, Flame, Frown, Crown, Swords, Target, Zap, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { getAvatarColor, getRankFrameClass, getWinRateColor, triggerHaptic, mapSessionFromDB, getPlayerMatchDelta } from '../utils';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import { User, Session, PlayerGroup } from '../types';
+import { Users, Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { getAvatarColor, getRankFrameClass, triggerHaptic, mapSessionFromDB, getPlayerMatchDelta } from '../utils';
 import { supabase } from '../services/supabaseClient';
 
 type TimeRange = 'alltime' | 'monthly';
@@ -14,6 +14,7 @@ interface LeaderboardProps {
   sessions: Session[];
   onPlayerClick?: (userId: string) => void;
   currentUser: User | null;
+  playerGroups?: PlayerGroup[];
 }
 
 interface UserStats {
@@ -90,12 +91,30 @@ const TIME_TABS: { key: TimeRange; label: string }[] = [
   { key: 'monthly', label: 'Monthly' },
 ];
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClick, currentUser }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClick, currentUser, playerGroups = [] }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>('alltime');
   const [sort, setSort] = useState<{ col: SortCol; dir: SortDir }>({ col: 'pts', dir: 'desc' });
   const [selectedMonthDate, setSelectedMonthDate] = useState(() => new Date());
   const [fetchedSessionsMap, setFetchedSessionsMap] = useState<Record<string, Session[]>>({});
   const [isLoadingMonth, setIsLoadingMonth] = useState(false);
+  const [groupFilterId, setGroupFilterId] = useState<string | null>(null);
+
+  const selectedGroup = useMemo(
+    () => (groupFilterId ? playerGroups.find(g => g.id === groupFilterId) ?? null : null),
+    [groupFilterId, playerGroups]
+  );
+
+  // Clear filter if the selected group is no longer available
+  useEffect(() => {
+    if (groupFilterId && !playerGroups.some(g => g.id === groupFilterId)) {
+      setGroupFilterId(null);
+    }
+  }, [groupFilterId, playerGroups]);
+
+  const toggleGroupFilter = useCallback((group: PlayerGroup) => {
+    triggerHaptic('light');
+    setGroupFilterId(prev => (prev === group.id ? null : group.id));
+  }, []);
 
   const handlePrevMonth = useCallback(() => {
     triggerHaptic('light');
@@ -240,8 +259,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
       }
     };
 
-    // Only display players who have stats (played >= 1 match)
+    const memberIds = selectedGroup ? new Set(selectedGroup.memberIds) : null;
+
+    // Only display players who have stats (played >= 1 match); optionally scope to group
     const usersWithStats = users.filter(u => {
+      if (memberIds && !memberIds.has(u.id)) return false;
       const s = stats[u.id];
       return s && s.played >= 1;
     });
@@ -252,7 +274,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
     });
 
     return sorted;
-  }, [users, stats, sort]);
+  }, [users, stats, sort, selectedGroup]);
 
   // OPTIMIZATION: Stable callback reference for onPlayerClick
   const handlePlayerClick = useCallback((userId: string) => {
@@ -264,7 +286,16 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
 
       <div className="space-y-3">
         <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-2">
-          All <span className="text-[#00FF41]">Rankings</span>
+          {selectedGroup ? (
+            <>
+              <span className="truncate">{selectedGroup.name}</span>{' '}
+              <span className="text-[#00FF41] shrink-0">Ranks</span>
+            </>
+          ) : (
+            <>
+              All <span className="text-[#00FF41]">Rankings</span>
+            </>
+          )}
         </h3>
 
         <div className="-mx-4 flex flex-col w-[calc(100%+2rem)] max-w-[calc(100%+2rem)] lg:-mx-0 lg:w-full lg:max-w-full">
@@ -285,14 +316,38 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
             ))}
           </div>
 
+          {/* Group filter chips — one group at a time */}
+          {playerGroups.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar px-4 pb-3 pt-1">
+              {playerGroups.map(group => {
+                const isActive = groupFilterId === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    onClick={() => toggleGroupFilter(group)}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 rounded-none ${
+                      isActive
+                        ? 'border-[#00FF41] bg-[#00FF41]/15 text-[#00FF41]'
+                        : 'border-[#002266] bg-[#001645] text-gray-300'
+                    }`}
+                  >
+                    {isActive ? <Check size={11} strokeWidth={3} /> : <Users size={11} />}
+                    <span>{group.name}</span>
+                    <span className="tabular-nums opacity-70">{group.memberIds.length}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div key={timeRange} className="animate-fade-in-up">
             {/* Month Selector */}
             {timeRange === 'monthly' && (
-              <div className="flex items-center justify-between px-4 py-2 mb-2 bg-white/5 rounded-lg mx-4">
+              <div className="flex items-center justify-between px-4 py-2 mb-2 bg-white/5 rounded-none mx-4">
                 <button 
                   onClick={handlePrevMonth} 
                   disabled={isFirstMonth}
-                  className={`p-2 transition-colors ${isFirstMonth ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-white active:scale-95'}`}
+                  className={`p-2 transition-colors ${isFirstMonth ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 active:scale-95'}`}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -303,7 +358,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
                 <button 
                   onClick={handleNextMonth} 
                   disabled={isCurrentMonth} 
-                  className={`p-2 transition-colors ${isCurrentMonth ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-white active:scale-95'}`}
+                  className={`p-2 transition-colors ${isCurrentMonth ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 active:scale-95'}`}
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -337,18 +392,29 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
             </div>
 
             <div>
-              {sortedUsers.map((user, index) => (
-                <LeaderboardRow
-                  key={user.id}
-                  user={user}
-                  index={index}
-                  stats={stats[user.id]}
-                  isMe={user.id === currentUser?.id}
-                  onPlayerClick={handlePlayerClick}
-                  sortCol={sort.col}
-                  timeRange={timeRange}
-                />
-              ))}
+              {sortedUsers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <Users size={32} className="text-gray-600 mb-3" />
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+                    {selectedGroup
+                      ? 'No ranked matches in this group'
+                      : 'No ranked matches yet'}
+                  </p>
+                </div>
+              ) : (
+                sortedUsers.map((user, index) => (
+                  <LeaderboardRow
+                    key={user.id}
+                    user={user}
+                    index={index}
+                    stats={stats[user.id]}
+                    isMe={user.id === currentUser?.id}
+                    onPlayerClick={handlePlayerClick}
+                    sortCol={sort.col}
+                    timeRange={timeRange}
+                  />
+                ))
+              )}
             </div>
           </div>
         </div>

@@ -1529,7 +1529,7 @@ const App: React.FC = () => {
 
  const renderContent = () => {
  switch (activeTab) {
- case 'leaderboard': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} /></Suspense>;
+ case 'leaderboard': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} playerGroups={playerGroups} /></Suspense>;
  case 'stats': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} onPlayerClick={setViewingPlayerId} /></Suspense>;
  case 'sessions':
  default:
