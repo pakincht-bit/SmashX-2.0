@@ -9,7 +9,7 @@ import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import FrameUnlockModal from './components/FrameUnlockModal';
 import PullToRefresh from './components/PullToRefresh';
-import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users, Wifi } from 'lucide-react';
+import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Zap, Plus, X, Users, Wifi, ArrowLeft } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
 // OPTIMIZATION: Lazy-load heavy components to reduce initial bundle size
@@ -63,6 +63,8 @@ const App: React.FC = () => {
  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const lastFetchRef = useRef<number>(0);
  const fetchGenerationRef = useRef<number>(0);
+ // True once fetchData has succeeded at least once — background refresh failures after that keep showing existing data
+ const hasLoadedDataRef = useRef<boolean>(false);
  const mutatingRef = useRef<Set<string>>(new Set());
 
  // Infinite Scroll State
@@ -76,7 +78,7 @@ const App: React.FC = () => {
  const [pastLoaded, setPastLoaded] = useState(false);
 
  // Navigation State
- const [activeTab, setActiveTab] = useState<'sessions' | 'leaderboard' | 'stats'>('sessions');
+ const [activeTab, setActiveTab] = useState<'sessions' | 'leaderboard' | 'groups'>('sessions');
  const [isProfileOpen, setIsProfileOpen] = useState(false);
  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -89,7 +91,7 @@ const App: React.FC = () => {
 
  // Player Groups
  const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>([]);
- const [isGroupsOpen, setIsGroupsOpen] = useState(false);
+ const [isStatsOpen, setIsStatsOpen] = useState(false);
  const [isGroupManageOpen, setIsGroupManageOpen] = useState(false);
  const [managingGroup, setManagingGroup] = useState<PlayerGroup | null>(null);
  const [rankingGroup, setRankingGroup] = useState<PlayerGroup | null>(null);
@@ -361,7 +363,7 @@ const App: React.FC = () => {
  }
  }, []);
 
- const fetchData = async () => {
+ const fetchData = async (allowRetry: boolean = true): Promise<void> => {
  const fetchStarted = Date.now();
  const generation = ++fetchGenerationRef.current;
  console.log("SX: Fetching Arena Data...");
@@ -418,6 +420,7 @@ const App: React.FC = () => {
 
  // Mark fetch timestamp for event ordering (realtime-sync skill §4)
  lastFetchRef.current = fetchStarted;
+ hasLoadedDataRef.current = true;
  setLastSyncTime(new Date());
 
  // Unlock UI immediately — never block home screen on group fetch
@@ -432,7 +435,18 @@ const App: React.FC = () => {
 
  } catch (error: any) {
  console.error("SX: Fetch data failed:", error.message);
- if (sessions.length === 0) {
+ // A newer fetch has started — let it decide the outcome
+ if (generation !== fetchGenerationRef.current) return;
+
+ // One automatic retry: covers transient timeouts right after the app resumes
+ if (allowRetry) {
+ await new Promise(resolve => setTimeout(resolve, 1500));
+ if (generation !== fetchGenerationRef.current) return;
+ return fetchData(false);
+ }
+
+ // Only block the app when nothing has ever loaded; otherwise keep showing existing data
+ if (!hasLoadedDataRef.current) {
  setFetchError(error.message || "Connection failed.");
  setIsInitialLoading(false);
  }
@@ -665,7 +679,7 @@ const App: React.FC = () => {
  const handleUserChange = useCallback((userId: string) => { const user = users.find(u => u.id === userId); if (user) setCurrentUser(user); }, [users]);
 
  // Tab switching with useTransition for smoother UX
- const handleTabChange = useCallback((tab: 'sessions' | 'leaderboard' | 'stats') => {
+ const handleTabChange = useCallback((tab: 'sessions' | 'leaderboard' | 'groups') => {
  startTabTransition(() => { setActiveTab(tab); });
  }, [startTabTransition]);
 
@@ -1493,7 +1507,7 @@ const App: React.FC = () => {
  if (authStage === 'login') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><LoginScreen users={users} onLogin={handleLogin} onBack={() => setAuthStage('splash')} /></Suspense>;
  if (authStage === 'register') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><RegisterScreen onRegister={handleRegister} onBack={() => setAuthStage('splash')} /></Suspense>;
 
- if (fetchError && !sessions.length) {
+ if (fetchError && !hasLoadedDataRef.current) {
  return (
  <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center p-8 text-center">
  <WifiOff className="text-red-500 mb-6" size={64} />
@@ -1530,7 +1544,7 @@ const App: React.FC = () => {
  const renderContent = () => {
  switch (activeTab) {
  case 'leaderboard': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} playerGroups={playerGroups} /></Suspense>;
- case 'stats': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} onPlayerClick={setViewingPlayerId} /></Suspense>;
+ case 'groups': return <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}><GroupsPage groups={playerGroups} allUsers={users} onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }} onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }} /></Suspense>;
  case 'sessions':
  default:
  return (
@@ -1705,7 +1719,7 @@ const App: React.FC = () => {
               <Loader2 size={12} className="animate-spin" /><span>Syncing Arena Data...</span>
             </div>
           )}
-          <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} onOpenGroups={() => setIsGroupsOpen(true)} />
+          <Header currentUser={activeUser!} allUsers={users} sessions={sessions} onUserChange={handleUserChange} onOpenCreate={() => { setEditingSession(null); setIsModalOpen(true); }} onLogout={handleLogout} showCreateButton={false} showLogoutButton={false} onLogoClick={() => setIsProfileOpen(true)} />
         </div>
  <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</main>
  </div>
@@ -1843,11 +1857,7 @@ const App: React.FC = () => {
  onOpenTiers={() => setShowTiers(true)}
  onOpenInstallGuide={() => setShowInstallGuide(true)}
  onOpenActivity={() => setIsActivityOpen(true)}
- onOpenStats={() => {
- setIsProfileOpen(false);
- setIsSettingsOpen(false);
- handleTabChange('stats');
- }}
+ onOpenStats={() => setIsStatsOpen(true)}
  onPlayerClick={setViewingPlayerId}
  onDeleteAccount={handleDeleteAccount}
  onLogout={handleLogout}
@@ -1861,24 +1871,22 @@ const App: React.FC = () => {
  </div>
  </div>
  )}
- {isGroupsOpen && (
+ {isStatsOpen && (
  <div className="fixed inset-0 z-[200] bg-navy-base overflow-y-auto animate-in fade-in duration-300">
- <div className="mx-auto min-h-screen relative w-full px-0 py-0">
- <Suspense
- fallback={
- <div className="flex items-center justify-center min-h-screen">
- <Loader2 className="animate-spin text-neon-primary" size={32} />
+ <div className="mx-auto min-h-screen relative w-full max-w-5xl px-4 sm:px-6 lg:px-8">
+ <div className="sticky top-0 z-50 bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+ <div className="flex items-center gap-2 py-2">
+ <button type="button" onClick={() => { triggerHaptic('light'); setIsStatsOpen(false); }} className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95" aria-label="Back">
+ <ArrowLeft size={18} />
+ </button>
+ <h2 className="text-base font-black italic uppercase text-white tracking-wider">My <span className="text-neon-primary">Stats</span></h2>
  </div>
- }
- >
- <GroupsPage
- groups={playerGroups}
- allUsers={users}
- onClose={() => setIsGroupsOpen(false)}
- onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }}
- onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }}
- />
+ </div>
+ <div className="pt-1 pb-4">
+ <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-[#00FF41]" size={32} /></div>}>
+ <StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} onPlayerClick={setViewingPlayerId} />
  </Suspense>
+ </div>
  </div>
  </div>
  )}

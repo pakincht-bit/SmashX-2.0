@@ -7,7 +7,7 @@ import { Button } from './ui/Button';
 interface GroupsPageProps {
   groups: PlayerGroup[];
   allUsers: User[];
-  onClose: () => void;
+  onClose?: () => void;
   onCreateClick: () => void;
   onManageClick: (group: PlayerGroup) => void;
 }
@@ -25,17 +25,19 @@ const GroupsPage: React.FC<GroupsPageProps> = ({
     <div className="relative w-full min-h-screen bg-navy-base text-white overflow-y-auto pb-8 font-sans">
       <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)] shrink-0">
         <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              onClose();
-            }}
-            className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95"
-            aria-label="Back"
-          >
-            <ArrowLeft size={18} />
-          </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                onClose();
+              }}
+              className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95"
+              aria-label="Back"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
           <div className="flex items-center flex-1 min-w-0">
             <h2 className="text-base font-black italic uppercase text-white tracking-wider truncate">
               Player <span className="text-neon-primary">Groups</span>

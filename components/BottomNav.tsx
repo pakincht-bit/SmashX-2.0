@@ -1,12 +1,12 @@
 
 import React, { useMemo } from 'react';
-import { Calendar, Trophy, Activity, User as UserIcon } from 'lucide-react';
+import { Calendar, Trophy, Users } from 'lucide-react';
 import { User } from '../types';
 import { getAvatarColor, triggerHaptic } from '../utils';
 
 interface BottomNavProps {
- activeTab: 'sessions' | 'leaderboard' | 'stats';
- onTabChange: (tab: 'sessions' | 'leaderboard' | 'stats') => void;
+ activeTab: 'sessions' | 'leaderboard' | 'groups';
+ onTabChange: (tab: 'sessions' | 'leaderboard' | 'groups') => void;
  currentUser: User | null;
 }
 
@@ -14,7 +14,7 @@ const BottomNav: React.FC<BottomNavProps> = React.memo(({ activeTab, onTabChange
  const tabs = useMemo(() => [
  { id: 'sessions', label: 'Arena', icon: Calendar },
  { id: 'leaderboard', label: 'Ranks', icon: Trophy },
- { id: 'stats', label: 'Stats', icon: Activity },
+ { id: 'groups', label: 'Groups', icon: Users },
  ], []);
 
  const activeIndex = tabs.findIndex(t => t.id === activeTab);

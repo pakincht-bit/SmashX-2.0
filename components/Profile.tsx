@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { User, Session } from '../types';
+import { createPortal } from 'react-dom';
+import { User, Session, MatchResult } from '../types';
 import { Pencil, LogOut, ArrowLeft, Loader2, ChevronRight, Users, Swords, AlertTriangle } from 'lucide-react';
 import {
   getAvatarColor,
@@ -185,6 +186,7 @@ const Profile: React.FC<ProfileProps> = ({
   const cachedAllTime = getCachedAllTimeSessions(user.id);
   const [allTimeSessions, setAllTimeSessions] = useState<Session[]>(cachedAllTime ?? sessions);
 
+  const [isRecentOpen, setIsRecentOpen] = useState(false);
   const now = useMemo(() => new Date(), []);
 
   // Same all-time match history as Stats page (needed for accurate streak / best / last-10)
@@ -348,6 +350,48 @@ const Profile: React.FC<ProfileProps> = ({
     [allTimeSessions, sessions]
   );
 
+  const { currentStreak, maxWinStreak, last10Matches, last10Deltas, last10List } = useMemo(() => {
+    const results: { won: boolean; time: number; delta: number; match: MatchResult }[] = [];
+    formSessions.forEach((session) => {
+      (session.matches || []).forEach((match) => {
+        const isT1 = match.team1Ids.includes(user.id);
+        const isT2 = match.team2Ids.includes(user.id);
+        if (!isT1 && !isT2) return;
+        const team1Won = match.winningTeamIndex === 1;
+        results.push({
+          won: isT1 ? team1Won : !team1Won,
+          delta: getPlayerMatchDelta(match, user.id),
+          match,
+          time: new Date(match.timestamp || session.startTime).getTime(),
+        });
+      });
+    });
+    results.sort((a, b) => a.time - b.time);
+
+    let maxWin = 0;
+    let run = 0;
+    results.forEach((r) => {
+      run = r.won ? run + 1 : 0;
+      if (run > maxWin) maxWin = run;
+    });
+
+    let count = 0;
+    let type: 'W' | 'L' = 'W';
+    if (results.length > 0) {
+      const lastWon = results[results.length - 1].won;
+      type = lastWon ? 'W' : 'L';
+      for (let i = results.length - 1; i >= 0 && results[i].won === lastWon; i--) count++;
+    }
+
+    return {
+      currentStreak: { count, type },
+      maxWinStreak: maxWin,
+      last10Matches: results.slice(-10).map((r) => r.won),
+      last10Deltas: results.slice(-10).map((r) => r.delta),
+      last10List: results.slice(-10).reverse(),
+    };
+  }, [formSessions, user.id]);
+
   const socialSynergies = useMemo(
     () => computeSocialSynergies(formSessions, user.id, allUsers),
     [formSessions, user.id, allUsers]
@@ -468,81 +512,186 @@ const Profile: React.FC<ProfileProps> = ({
           </div>
         </section>
 
-        {/* Activity — opens full calendar heatmap */}
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('light');
-            onOpenActivity();
-          }}
-          className="w-full mb-2 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
-        >
+        {/* Form & Streaks */}
+        <section className="w-full mb-2 bg-navy-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
-              {now.toLocaleString('en-US', { month: 'short', year: 'numeric' })}
+              Form & <span className="text-gray-500">Streaks</span>
             </h3>
-            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1">
-              View activity log
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setIsRecentOpen(true);
+              }}
+              className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1 active:scale-95"
+            >
+              View last 10
               <ChevronRight size={12} className="text-neon-primary" />
-            </span>
+            </button>
           </div>
 
-          {isLoadingActivity ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 size={18} className="animate-spin text-neon-primary" />
+          <div className="flex items-stretch gap-4">
+            <div className="shrink-0 flex flex-col items-start gap-3 pt-0.5">
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                  Current
+                </span>
+                <span
+                  className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
+                    currentStreak.count === 0
+                      ? 'text-white'
+                      : currentStreak.type === 'W'
+                        ? 'text-neon-primary'
+                        : 'text-red-500'
+                  }`}
+                >
+                  {currentStreak.count > 0 ? `${currentStreak.count}${currentStreak.type}` : '-'}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                  Best
+                </span>
+                <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
+                  {maxWinStreak}W
+                </span>
+              </div>
             </div>
-          ) : (
-            <div className="flex items-stretch gap-4">
-              <div className="shrink-0 flex flex-col pt-0.5">
-                <div className="flex flex-col items-start gap-3">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                      Matches
-                    </span>
-                    <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
-                      {monthMatchCount}
-                    </span>
+
+            <div className="flex-1 min-w-0 flex flex-col items-end justify-end">
+              {/* Bar height = points gained (up) or lost (down); oldest left, newest right */}
+              {(() => {
+                const maxAbs = Math.max(5, ...last10Deltas.map((d) => Math.abs(d)));
+                const half = 34;
+                const slots: (number | null)[] = [
+                  ...Array.from({ length: 10 - last10Deltas.length }, () => null),
+                  ...last10Deltas,
+                ];
+                return (
+                  <div className="relative flex items-center gap-1.5 shrink-0" style={{ height: half * 2 }}>
+                    <div className="absolute left-0 right-0 top-0 border-t border-dashed border-white/10" />
+                    <div className="absolute left-0 right-0 top-1/2 h-px bg-white/20" />
+                    <div className="absolute left-0 right-0 bottom-0 border-t border-dashed border-white/10" />
+                    {slots.map((d, idx) => {
+                      if (d === null) {
+                        return <span key={idx} className="relative w-3.5 h-0.5 -skew-x-12 bg-white/5" />;
+                      }
+                      const h = Math.max(4, Math.round((Math.abs(d) / maxAbs) * half));
+                      const win = d >= 0;
+                      return (
+                        <div key={idx} className="relative w-3.5 shrink-0" style={{ height: half * 2 }}>
+                          <span
+                            className={`absolute left-0 right-0 rounded-none -skew-x-12 ${win ? 'bg-neon-primary bottom-1/2' : 'bg-red-500 top-1/2'}`}
+                            style={{ height: h }}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
-                      Net pts
-                    </span>
-                    <span
-                      className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
-                        monthNetPts > 0
-                          ? 'text-neon-primary'
-                          : monthNetPts < 0
-                            ? 'text-red-500'
-                            : 'text-white'
-                      }`}
-                    >
-                      {monthNetPts > 0 ? '+' : ''}
-                      {monthNetPts}
-                    </span>
-                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </section>
+
+        {isRecentOpen && createPortal(
+          <div className="fixed inset-0 z-[300] bg-navy-base overflow-y-auto animate-in fade-in duration-300">
+            <div className="mx-auto w-full max-w-xl min-h-screen px-4 sm:px-6 pb-8">
+              <div className="sticky top-0 z-50 -mx-4 sm:-mx-6 px-4 sm:px-6 bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+                <div className="flex items-center gap-2 py-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setIsRecentOpen(false);
+                    }}
+                    className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95"
+                    aria-label="Back"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
+                  <h2 className="flex-1 text-base font-black italic uppercase text-white tracking-wider">
+                    Last <span className="text-neon-primary">10 Matches</span>
+                  </h2>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 tabular-nums">
+                    {last10Matches.filter((w) => w).length}W - {last10Matches.filter((w) => !w).length}L
+                  </span>
                 </div>
               </div>
 
-              <div className="flex-1 min-w-0 flex flex-col items-end justify-end pointer-events-none">
-                <div className="flex flex-col gap-1.5 shrink-0" style={activityVisualSize}>
-                  {calendarWeeks.map((week, wIdx) => (
-                    <div key={wIdx} className="flex gap-1.5 justify-end">
-                      {week.map((day) => (
-                        <span
-                          key={day.dateStr}
-                          className={`w-3.5 h-3.5 shrink-0 rounded-none ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)}`}
+              {last10List.length === 0 ? (
+                <p className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  No matches yet
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1 pt-2">
+                  {last10List.map(({ match, won, delta, time }) => {
+                    const mine = match.team1Ids.includes(user.id) ? match.team1Ids : match.team2Ids;
+                    const theirs = mine === match.team1Ids ? match.team2Ids : match.team1Ids;
+                    const names = (ids: string[]) =>
+                      ids.map((id) => allUsers.find((u) => u.id === id)?.name ?? 'Unknown').join(' & ');
+                    const mates = mine.filter((id) => id !== user.id);
+                    const avatar = (id: string, size: string) => {
+                      const u = allUsers.find((x) => x.id === id);
+                      return (
+                        <img
+                          key={id}
+                          src={u?.avatar}
+                          alt={u?.name ?? ''}
+                          className={`${size} rounded-full border-2 border-navy-card object-cover`}
+                          style={{ backgroundColor: u ? getAvatarColor(u.avatar) : undefined }}
                         />
-                      ))}
-                    </div>
-                  ))}
+                      );
+                    };
+                    return (
+                      <div
+                        key={match.id}
+                        className={`bg-navy-card p-3 flex items-center gap-3 border-l-2 ${won ? 'border-l-neon-primary' : 'border-l-red-500'}`}
+                      >
+                        <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                          {/* Teammate only — the row is already "yours" */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            {mates.length > 0 ? (
+                              <>
+                                <div className="flex -space-x-2 shrink-0">{mates.map((id) => avatar(id, 'w-7 h-7'))}</div>
+                                <span className="text-xs font-black uppercase tracking-tight text-white truncate">
+                                  {names(mates)}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-xs font-black uppercase tracking-tight text-white">Solo</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 shrink-0">vs</span>
+                            <div className="flex -space-x-1.5 shrink-0">{theirs.map((id) => avatar(id, 'w-5 h-5'))}</div>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 truncate">
+                              {names(theirs)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className={`text-sm tabular-nums font-black italic ${delta >= 0 ? 'text-neon-primary' : 'text-red-500'}`}>
+                            {delta > 0 ? '+' : ''}
+                            {delta}
+                          </p>
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-gray-500">
+                            {new Date(time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              )}
             </div>
-          )}
-        </button>
+          </div>,
+          document.body
+        )}
 
         {/* Social Synergies — highlight cards only (no encounter table) */}
-        <section className="w-full mb-6 bg-navy-card p-4">
+        <section className="w-full mb-2 bg-navy-card p-4">
           <div className="flex items-end justify-between mb-3">
             <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
               Social <span className="text-gray-500">Synergy</span>
@@ -628,6 +777,79 @@ const Profile: React.FC<ProfileProps> = ({
             />
           </div>
         </section>
+
+        {/* Activity — opens full calendar heatmap */}
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('light');
+            onOpenActivity();
+          }}
+          className="w-full mb-6 bg-navy-card p-4 text-left transition-all active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-black italic uppercase tracking-wider text-white">
+              {now.toLocaleString('en-US', { month: 'short', year: 'numeric' })}
+            </h3>
+            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 inline-flex items-center gap-1">
+              View activity log
+              <ChevronRight size={12} className="text-neon-primary" />
+            </span>
+          </div>
+
+          {isLoadingActivity ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 size={18} className="animate-spin text-neon-primary" />
+            </div>
+          ) : (
+            <div className="flex items-stretch gap-4">
+              <div className="shrink-0 flex flex-col pt-0.5">
+                <div className="flex flex-col items-start gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                      Matches
+                    </span>
+                    <span className="text-xl tabular-nums font-black italic tracking-tighter text-white leading-none">
+                      {monthMatchCount}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">
+                      Net pts
+                    </span>
+                    <span
+                      className={`text-xl tabular-nums font-black italic tracking-tighter leading-none ${
+                        monthNetPts > 0
+                          ? 'text-neon-primary'
+                          : monthNetPts < 0
+                            ? 'text-red-500'
+                            : 'text-white'
+                      }`}
+                    >
+                      {monthNetPts > 0 ? '+' : ''}
+                      {monthNetPts}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0 flex flex-col items-end justify-end pointer-events-none">
+                <div className="flex flex-col gap-1.5 shrink-0" style={activityVisualSize}>
+                  {calendarWeeks.map((week, wIdx) => (
+                    <div key={wIdx} className="flex gap-1.5 justify-end">
+                      {week.map((day) => (
+                        <span
+                          key={day.dateStr}
+                          className={`w-3.5 h-3.5 shrink-0 rounded-none ${getDotClass(day.count, day.pts, day.isFuture, day.isCurrentMonth)}`}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </button>
 
         {/* Danger Zone — quiet / de-emphasized */}
         <section className="w-full mb-4 bg-navy-struct/60 p-3">

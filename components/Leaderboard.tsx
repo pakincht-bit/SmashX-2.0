@@ -1,7 +1,7 @@
 
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { User, Session, PlayerGroup } from '../types';
-import { Users, Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Users, Check, ChevronLeft, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
 import { getAvatarColor, getRankFrameClass, triggerHaptic, mapSessionFromDB, getPlayerMatchDelta } from '../utils';
 import { supabase } from '../services/supabaseClient';
 
@@ -111,9 +111,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
     }
   }, [groupFilterId, playerGroups]);
 
-  const toggleGroupFilter = useCallback((group: PlayerGroup) => {
+  const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
+
+  const selectGroupFilter = useCallback((id: string | null) => {
     triggerHaptic('light');
-    setGroupFilterId(prev => (prev === group.id ? null : group.id));
+    setGroupFilterId(id);
+    setIsGroupMenuOpen(false);
   }, []);
 
   const handlePrevMonth = useCallback(() => {
@@ -285,18 +288,60 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
     <div className="space-y-6 animate-fade-in-up">
 
       <div className="space-y-3">
-        <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-4 flex items-center gap-2">
-          {selectedGroup ? (
+        <div className="relative mb-4">
+          <button
+            type="button"
+            disabled={playerGroups.length === 0}
+            onClick={() => { triggerHaptic('light'); setIsGroupMenuOpen(o => !o); }}
+            aria-haspopup="listbox"
+            aria-expanded={isGroupMenuOpen}
+            className="flex items-center gap-2 max-w-full text-left active:scale-[0.99] transition-transform disabled:active:scale-100"
+          >
+            <h3 className="text-xl font-black italic uppercase tracking-tighter text-white flex items-center gap-2 min-w-0">
+              {selectedGroup ? (
+                <>
+                  <span className="truncate">{selectedGroup.name}</span>{' '}
+                  <span className="text-[#00FF41] shrink-0">Ranks</span>
+                </>
+              ) : (
+                <>
+                  All <span className="text-[#00FF41]">Rankings</span>
+                </>
+              )}
+            </h3>
+            {playerGroups.length > 0 && (
+              <ChevronDown
+                size={18}
+                strokeWidth={3}
+                className={`text-[#00FF41] shrink-0 transition-transform ${isGroupMenuOpen ? 'rotate-180' : ''}`}
+              />
+            )}
+          </button>
+
+          {isGroupMenuOpen && (
             <>
-              <span className="truncate">{selectedGroup.name}</span>{' '}
-              <span className="text-[#00FF41] shrink-0">Ranks</span>
-            </>
-          ) : (
-            <>
-              All <span className="text-[#00FF41]">Rankings</span>
+              <div className="fixed inset-0 z-30" onClick={() => setIsGroupMenuOpen(false)} />
+              <div role="listbox" className="absolute left-0 top-full mt-2 z-40 min-w-[220px] max-w-full bg-[#001645] border border-[#002266] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+                {[{ id: null as string | null, name: 'All players', count: users.length }, ...playerGroups.map(g => ({ id: g.id as string | null, name: g.name, count: g.memberIds.length }))].map(opt => {
+                  const isActive = groupFilterId === opt.id;
+                  return (
+                    <button
+                      key={opt.id ?? 'all'}
+                      role="option"
+                      aria-selected={isActive}
+                      onClick={() => selectGroupFilter(opt.id)}
+                      className={`w-full flex items-center gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-left active:bg-white/5 ${isActive ? 'text-[#00FF41]' : 'text-gray-300'}`}
+                    >
+                      {isActive ? <Check size={12} strokeWidth={3} /> : <Users size={12} className="opacity-60" />}
+                      <span className="flex-1 truncate">{opt.name}</span>
+                      <span className="tabular-nums opacity-60">{opt.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </>
           )}
-        </h3>
+        </div>
 
         <div className="-mx-4 flex flex-col w-[calc(100%+2rem)] max-w-[calc(100%+2rem)] lg:-mx-0 lg:w-full lg:max-w-full">
           {/* Time Range Tabs */}
@@ -315,30 +360,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
               </button>
             ))}
           </div>
-
-          {/* Group filter chips — one group at a time */}
-          {playerGroups.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto hide-scrollbar px-4 pb-3 pt-1">
-              {playerGroups.map(group => {
-                const isActive = groupFilterId === group.id;
-                return (
-                  <button
-                    key={group.id}
-                    onClick={() => toggleGroupFilter(group)}
-                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 rounded-none ${
-                      isActive
-                        ? 'border-[#00FF41] bg-[#00FF41]/15 text-[#00FF41]'
-                        : 'border-[#002266] bg-[#001645] text-gray-300'
-                    }`}
-                  >
-                    {isActive ? <Check size={11} strokeWidth={3} /> : <Users size={11} />}
-                    <span>{group.name}</span>
-                    <span className="tabular-nums opacity-70">{group.memberIds.length}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
           <div key={timeRange} className="animate-fade-in-up">
             {/* Month Selector */}
