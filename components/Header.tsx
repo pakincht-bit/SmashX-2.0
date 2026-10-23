@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { User, Session } from '../types';
-import { LogOut, Users } from 'lucide-react';
+import { LogOut, Gamepad2 } from 'lucide-react';
 import { triggerHaptic, getAvatarColor, getRankFrameClass } from '../utils';
 
 interface HeaderProps {
@@ -12,7 +12,7 @@ interface HeaderProps {
  showCreateButton?: boolean;
  showLogoutButton?: boolean;
  onLogoClick?: () => void;
- onOpenGroups?: () => void;
+ onOpenGame?: () => void;
  sessions?: Session[];
 }
 
@@ -24,7 +24,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
  onLogout,
  showLogoutButton = false,
  onLogoClick,
- onOpenGroups,
+ onOpenGame,
 }) => {
  const rank = useMemo(() => {
  if (!currentUser || !allUsers) return '-';
@@ -68,17 +68,17 @@ const Header: React.FC<HeaderProps> = React.memo(({
 
  {/* Right Block: Actions */}
  <div className="flex items-center gap-3 sm:gap-4">
- {onOpenGroups && (
+ {onOpenGame && (
  <button
  type="button"
  onClick={() => {
  triggerHaptic('light');
- onOpenGroups();
+ onOpenGame();
  }}
  className="p-2 text-gray-400 transition-all active:scale-95"
- aria-label="Player groups"
+ aria-label="Play Keep It Up"
  >
- <Users size={22} />
+ <Gamepad2 size={22} />
  </button>
  )}
 

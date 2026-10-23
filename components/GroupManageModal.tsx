@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { User, PlayerGroup } from '../types';
-import { ArrowLeft, Check, Search, Trash2, UserPlus, X } from 'lucide-react';
+import { ArrowLeft, Check, MoreVertical, Pencil, Search, Trash2, UserPlus, X } from 'lucide-react';
 import { getAvatarColor, getRankFrameClass, triggerHaptic } from '../utils';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -14,6 +14,7 @@ interface GroupManageModalProps {
   onAddMember: (groupId: string, userId: string) => Promise<void>;
   onRemoveMember: (groupId: string, userId: string) => Promise<void>;
   onDeleteGroup: (groupId: string) => Promise<void>;
+  onRenameGroup: (groupId: string, name: string) => Promise<void>;
 }
 
 type CreateStep = 'members' | 'name';
@@ -28,6 +29,7 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
   onAddMember,
   onRemoveMember,
   onDeleteGroup,
+  onRenameGroup,
 }) => {
   const [groupName, setGroupName] = useState('');
   const [createStep, setCreateStep] = useState<CreateStep>('members');
@@ -35,6 +37,8 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState<string | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
     message: string;
@@ -54,6 +58,8 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
       setSearchQuery('');
       setIsSubmitting(false);
       setIsAddPanelOpen(false);
+      setIsMoreMenuOpen(false);
+      setRenameValue(null);
     }
   }, [isOpen]);
 
@@ -177,24 +183,99 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
     });
   };
 
+  const handleRenameSubmit = async () => {
+    if (!group || renameValue === null || isSubmitting) return;
+    const name = renameValue.trim();
+    if (!name || name === group.name) {
+      setRenameValue(null);
+      return;
+    }
+    setIsSubmitting(true);
+    triggerHaptic('medium');
+    try {
+      await onRenameGroup(group.id, name);
+      setRenameValue(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const createHeaderTitle = createStep === 'members'
     ? <>Add <span className="text-neon-primary">Members</span></>
     : <>Name <span className="text-neon-primary">Group</span></>;
 
   return (
     <div className="fixed inset-0 z-[220] bg-[#000B29] text-white flex flex-col h-[100dvh] overflow-hidden animate-in fade-in duration-300">
-      <div className="shrink-0 w-full bg-[#000B29]/90 backdrop-blur border-b border-[#002266] pt-[env(safe-area-inset-top)]">
-        <div className="flex items-center gap-3 py-3 px-4 sm:px-6">
-          <button onClick={handleCreateBack} className="p-2 -ml-2 text-gray-400 rounded-full transition-colors active:scale-95">
-            <ArrowLeft size={20} />
+      <div className="relative z-20 shrink-0 w-full bg-[#000B29]/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+        <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
+          <button onClick={handleCreateBack} className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95" aria-label="Back">
+            <ArrowLeft size={18} />
           </button>
-          <h2 className="text-lg font-black italic uppercase text-white tracking-wider flex-1">
-            {isCreateMode
-              ? createHeaderTitle
-              : isAddPanelOpen
-                ? <>Add <span className="text-neon-primary">Members</span></>
-                : <>Manage <span className="text-[#00FF41]">Group</span></>}
-          </h2>
+          {!isCreateMode && !isAddPanelOpen ? (
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-black italic uppercase text-white tracking-wider truncate leading-tight">
+                {group.name}
+              </h2>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-gray-500 tabular-nums leading-tight">
+                {members.length} members
+              </p>
+            </div>
+          ) : (
+            <h2 className="text-base font-black italic uppercase text-white tracking-wider flex-1">
+              {isCreateMode
+                ? createHeaderTitle
+                : <>Add <span className="text-neon-primary">Members</span></>}
+            </h2>
+          )}
+          {!isCreateMode && !isAddPanelOpen && isOwner && (
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setIsMoreMenuOpen(o => !o);
+                }}
+                aria-label="More options"
+                aria-haspopup="menu"
+                aria-expanded={isMoreMenuOpen}
+                className="p-1.5 -mr-1.5 text-gray-400 rounded-full transition-colors active:scale-95"
+              >
+                <MoreVertical size={18} />
+              </button>
+              {isMoreMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setIsMoreMenuOpen(false)} />
+                  <div role="menu" className="absolute right-0 top-full mt-1 z-40 min-w-[180px] bg-[#001645] border border-[#002266] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        setIsMoreMenuOpen(false);
+                        setRenameValue(group.name);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-gray-200 text-left active:bg-white/5"
+                    >
+                      <Pencil size={13} />
+                      Edit group name
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        handleDeleteGroup();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-red-400 text-left border-t border-white/5 active:bg-white/5"
+                    >
+                      <Trash2 size={13} />
+                      Delete group
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {isCreateMode && (
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 tabular-nums">
               {createStep === 'members' ? '1/2' : '2/2'}
@@ -484,23 +565,6 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
         </>
       ) : (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-[#002266] flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h3 className="text-xl font-black italic uppercase tracking-tighter text-white truncate">{group.name}</h3>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 tabular-nums">{members.length} members</p>
-          </div>
-          {isOwner && (
-            <button
-              type="button"
-              onClick={handleDeleteGroup}
-              aria-label="Delete group"
-              className="p-2.5 rounded-none bg-[#001645] text-red-400 transition-all active:scale-95 shrink-0"
-            >
-              <Trash2 size={18} strokeWidth={2.5} />
-            </button>
-          )}
-        </div>
-
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="grid grid-cols-4 gap-x-3 gap-y-4">
             {members.map(member => {
@@ -576,6 +640,50 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
         onConfirm={() => { triggerHaptic('medium'); confirmConfig?.action(); setConfirmConfig(null); }}
         onCancel={() => { triggerHaptic('light'); setConfirmConfig(null); }}
       />
+
+      {renameValue !== null && group && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#000B29]/80 backdrop-blur-sm">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleRenameSubmit();
+            }}
+            className="bg-[#001645] w-full max-w-sm relative overflow-hidden flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.6)] animate-in fade-in zoom-in duration-200"
+          >
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-[#00FF41]" />
+            <div className="p-6">
+              <h3 className="text-xl font-black italic uppercase text-white mb-4 tracking-wider pl-2">Edit Group Name</h3>
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                maxLength={40}
+                autoFocus
+                className="ml-2 w-[calc(100%-0.5rem)] bg-[#000B29] border border-white/10 focus:border-neon-primary rounded-none px-3 py-2.5 text-sm font-bold text-white outline-none"
+              />
+            </div>
+            <div className="flex border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setRenameValue(null);
+                }}
+                className="flex-1 py-4 bg-[#000F33] text-gray-400 font-bold uppercase tracking-wider text-xs border-r border-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!renameValue.trim() || isSubmitting}
+                className="flex-1 py-4 bg-[#00FF41]/10 text-[#00FF41] font-black uppercase tracking-wider text-xs disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

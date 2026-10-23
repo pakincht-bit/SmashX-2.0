@@ -342,11 +342,29 @@
 
 <body class="bg-[#000B29] text-white antialiased overflow-x-hidden w-full relative">
   <div id="root">
+    <!-- Static copy of components/OrbitLoader (lg) shown before the JS bundle boots -->
     <div id="boot-fallback" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000B29;color:#fff;font-family:Inter,sans-serif;">
-      <div style="width:40px;height:40px;border:3px solid #002266;border-top-color:#00FF41;border-radius:50%;animation:boot-spin 0.8s linear infinite;margin-bottom:16px;"></div>
-      <p style="font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;color:#6b7280;margin:0;">Entering Arena...</p>
+      <div style="position:relative;width:262px;height:262px;">
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><div class="boot-core" style="width:14px;height:14px;border-radius:50%;background:#00FF41;box-shadow:0 0 24px rgba(0,255,65,0.7);"></div></div>
+        <div class="boot-spin" style="position:absolute;left:85px;top:85px;width:92px;height:92px;border-radius:50%;border:1px solid rgba(0,255,65,0.18);box-shadow:0 0 24px rgba(0,255,65,0.06);animation:boot-orbit 4s linear infinite;">
+          <div style="position:absolute;left:81.0px;top:35.0px;width:22px;height:22px;"><div class="boot-spin" style="width:100%;height:100%;animation:boot-orbit-rev 4s linear infinite;"><img src="https://api.dicebear.com/9.x/adventurer/svg?seed=Alexander" alt="" style="width:100%;height:100%;border-radius:50%;background:#001645;border:1.5px solid rgba(0,255,65,0.5);box-shadow:0 0 10px rgba(0,255,65,0.25);"></div></div>
+          <div style="position:absolute;left:-11.0px;top:35.0px;width:22px;height:22px;"><div class="boot-spin" style="width:100%;height:100%;animation:boot-orbit-rev 4s linear infinite;"><img src="https://api.dicebear.com/9.x/adventurer/svg?seed=Jessica" alt="" style="width:100%;height:100%;border-radius:50%;background:#001645;border:1.5px solid rgba(0,255,65,0.5);box-shadow:0 0 10px rgba(0,255,65,0.25);"></div></div>
+        </div>
+        <div class="boot-spin" style="position:absolute;left:53px;top:53px;width:156px;height:156px;border-radius:50%;border:1px solid rgba(59,130,246,0.18);box-shadow:0 0 24px rgba(59,130,246,0.06);animation:boot-orbit-rev 6.5s linear infinite;">
+          <div style="position:absolute;left:124.8px;top:115.1px;width:26px;height:26px;"><div class="boot-spin" style="width:100%;height:100%;animation:boot-orbit 6.5s linear infinite;"><img src="https://api.dicebear.com/9.x/adventurer/svg?seed=Ryan" alt="" style="width:100%;height:100%;border-radius:50%;background:#001645;border:1.5px solid rgba(59,130,246,0.5);box-shadow:0 0 10px rgba(59,130,246,0.25);"></div></div>
+          <div style="position:absolute;left:-8.3px;top:91.7px;width:26px;height:26px;"><div class="boot-spin" style="width:100%;height:100%;animation:boot-orbit 6.5s linear infinite;"><img src="https://api.dicebear.com/9.x/adventurer/svg?seed=Sarah" alt="" style="width:100%;height:100%;border-radius:50%;background:#001645;border:1.5px solid rgba(59,130,246,0.5);box-shadow:0 0 10px rgba(59,130,246,0.25);"></div></div>
+          <div style="position:absolute;left:78.5px;top:-11.8px;width:26px;height:26px;"><div class="boot-spin" style="width:100%;height:100%;animation:boot-orbit 6.5s linear infinite;"><img src="https://api.dicebear.com/9.x/adventurer/svg?seed=Christian" alt="" style="width:100%;height:100%;border-radius:50%;background:#001645;border:1.5px solid rgba(59,130,246,0.5);box-shadow:0 0 10px rgba(59,130,246,0.25);"></div></div>
+        </div>
+        <div class="boot-spin" style="position:absolute;left:19px;top:19px;width:224px;height:224px;border-radius:50%;border:1px solid rgba(168,85,247,0.18);box-shadow:0 0 24px rgba(168,85,247,0.06);animation:boot-orbit 10s linear infinite;">
+          <div style="position:absolute;left:205.2px;top:126.0px;width:30px;height:30px;"><div class="boot-spin" style="width:100%;height:100%;animation:boot-orbit-rev 10s linear infinite;"><img src="https://api.dicebear.com/9.x/adventurer/svg?seed=Sofia" alt="" style="width:100%;height:100%;border-radius:50%;background:#001645;border:1.5px solid rgba(168,85,247,0.5);box-shadow:0 0 10px rgba(168,85,247,0.25);"></div></div>
+          <div style="position:absolute;left:68.0px;top:205.2px;width:30px;height:30px;"><div class="boot-spin" style="width:100%;height:100%;animation:boot-orbit-rev 10s linear infinite;"><img src="https://api.dicebear.com/9.x/adventurer/svg?seed=Brian" alt="" style="width:100%;height:100%;border-radius:50%;background:#001645;border:1.5px solid rgba(168,85,247,0.5);box-shadow:0 0 10px rgba(168,85,247,0.25);"></div></div>
+          <div style="position:absolute;left:-11.2px;top:68.0px;width:30px;height:30px;"><div class="boot-spin" style="width:100%;height:100%;animation:boot-orbit-rev 10s linear infinite;"><img src="https://api.dicebear.com/9.x/adventurer/svg?seed=Amelia" alt="" style="width:100%;height:100%;border-radius:50%;background:#001645;border:1.5px solid rgba(168,85,247,0.5);box-shadow:0 0 10px rgba(168,85,247,0.25);"></div></div>
+          <div style="position:absolute;left:126.0px;top:-11.2px;width:30px;height:30px;"><div class="boot-spin" style="width:100%;height:100%;animation:boot-orbit-rev 10s linear infinite;"><img src="https://api.dicebear.com/9.x/adventurer/svg?seed=Leo" alt="" style="width:100%;height:100%;border-radius:50%;background:#001645;border:1.5px solid rgba(168,85,247,0.5);box-shadow:0 0 10px rgba(168,85,247,0.25);"></div></div>
+        </div>
+      </div>
+      <p style="margin:24px 0 0;font-size:10px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#6b7280;">Entering Arena...</p>
     </div>
-    <style>@keyframes boot-spin{to{transform:rotate(360deg)}}</style>
+    <style>@keyframes boot-orbit{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes boot-orbit-rev{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}@keyframes boot-core{0%,100%{transform:scale(.85);opacity:.7}50%{transform:scale(1.1);opacity:1}}.boot-core{animation:boot-core 1.6s ease-in-out infinite}@media (prefers-reduced-motion:reduce){.boot-spin,.boot-core{animation:none!important}}</style>
   </div>
 
   <script>

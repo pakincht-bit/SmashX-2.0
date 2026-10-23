@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface ConfirmationModalProps {
  isOpen: boolean;
@@ -10,6 +10,8 @@ interface ConfirmationModalProps {
  onConfirm: () => void;
  onCancel: () => void;
  isDestructive?: boolean;
+ // When set, the user must type this exact text before confirm is enabled
+ requireTypedText?: string;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -21,8 +23,18 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
  onConfirm,
  onCancel,
  isDestructive = false,
+ requireTypedText,
 }) => {
+ const [typed, setTyped] = useState('');
+
+ // Start empty every time the modal opens
+ useEffect(() => {
+ if (isOpen) setTyped('');
+ }, [isOpen]);
+
  if (!isOpen) return null;
+
+ const canConfirm = !requireTypedText || typed.trim().toUpperCase() === requireTypedText.toUpperCase();
 
  return (
  <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#000B29]/80 backdrop-blur-sm">
@@ -37,6 +49,25 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
  <p className="text-gray-300 text-sm leading-relaxed pl-2 font-medium">
  {message}
  </p>
+ {requireTypedText && (
+ <div className="mt-5 pl-2">
+ <label htmlFor="confirm-typed-text" className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">
+ Type <span className={isDestructive ? 'text-red-500' : 'text-[#00FF41]'}>{requireTypedText}</span> to confirm
+ </label>
+ <input
+ id="confirm-typed-text"
+ type="text"
+ value={typed}
+ onChange={(e) => setTyped(e.target.value)}
+ autoComplete="off"
+ autoCorrect="off"
+ autoCapitalize="characters"
+ spellCheck={false}
+ placeholder={requireTypedText}
+ className="w-full bg-[#000B29] border border-white/10 rounded-none px-3 py-2.5 text-sm font-black uppercase tracking-widest text-white placeholder:text-gray-700 outline-none focus:border-red-500/60"
+ />
+ </div>
+ )}
  </div>
 
  <div className="flex border-t border-white/5">
@@ -48,7 +79,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
  </button>
  <button
  onClick={onConfirm}
- className={`flex-1 py-4 font-black uppercase tracking-wider text-xs transition-all
+ disabled={!canConfirm}
+ className={`flex-1 py-4 font-black uppercase tracking-wider text-xs transition-all disabled:opacity-30 disabled:cursor-not-allowed
  ${isDestructive
  ? 'bg-red-500/10 text-red-500 '
  : 'bg-[#00FF41]/10 text-[#00FF41] '

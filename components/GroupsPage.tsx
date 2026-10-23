@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Plus, Users } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
 import { User, PlayerGroup } from '../types';
 import { getAvatarColor, triggerHaptic } from '../utils';
 import { Button } from './ui/Button';
@@ -7,7 +7,6 @@ import { Button } from './ui/Button';
 interface GroupsPageProps {
   groups: PlayerGroup[];
   allUsers: User[];
-  onClose?: () => void;
   onCreateClick: () => void;
   onManageClick: (group: PlayerGroup) => void;
 }
@@ -15,52 +14,34 @@ interface GroupsPageProps {
 const GroupsPage: React.FC<GroupsPageProps> = ({
   groups,
   allUsers,
-  onClose,
   onCreateClick,
   onManageClick,
 }) => {
   const usersMap = new Map(allUsers.map((u) => [u.id, u]));
 
   return (
-    <div className="relative w-full min-h-screen bg-navy-base text-white overflow-y-auto pb-8 font-sans">
-      <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)] shrink-0">
-        <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
-          {onClose && (
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                onClose();
-              }}
-              className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95"
-              aria-label="Back"
-            >
-              <ArrowLeft size={18} />
-            </button>
-          )}
-          <div className="flex items-center flex-1 min-w-0">
-            <h2 className="text-base font-black italic uppercase text-white tracking-wider truncate">
-              Player <span className="text-neon-primary">Groups</span>
-            </h2>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            skewed={false}
-            onClick={() => {
-              triggerHaptic('medium');
-              onCreateClick();
-            }}
-            className="!border-neon-primary/30 !text-neon-primary !bg-navy-card shrink-0"
-          >
-            <Plus size={14} strokeWidth={3} />
-            New
-          </Button>
-        </div>
+    <div className="space-y-6 animate-fade-in-up">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-xl font-black italic uppercase tracking-tighter text-white truncate">
+          Player <span className="text-[#00FF41]">Groups</span>
+        </h3>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          skewed={false}
+          onClick={() => {
+            triggerHaptic('medium');
+            onCreateClick();
+          }}
+          className="!border-neon-primary/30 !text-neon-primary !bg-navy-card shrink-0"
+        >
+          <Plus size={14} strokeWidth={3} />
+          New
+        </Button>
       </div>
 
-      <div className="relative z-10 w-full max-w-xl mx-auto px-4 sm:px-6 pt-4 pb-4 animate-fade-in-up flex flex-col">
+      <div className="flex flex-col">
         {groups.length === 0 ? (
           <button
             type="button"

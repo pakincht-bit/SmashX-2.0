@@ -431,9 +431,6 @@ const Profile: React.FC<ProfileProps> = ({
         </div>
       </div>
 
-      {/* Ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg aspect-square bg-neon-primary rounded-full blur-[160px] opacity-[0.05] pointer-events-none z-0" />
-
       <div className="relative z-10 w-full max-w-xl mx-auto px-4 sm:px-6 pt-4 animate-fade-in-up flex flex-col pb-4">
         {/* Identity + career — single static group */}
         <section className="w-full mb-2 px-4 pb-4 pt-0">
@@ -881,6 +878,7 @@ const Profile: React.FC<ProfileProps> = ({
         message="This will permanently delete your profile and rank from SmashX. This action cannot be undone."
         confirmLabel="Confirm Purge"
         isDestructive={true}
+        requireTypedText="DELETE"
         onConfirm={() => {
           setIsDeleteConfirmOpen(false);
           onDeleteAccount();
