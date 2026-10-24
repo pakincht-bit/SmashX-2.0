@@ -21,7 +21,8 @@ const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 const Profile = lazy(() => import('./components/Profile'));
 const HistoryScreen = lazy(() => import('./components/HistoryScreen'));
 const ActivityLogModal = lazy(() => import('./components/ActivityLogModal'));
-import OrbitLoader from './components/OrbitLoader';
+import ScoreboardLoader from './components/ScoreboardLoader';
+import { LeaderboardSkeleton, GroupsSkeleton, StatsSkeleton } from './components/ui/Skeleton';
 import ShuttleGameLoader from './components/ShuttleGameLoader';
 const StatsPage = lazy(() => import('./components/StatsPage'));
 const RegisterScreen = lazy(() => import('./components/RegisterScreen'));
@@ -52,11 +53,6 @@ const App: React.FC = () => {
 
  // Data State
  const [users, setUsers] = useState<User[]>([]);
- // Top players ride the loading orbit once profiles are loaded (falls back to default avatars before that)
- const loaderAvatars = useMemo(
- () => [...users].sort((a, b) => b.points - a.points).slice(0, 9).map(u => u.avatar).filter(Boolean),
- [users]
- );
  const [currentUser, setCurrentUser] = useState<User | null>(null);
  const [sessions, setSessions] = useState<Session[]>([]);
  const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -399,7 +395,7 @@ const App: React.FC = () => {
  .select('*')
  .lt('end_time', new Date().toISOString()) // Sessions that have ended
  .order('end_time', { ascending: false })
- .limit(3) // Last 3 sessions for Recent Battles
+ .limit(5) // Last 5 sessions for Recent Battles
  )
  ]) as any;
 
@@ -1469,7 +1465,7 @@ const App: React.FC = () => {
  return [...allSessions]
  .filter(s => s.finalBill || new Date(s.endTime).getTime() < Date.now())
  .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime())
- .slice(0, 3);
+ .slice(0, 5);
  }, [allSessions]);
 
  const paginatedSessions = upcomingSessions.slice(0, visibleCount);
@@ -1521,16 +1517,14 @@ const App: React.FC = () => {
 
  if (isInitialLoading) {
  return (
- <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center">
- <OrbitLoader label="Entering Arena..." avatars={loaderAvatars} />
- </div>
+ <ScoreboardLoader fullPage label="Entering Arena..." />
  );
  }
 
  // Render logic ordered to prioritize Auth screens over Error screens
  if (authStage === 'splash') return <SplashScreen onLoginClick={() => setAuthStage('login')} onRegisterClick={() => setAuthStage('register')} />;
- if (authStage === 'login') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><OrbitLoader avatars={loaderAvatars} /></div>}><LoginScreen users={users} onLogin={handleLogin} onBack={() => setAuthStage('splash')} /></Suspense>;
- if (authStage === 'register') return <Suspense fallback={<div className="fixed inset-0 bg-[#000B29] flex items-center justify-center"><OrbitLoader avatars={loaderAvatars} /></div>}><RegisterScreen onRegister={handleRegister} onBack={() => setAuthStage('splash')} /></Suspense>;
+ if (authStage === 'login') return <Suspense fallback={<ScoreboardLoader fullPage label="Entering Arena..." />}><LoginScreen users={users} onLogin={handleLogin} onBack={() => setAuthStage('splash')} /></Suspense>;
+ if (authStage === 'register') return <Suspense fallback={<ScoreboardLoader fullPage label="Entering Arena..." />}><RegisterScreen onRegister={handleRegister} onBack={() => setAuthStage('splash')} /></Suspense>;
 
  if (fetchError && !hasLoadedDataRef.current) {
  return (
@@ -1546,14 +1540,12 @@ const App: React.FC = () => {
 
  if (!activeUser && isAuthenticated) {
  return (
- <div className="fixed inset-0 bg-[#000B29] flex flex-col items-center justify-center p-8 text-center">
- <OrbitLoader avatars={loaderAvatars} className="mb-6" />
- <h2 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">Syncing <span className="text-[#00FF41]">Profile</span></h2>
- <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest mb-6">Securing Arena Credentials</p>
- <button onClick={() => window.location.reload()} className="flex items-center gap-2 text-gray-400 font-bold uppercase text-[10px] tracking-widest transition-colors">
+ <>
+ <ScoreboardLoader fullPage label="Syncing Profile..." />
+ <button onClick={() => window.location.reload()} className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[160] flex items-center gap-2 bg-[#000B29] px-4 py-2 text-gray-400 font-bold uppercase text-[10px] tracking-widest transition-colors">
  <RefreshCcw size={14} /> Force Refresh
  </button>
- </div>
+ </>
  );
  }
 
@@ -1568,8 +1560,8 @@ const App: React.FC = () => {
 
  const renderContent = () => {
  switch (activeTab) {
- case 'leaderboard': return <Suspense fallback={<OrbitLoader size="sm" avatars={loaderAvatars} className="py-20" />}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} playerGroups={playerGroups} /></Suspense>;
- case 'groups': return <Suspense fallback={<OrbitLoader size="sm" avatars={loaderAvatars} className="py-20" />}><GroupsPage groups={playerGroups} allUsers={users} onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }} onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }} /></Suspense>;
+ case 'leaderboard': return <Suspense fallback={<LeaderboardSkeleton />}><Leaderboard users={users} sessions={allSessions} onPlayerClick={setViewingPlayerId} currentUser={activeUser} playerGroups={playerGroups} /></Suspense>;
+ case 'groups': return <Suspense fallback={<GroupsSkeleton />}><GroupsPage groups={playerGroups} allUsers={users} onCreateClick={() => { setManagingGroup(null); setIsGroupManageOpen(true); }} onManageClick={(group) => { setManagingGroup(group); setIsGroupManageOpen(true); }} /></Suspense>;
  case 'sessions':
  default:
  return (
@@ -1777,9 +1769,7 @@ const App: React.FC = () => {
  </Suspense>
  {selectedSession !== null ? (
  <Suspense fallback={
- <div className="fixed inset-0 z-[150] bg-[#000B29] flex items-center justify-center">
- <OrbitLoader avatars={loaderAvatars} />
- </div>
+ <ScoreboardLoader fullPage label="Entering Arena..." className="z-[150]" />
  }>
  <SessionDetailModal
  session={selectedSession}
@@ -1862,9 +1852,7 @@ const App: React.FC = () => {
      a null Suspense fallback here would briefly reveal the home page. */}
  <Suspense
  fallback={
- <div className="flex items-center justify-center min-h-screen">
- <OrbitLoader avatars={loaderAvatars} />
- </div>
+ <ScoreboardLoader fullPage label="Entering Arena..." />
  }
  >
  {isSettingsOpen ? (
@@ -1924,7 +1912,7 @@ const App: React.FC = () => {
  </div>
  </div>
  <div className="pt-1 pb-4">
- <Suspense fallback={<OrbitLoader size="sm" avatars={loaderAvatars} className="py-20" />}>
+ <Suspense fallback={<StatsSkeleton />}>
  <StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} onPlayerClick={setViewingPlayerId} />
  </Suspense>
  </div>
@@ -1947,7 +1935,7 @@ const App: React.FC = () => {
  <div className="relative">
  <div className="absolute inset-0 bg-[#00FF41] blur-[60px] opacity-20 animate-pulse"></div>
  <div className="relative bg-[#001645] border border-[#00FF41]/30 p-8 rounded-none shadow-[0_0_50px_rgba(0,255,65,0.15)] flex flex-col items-center">
- <OrbitLoader size="sm" avatars={loaderAvatars} className="mb-4" />
+ <ScoreboardLoader size="sm" className="mb-4" />
  <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter mb-2">Syncing <span className="text-[#00FF41]">Arena Stats</span></h2>
  <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] animate-pulse">Updating Ranks & Points</p>
 

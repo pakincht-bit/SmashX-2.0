@@ -3,6 +3,7 @@ import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { User, Session, PlayerGroup } from '../types';
 import { Users, Check, ChevronLeft, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
 import { getAvatarColor, getRankFrameClass, triggerHaptic, mapSessionFromDB, getPlayerMatchDelta } from '../utils';
+import { LeaderboardRowsSkeleton } from './ui/Skeleton';
 import { supabase } from '../services/supabaseClient';
 
 type TimeRange = 'alltime' | 'monthly';
@@ -413,7 +414,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, sessions, onPlayerClic
             </div>
 
             <div>
-              {sortedUsers.length === 0 ? (
+              {isLoadingMonth ? (
+                <LeaderboardRowsSkeleton />
+              ) : sortedUsers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 px-4">
                   <Users size={32} className="text-gray-600 mb-3" />
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">

@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Session, User, MatchResult, NextMatchup, PlayerGroup } from '../types';
 import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic, getPlayerMatchDelta, computeEloDeltas } from '../utils';
-import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, BarChart3, UserPlus, Search } from 'lucide-react';
+import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, BarChart3, UserPlus, Search, MoreHorizontal } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import PullToRefresh from './PullToRefresh';
 import ShareReportModal from './ShareReportModal';
@@ -94,6 +94,16 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const [pendingWinner, setPendingWinner] = useState<1 | 2 | null>(null);
 
  const [isCopied, setIsCopied] = useState(false);
+ const [isMoreOpen, setIsMoreOpen] = useState(false);
+ const moreMenuRef = useRef<HTMLDivElement>(null);
+ useEffect(() => {
+ if (!isMoreOpen) return;
+ const onPointerDown = (e: PointerEvent) => {
+ if (!moreMenuRef.current?.contains(e.target as Node)) setIsMoreOpen(false);
+ };
+ document.addEventListener('pointerdown', onPointerDown);
+ return () => document.removeEventListener('pointerdown', onPointerDown);
+ }, [isMoreOpen]);
  const [isRefreshingManual, setIsRefreshingManual] = useState(false);
  const [isShareReportOpen, setIsShareReportOpen] = useState(false);
  const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -202,9 +212,19 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  if (!session) return null;
 
- const handleCopyLink = () => {
+ const handleCopyLink = async () => {
  const url = `${window.location.origin}${window.location.pathname}?session=${session.id}`;
- navigator.clipboard.writeText(url);
+ triggerHaptic('light');
+ // Prefer the OS share sheet; fall back to copying the link where it isn't available
+ if (navigator.share) {
+ try {
+ await navigator.share({ title: session.title || session.location, text: `Join my badminton session on SmashX`, url });
+ return;
+ } catch (err) {
+ if ((err as DOMException).name === 'AbortError') return;
+ }
+ }
+ try { await navigator.clipboard.writeText(url); } catch { return; }
  setIsCopied(true);
  triggerHaptic('success');
  setTimeout(() => setIsCopied(false), 2000);
@@ -803,7 +823,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const renderNormalPlayerList = () => (
  <div>
  <div className="flex items-center justify-between mb-4">
- <h3 className="text-lg font-black italic text-white uppercase tracking-wider">Players</h3>
+ <h3 className="text-lg font-black italic text-white uppercase tracking-wider">Players <span className="text-[#00FF41]">({session.playerIds.length})</span></h3>
  {renderInviteButton()}
  </div>
  <div className="-mx-4 sm:-mx-6 flex flex-col">
@@ -1175,6 +1195,57 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  );
  };
 
+  const renderShareButton = (fill: boolean) => (
+    <button
+      onClick={handleCopyLink}
+      className={`${fill ? 'flex-1' : 'w-14 shrink-0'} flex items-center justify-center gap-2 py-3.5 rounded-none skew-x-[-6deg] border font-black uppercase tracking-widest text-sm transition-colors ${isCopied ? 'bg-[#00FF41] border-[#00FF41] text-[#000B29]' : 'bg-[#001645] border-[#002266] text-gray-300'}`}
+      aria-label="Share session"
+    >
+      <span className="skew-x-[6deg] flex items-center gap-2">
+        {isCopied ? <Check size={18} strokeWidth={3} /> : <Share2 size={18} />}
+        {fill && (isCopied ? 'Copied!' : 'Share Session')}
+      </span>
+    </button>
+  );
+
+  const renderMoreMenu = () => (
+    <div ref={moreMenuRef} className="relative shrink-0">
+      <button
+        onClick={() => { triggerHaptic('light'); setIsMoreOpen(o => !o); }}
+        className={`p-2 rounded-full transition-all ${isMoreOpen ? 'text-[#00FF41] bg-[#001645]' : 'text-gray-400'}`}
+        aria-label="More actions"
+        aria-expanded={isMoreOpen}
+      >
+        <MoreHorizontal size={18} />
+      </button>
+      {isMoreOpen && (
+        <>
+          <div role="menu" className="absolute top-full mt-2 right-0 z-50 min-w-[180px] bg-[#001645] border border-[#002266] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+            {onEdit && (
+              <button
+                role="menuitem"
+                onClick={() => { triggerHaptic('medium'); setIsMoreOpen(false); onEdit(session.id); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-white text-left active:bg-white/5"
+              >
+                <Pencil size={14} /> Edit Session
+              </button>
+            )}
+            <button
+              role="menuitem"
+              onClick={() => {
+                setIsMoreOpen(false);
+                setConfirmConfig({ isOpen: true, title: 'Delete Session', message: 'This action is permanent and will remove the session from the arena. Proceed?', action: () => { triggerHaptic('heavy'); onDelete(session.id); }, isDestructive: true, confirmLabel: 'Delete Session' });
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-red-500 text-left active:bg-white/5"
+            >
+              <Trash2 size={14} /> Delete Session
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
  return (
  <div className="fixed inset-0 z-[210] bg-[#000B29] text-white overflow-hidden animate-fade-in">
  <div className="h-[100dvh] flex flex-col max-w-2xl mx-auto bg-[#000B29] shadow-2xl shadow-black relative overflow-hidden">
@@ -1190,21 +1261,17 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <RefreshCw size={18} className={isRefreshingManual ? "animate-spin" : ""} />
  {isRefreshingManual && <span>Syncing</span>}
  </button>
- <button onClick={status === 'END' ? () => setIsShareReportOpen(true) : handleCopyLink} className={`p-2 rounded-full transition-all flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest ${isCopied ? 'bg-[#00FF41] text-[#000B29]' : 'text-gray-400 '}`}>
+ {isHost && status === 'OPEN' && renderMoreMenu()}
+ {status !== 'OPEN' && <button onClick={status === 'END' ? () => setIsShareReportOpen(true) : handleCopyLink} className={`p-2 rounded-full transition-all flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest ${isCopied ? 'bg-[#00FF41] text-[#000B29]' : 'text-gray-400 '}`}>
  <Share2 size={18} />
  {isCopied && <span>Copied!</span>}
- </button>
+ </button>}
  {!isHost && isJoined && status !== 'END' && (
  <button onClick={() => setConfirmConfig({ isOpen: true, title: 'Leave Session', message: 'Are you sure?', action: () => { triggerHaptic('medium'); onLeave(session.id); onClose(); }, isDestructive: true, confirmLabel: 'Leave' })} className="p-2 text-gray-400 rounded-full transition-all active:text-red-400">
  <LogOut size={18} />
  </button>
  )}
  {isHost && status === 'PLAYING' && (<button onClick={() => { triggerHaptic('medium'); setConfirmConfig({ isOpen: true, title: 'End Session', message: 'Are you sure you want to end this session? All active courts will be finalized.', confirmLabel: 'End Session', isDestructive: true, action: () => onEnd(session.id, { shuttlesUsed: 0, pricePerShuttle: 0, totalCourtPrice: 0, splitMode: 'EQUAL' }) }); }} className="flex items-center gap-2 bg-red-500/10 text-red-500 border border-red-500/50 px-3 py-1.5 rounded-none text-xs font-black uppercase tracking-wider transition-all"><Square size={14} fill="currentColor" /><span>End Session</span></button>)}
- {isHost && status === 'OPEN' && onEdit && (
- <button onClick={() => { triggerHaptic('medium'); onEdit(session.id); }} className="p-2 text-gray-400 rounded-full transition-all">
- <Pencil size={18} />
- </button>
- )}
  </div>
  </div>
  </div>
@@ -1258,7 +1325,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
          {renderLiveCourts()}
          <div>
            <div className="flex items-center justify-between mb-4">
-             <h3 className="text-lg font-black italic text-white uppercase tracking-wider">Players</h3>
+             <h3 className="text-lg font-black italic text-white uppercase tracking-wider">Players <span className="text-[#00FF41]">({session.playerIds.length})</span></h3>
              {renderInviteButton()}
            </div>
            {renderCheckInList()}
@@ -1278,13 +1345,14 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  {!(status === 'END' && (isHost || isJoined)) && (
  <div className="shrink-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-[#000B29]/95 backdrop-blur-xl border-t border-[#002266] z-40">
  {isHost ? (
- <div className={`grid gap-4 ${status === 'OPEN' ? 'grid-cols-[1fr_2fr]' : 'grid-cols-1'}`}>
- {status === 'OPEN' && <button onClick={() => setConfirmConfig({ isOpen: true, title: 'Delete Session', message: 'This action is permanent and will remove the session from the arena. Proceed?', action: () => { triggerHaptic('heavy'); onDelete(session.id); }, isDestructive: true, confirmLabel: 'Delete Session' })} className="flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] bg-red-900/20 border border-red-900/50 text-red-500 transition-colors font-black uppercase tracking-wider text-sm"><span className="skew-x-[6deg] flex items-center"><Trash2 size={16} className="mr-2" />Delete</span></button>}
- {status === 'OPEN' && <button onClick={handleStartSession} disabled={isTooEarlyToStart} className={`flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${isTooEarlyToStart ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] (0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{isTooEarlyToStart ? <><Lock size={16} className="mr-2" />Wait until {formatTime(new Date(startTimeObj.getTime() - START_THRESHOLD_MINUTES * 60000).toISOString())}</> : <><Play size={18} className="mr-2 fill-current" />Start Session</>}</div></button>}
+ <div className="flex gap-3">
+ {status === 'OPEN' && renderShareButton(false)}
+ {status === 'OPEN' && <button onClick={handleStartSession} disabled={isTooEarlyToStart} className={`flex-1 flex items-center justify-center py-3.5 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${isTooEarlyToStart ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] (0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{isTooEarlyToStart ? <><Lock size={16} className="mr-2" />Wait until {formatTime(new Date(startTimeObj.getTime() - START_THRESHOLD_MINUTES * 60000).toISOString())}</> : <><Play size={18} className="mr-2 fill-current" />Start Session</>}</div></button>}
  </div>
  ) : (
- <div className="w-full">
- {isJoined ? null : <button onClick={() => { triggerHaptic('success'); onJoin(session.id); }} disabled={status === 'END'} className={`w-full flex items-center justify-center py-4 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${status === 'END' ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{status === 'END' ? 'Session Ended' : 'Join Session'}</div></button>}
+ <div className="w-full flex gap-3">
+ {status === 'OPEN' && renderShareButton(isJoined)}
+ {isJoined ? null : <button onClick={() => { triggerHaptic('success'); onJoin(session.id); }} disabled={status === 'END'} className={`flex-1 flex items-center justify-center py-4 rounded-none skew-x-[-6deg] font-black uppercase tracking-widest text-sm shadow-lg transition-all ${status === 'END' ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-[#00FF41] text-[#000B29] shadow-[0_0_20px_rgba(0,255,65,0.4)]'}`}><div className="skew-x-[6deg] flex items-center">{status === 'END' ? 'Session Ended' : 'Join Session'}</div></button>}
  </div>
  )}
  </div>
