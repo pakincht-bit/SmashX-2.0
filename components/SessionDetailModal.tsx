@@ -1250,11 +1250,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <div className="fixed inset-0 z-[210] bg-[#000B29] text-white overflow-hidden animate-fade-in">
  <div className="h-[100dvh] flex flex-col max-w-2xl mx-auto bg-[#000B29] shadow-2xl shadow-black relative overflow-hidden">
  {/* Sticky Header with Safe Area Support */}
- <div className="sticky top-0 z-30 bg-[#000B29]/95 backdrop-blur-md pt-[env(safe-area-inset-top)]">
- <div className="px-4 h-16 shrink-0 flex items-center justify-between">
- <div className="flex items-center gap-4">
- <button onClick={() => { triggerHaptic('light'); onClose(); }} className="p-2 -ml-2 text-gray-400 rounded-full transition-all"><ArrowLeft size={24} /></button>
- <h1 className="text-sm font-bold uppercase tracking-widest text-gray-400"> {status === 'PLAYING' ? 'Live' : (status === 'END' ? 'Session Report' : 'Session Details')} </h1>
+ <div className="sticky top-0 z-30 bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+ <div className="px-4 sm:px-6 py-2 shrink-0 flex items-center justify-between">
+ <div className="flex items-center gap-2">
+ <button type="button" onClick={() => { triggerHaptic('light'); onClose(); }} className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95" aria-label="Back"><ArrowLeft size={18} /></button>
+ <h2 className="text-base font-black italic uppercase text-white tracking-wider">Session <span className="text-neon-primary">{status === 'PLAYING' ? 'Live' : (status === 'END' ? 'Report' : 'Details')}</span></h2>
  </div>
  <div className="flex items-center gap-2">
  <button onClick={handleManualRefresh} className={`p-2 rounded-full transition-all flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest ${isRefreshingManual ? 'text-[#00FF41] bg-[#001645]' : 'text-gray-400 '}`}>

@@ -159,6 +159,20 @@ const App: React.FC = () => {
  return [...prev, newSession].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
  });
  } else if (payload.eventType === 'UPDATE') {
+ // Realtime omits unchanged TOASTed columns (large JSONB like `matches`) and drops
+ // oversized fields — mapping that partial row would wipe matches and show 0 pts.
+ // Refetch the full row instead of trusting an incomplete payload.
+ const isIncomplete = (payload as any).errors?.length > 0
+   || ['matches', 'court_assignments', 'check_in_times', 'player_ids'].some(col => !(col in payload.new));
+ if (isIncomplete) {
+   const sessionId = (payload.new as any).id;
+   supabase.from('sessions').select('*').eq('id', sessionId).single().then(({ data, error }) => {
+     if (error || !data) return;
+     const fullSession = mapSessionFromDB(data);
+     setSessions(prev => prev.map(s => s.id === fullSession.id ? fullSession : s));
+   });
+   return;
+ }
  setSessions(prev => prev.map(s => {
  if (s.id !== payload.new.id) return s;
  // data-consistency skill: Server wins. Always. No local state preservation.
@@ -1902,15 +1916,15 @@ const App: React.FC = () => {
  )}
  {isStatsOpen && (
  <div className="fixed inset-0 z-[200] bg-navy-base overflow-y-auto animate-in fade-in duration-300">
- <div className="mx-auto min-h-screen relative w-full max-w-5xl px-4 sm:px-6 lg:px-8">
- <div className="sticky top-0 z-50 bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)]">
- <div className="flex items-center gap-2 py-2">
+ <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+ <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
  <button type="button" onClick={() => { triggerHaptic('light'); setIsStatsOpen(false); }} className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95" aria-label="Back">
  <ArrowLeft size={18} />
  </button>
- <h2 className="text-base font-black italic uppercase text-white tracking-wider">My <span className="text-neon-primary">Stats</span></h2>
+ <h2 className="flex-1 text-base font-black italic uppercase text-white tracking-wider">My <span className="text-neon-primary">Stats</span></h2>
  </div>
  </div>
+ <div className="mx-auto min-h-screen relative w-full max-w-5xl px-4 sm:px-6 lg:px-8">
  <div className="pt-1 pb-4">
  <Suspense fallback={<StatsSkeleton />}>
  <StatsPage currentUser={activeUser} allUsers={users} sessions={allSessions} onOpenTiers={() => setShowTiers(true)} onPlayerClick={setViewingPlayerId} />
