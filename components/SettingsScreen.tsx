@@ -72,7 +72,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onUpdateUs
  return (
  <div className="relative w-full min-h-screen bg-[#000B29] text-white overflow-y-auto pb-20 font-sans">
  {/* Sticky Navigation Header */}
- <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+ <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-safe-top">
  <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
  <button type="button" onClick={() => { triggerHaptic('light'); onBack(); }} className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95" aria-label="Back">
  <ArrowLeft size={18} />

@@ -9,7 +9,7 @@ import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import FrameUnlockModal from './components/FrameUnlockModal';
 import PullToRefresh from './components/PullToRefresh';
-import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Plus, X, Users, Wifi, ArrowLeft } from 'lucide-react';
+import { Info, CheckCircle, Loader2, Calendar, WifiOff, RefreshCcw, Plus, X, Users, Wifi, ArrowLeft, Trophy } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
 // OPTIMIZATION: Lazy-load heavy components to reduce initial bundle size
@@ -23,7 +23,8 @@ const HistoryScreen = lazy(() => import('./components/HistoryScreen'));
 const ActivityLogModal = lazy(() => import('./components/ActivityLogModal'));
 import ScoreboardLoader from './components/ScoreboardLoader';
 import { LeaderboardSkeleton, GroupsSkeleton, StatsSkeleton } from './components/ui/Skeleton';
-import ShuttleGameLoader from './components/ShuttleGameLoader';
+import ShuttleGameLoader, { clearLocalBest } from './components/ShuttleGameLoader';
+import KeepItUpScoreboard from './components/KeepItUpScoreboard';
 const StatsPage = lazy(() => import('./components/StatsPage'));
 const RegisterScreen = lazy(() => import('./components/RegisterScreen'));
 const ArenaTiersModal = lazy(() => import('./components/ArenaTiersModal'));
@@ -98,6 +99,7 @@ const App: React.FC = () => {
  const [playerGroups, setPlayerGroups] = useState<PlayerGroup[]>([]);
  const [isStatsOpen, setIsStatsOpen] = useState(false);
  const [isGameOpen, setIsGameOpen] = useState(false);
+ const [isGameBoardOpen, setIsGameBoardOpen] = useState(false);
  const [isGroupManageOpen, setIsGroupManageOpen] = useState(false);
  const [managingGroup, setManagingGroup] = useState<PlayerGroup | null>(null);
  const [rankingGroup, setRankingGroup] = useState<PlayerGroup | null>(null);
@@ -600,9 +602,11 @@ const App: React.FC = () => {
 
  checkInitialSession();
 
- const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+ const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
- await initializeApp(session);
+ // Supabase holds its auth lock while this callback runs, and every query needs that lock.
+ // Awaiting queries here deadlocks them until they time out, so run after the callback returns.
+ setTimeout(() => { void initializeApp(session); }, 0);
  } else if (event === 'SIGNED_OUT') {
  setIsAuthenticated(false);
  setAuthStage('splash');
@@ -692,7 +696,7 @@ const App: React.FC = () => {
  setIsProcessingAuth(false);
  }, [isProcessingAuth]);
 
- const handleLogout = useCallback(async () => { await supabase.auth.signOut(); }, []);
+ const handleLogout = useCallback(async () => { clearLocalBest(); await supabase.auth.signOut(); }, []);
  const handleDeleteAccount = useCallback(async () => { if (currentUser) { await supabase.rpc('delete_user'); await handleLogout(); } }, [currentUser, handleLogout]);
  const handleUserChange = useCallback((userId: string) => { const user = users.find(u => u.id === userId); if (user) setCurrentUser(user); }, [users]);
 
@@ -1729,7 +1733,7 @@ const App: React.FC = () => {
  <>
  <PullToRefresh onRefresh={handlePullToRefresh}>
  <div className="min-h-screen pb-24 bg-[#000B29] text-white">
-        <div className="sticky top-0 z-[60] flex flex-col w-full bg-[#000B29]/90 backdrop-blur-md pt-[env(safe-area-inset-top)] border-b border-white/5">
+        <div className="sticky top-0 z-[60] flex flex-col w-full bg-[#000B29]/90 backdrop-blur-md pt-safe-top border-b border-white/5">
           {/* Connection Status Indicator (realtime-sync skill §1) */}
           {(connectionStatus === 'reconnecting' || connectionStatus === 'disconnected' || isOffline) && (
             <div className={`flex items-center justify-center gap-2 py-1.5 px-4 text-[10px] font-black uppercase tracking-[0.15em] transition-all ${
@@ -1901,22 +1905,28 @@ const App: React.FC = () => {
  )}
  {isGameOpen && (
  <div className="fixed inset-0 z-[200] bg-navy-base overflow-hidden flex flex-col animate-in fade-in duration-300">
- <div className="shrink-0 bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+ <div className="shrink-0 bg-navy-base/90 backdrop-blur pt-safe-top">
  <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
  <button type="button" onClick={() => { triggerHaptic('light'); setIsGameOpen(false); }} className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95" aria-label="Back">
  <ArrowLeft size={18} />
  </button>
- <h2 className="text-base font-black italic uppercase text-white tracking-wider">Keep It <span className="text-neon-primary">Up</span></h2>
+ <h2 className="flex-1 text-base font-black italic uppercase text-white tracking-wider">Keep It <span className="text-neon-primary">Up</span></h2>
+ <button type="button" onClick={() => { triggerHaptic('light'); setIsGameBoardOpen(true); }} className="p-1.5 -mr-1.5 text-gray-400 rounded-full transition-colors active:scale-95" aria-label="View scoreboard">
+ <Trophy size={18} />
+ </button>
  </div>
  </div>
  <div className="flex-1 flex items-center justify-center px-4 pb-[env(safe-area-inset-bottom)]">
  <ShuttleGameLoader />
  </div>
+ {isGameBoardOpen && activeUser && (
+ <KeepItUpScoreboard onClose={() => setIsGameBoardOpen(false)} allUsers={users} currentUserId={activeUser.id} />
+ )}
  </div>
  )}
  {isStatsOpen && (
  <div className="fixed inset-0 z-[200] bg-navy-base overflow-y-auto animate-in fade-in duration-300">
- <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+ <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-safe-top">
  <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
  <button type="button" onClick={() => { triggerHaptic('light'); setIsStatsOpen(false); }} className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95" aria-label="Back">
  <ArrowLeft size={18} />

@@ -109,6 +109,11 @@
       scrollbar-width: none;
     }
 
+    /* Clear the iOS status bar and its blur; the extra 12px only applies when a top inset exists */
+    .pt-safe-top {
+      padding-top: calc(env(safe-area-inset-top, 0px) + min(env(safe-area-inset-top, 0px), 12px));
+    }
+
     /* Handle iOS safe area for bottom nav */
     .safe-area-bottom {
       padding-bottom: calc(1rem + env(safe-area-inset-bottom));

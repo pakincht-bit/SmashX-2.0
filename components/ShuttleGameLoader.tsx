@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { triggerHaptic } from '../utils';
+import { submitKeepItUpScore } from '../services/keepItUpScores';
 
 // "Keep it up" mini game shown while the app loads: tap the shuttle to knock it back up.
 // Physics runs in a rAF loop on refs and writes transforms directly, so React only
@@ -17,6 +18,15 @@ const readBest = () => {
   } catch {
     return 0;
   }
+};
+
+const writeBest = (best: number) => {
+  try { localStorage.setItem(BEST_KEY, String(best)); } catch { /* storage unavailable */ }
+};
+
+// The server keeps each player's best; clearing on logout stops the next player on this device inheriting it
+export const clearLocalBest = () => {
+  try { localStorage.removeItem(BEST_KEY); } catch { /* storage unavailable */ }
 };
 
 const Shuttlecock: React.FC = () => (
@@ -44,6 +54,17 @@ const ShuttleGameLoader: React.FC<ShuttleGameLoaderProps> = ({ label, className 
   const [best, setBest] = useState(readBest);
   const [dropped, setDropped] = useState<number | null>(null);
   const countRef = useRef(0);
+
+  // Sync both ways on open: uploads a best this device holds, restores one earned elsewhere
+  useEffect(() => {
+    const localBest = readBest();
+    void submitKeepItUpScore(localBest).then(serverBest => {
+      if (serverBest !== null && serverBest > localBest) {
+        writeBest(serverBest);
+        setBest(serverBest);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     let raf = 0;
@@ -90,11 +111,11 @@ const ShuttleGameLoader: React.FC<ShuttleGameLoaderProps> = ({ label, className 
             if (final > 0) {
               setDropped(final);
               triggerHaptic('medium');
-              setBest(prev => {
-                const next = Math.max(prev, final);
-                try { localStorage.setItem(BEST_KEY, String(next)); } catch { /* storage unavailable */ }
-                return next;
-              });
+              if (final > readBest()) {
+                writeBest(final);
+                setBest(final);
+                void submitKeepItUpScore(final);
+              }
             }
           }
 

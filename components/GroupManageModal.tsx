@@ -206,7 +206,7 @@ const GroupManageModal: React.FC<GroupManageModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[220] bg-[#000B29] text-white flex flex-col h-[100dvh] overflow-hidden animate-in fade-in duration-300">
-      <div className="relative z-20 shrink-0 w-full bg-[#000B29]/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+      <div className="relative z-20 shrink-0 w-full bg-[#000B29]/90 backdrop-blur pt-safe-top">
         <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
           <button onClick={handleCreateBack} className="p-1.5 -ml-1.5 text-gray-400 rounded-full transition-colors active:scale-95" aria-label="Back">
             <ArrowLeft size={18} />

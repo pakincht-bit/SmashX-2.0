@@ -405,7 +405,7 @@ const Profile: React.FC<ProfileProps> = ({
   return (
     <div className="relative w-full min-h-screen bg-navy-base text-white overflow-y-auto pb-8 font-sans">
       {/* Sticky Navigation Header */}
-      <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)] shrink-0">
+      <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-safe-top shrink-0">
         <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
           <button
             onClick={() => {
@@ -594,7 +594,7 @@ const Profile: React.FC<ProfileProps> = ({
 
         {isRecentOpen && createPortal(
           <div className="fixed inset-0 z-[300] bg-navy-base overflow-y-auto animate-in fade-in duration-300">
-              <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+              <div className="sticky top-0 z-50 w-full bg-navy-base/90 backdrop-blur pt-safe-top">
                 <div className="flex items-center gap-2 py-2 px-4 sm:px-6">
                   <button
                     type="button"
