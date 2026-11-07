@@ -109,6 +109,20 @@
       scrollbar-width: none;
     }
 
+    /* Bottom sheet open/close; add .is-closing, then unmount once it has played */
+    @keyframes sheetBackdropIn { from { opacity: 0; } }
+    @keyframes sheetBackdropOut { to { opacity: 0; } }
+    @keyframes sheetPanelIn { from { transform: translateY(100%); } }
+    @keyframes sheetPanelOut { to { transform: translateY(100%); } }
+    .sheet-backdrop { animation: sheetBackdropIn 200ms ease-out; }
+    .sheet-backdrop.is-closing { animation: sheetBackdropOut 200ms ease-in forwards; }
+    .sheet-panel { animation: sheetPanelIn 300ms cubic-bezier(0.32, 0.72, 0, 1); }
+    .sheet-panel.is-closing { animation: sheetPanelOut 200ms ease-in forwards; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sheet-backdrop, .sheet-backdrop.is-closing, .sheet-panel, .sheet-panel.is-closing { animation: none; }
+    }
+
     /* Clear the iOS status bar and its blur; the extra 12px only applies when a top inset exists */
     .pt-safe-top {
       padding-top: calc(env(safe-area-inset-top, 0px) + min(env(safe-area-inset-top, 0px), 12px));

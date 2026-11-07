@@ -1,11 +1,14 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Session, User, MatchResult, NextMatchup, PlayerGroup } from '../types';
 import { formatDate, formatTime, getDateParts, getSmartMatchSuggestion, getSmartMatchSuggestionV2, getAvatarColor, getRankFrameClass, triggerHaptic, getPlayerMatchDelta, computeEloDeltas } from '../utils';
-import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, BarChart3, UserPlus, Search, MoreHorizontal } from 'lucide-react';
+import { MapPin, Clock, Calendar, ArrowLeft, Users, Trash2, Play, LogOut, Timer, Hash, Plus, Check, Trophy, X, Wand2, Scale, Dices, Square, Calculator, Receipt, TrendingUp, TrendingDown, Minus, Lock, GripVertical, Share2, Swords, RefreshCw, Activity, Pencil, AlertTriangle, UserPlus, Search, MoreHorizontal } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import PullToRefresh from './PullToRefresh';
 import ShareReportModal from './ShareReportModal';
+import PointsRaceChart, { EMPTY_OPPONENT_SLOTS } from './PointsRaceChart';
+import { computeSessionHighlights, computeStandings } from '../utils/sessionHighlights';
+import EvidenceSheet, { EvidenceRow } from './EvidenceSheet';
 
 interface SessionDetailModalProps {
  session: Session | null;
@@ -96,6 +99,13 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  const [isCopied, setIsCopied] = useState(false);
  const [isMoreOpen, setIsMoreOpen] = useState(false);
  const moreMenuRef = useRef<HTMLDivElement>(null);
+ const [scrubIndex, setScrubIndex] = useState<number | null>(null);
+ const [versusPlayers, setVersusPlayers] = useState<{ id: string; color: string }[]>([]);
+ const [opponentSlots, setOpponentSlots] = useState(EMPTY_OPPONENT_SLOTS);
+ const [openBadge, setOpenBadge] = useState<string | null>(null);
+ const [isPickingOpponents, setIsPickingOpponents] = useState(false);
+ const rankingsRef = useRef<HTMLDivElement>(null);
+ const rowTopsRef = useRef(new Map<string, number>());
  useEffect(() => {
  if (!isMoreOpen) return;
  const onPointerDown = (e: PointerEvent) => {
@@ -114,7 +124,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
 
 
-  const [selectedTab, setSelectedTab] = useState<'live' | 'players' | 'history' | 'scoreboard' | 'analytics' | null>(null);
+  const [selectedTab, setSelectedTab] = useState<'live' | 'players' | 'history' | 'scoreboard' | null>(null);
   const [playerSort, setPlayerSort] = useState<{ col: 'played' | 'wins' | 'losses' | null; dir: 'desc' | 'asc' }>({ col: null, dir: 'desc' });
 
  // Watch for session updates from other users to ensure local modals are consistent with live state
@@ -209,6 +219,26 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  }
  return { wins, losses, pointsChange };
  }, [session, currentUser.id]);
+
+ useEffect(() => {
+ setOpponentSlots(EMPTY_OPPONENT_SLOTS);
+ setIsPickingOpponents(false);
+ }, [session?.id]);
+
+ // Slide scoreboard rows to their new places as the Points Race is scrubbed (FLIP)
+ useLayoutEffect(() => {
+ const rows = rankingsRef.current?.querySelectorAll<HTMLElement>('[data-player-row]');
+ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const tops = new Map<string, number>();
+ rows?.forEach(row => {
+ const id = row.dataset.playerRow!;
+ const previousTop = rowTopsRef.current.get(id);
+ tops.set(id, row.offsetTop);
+ if (previousTop === undefined || previousTop === row.offsetTop || reduceMotion) return;
+ row.animate([{ transform: `translateY(${previousTop - row.offsetTop}px)` }, { transform: 'translateY(0)' }], { duration: 220, easing: 'ease-out' });
+ });
+ rowTopsRef.current = tops;
+ }, [scrubIndex, versusPlayers, isPickingOpponents]);
 
  if (!session) return null;
 
@@ -341,7 +371,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  }
  if (status === 'OPEN' && activeTab !== 'players') activeTab = 'players';
  if (status === 'PLAYING' && !['live', 'history'].includes(activeTab)) activeTab = 'live';
- if (status === 'END' && !['scoreboard', 'analytics', 'history'].includes(activeTab)) activeTab = 'scoreboard';
+ if (status === 'END' && !['scoreboard', 'history'].includes(activeTab)) activeTab = 'scoreboard';
 
  const now = new Date();
  const startTimeObj = new Date(session.startTime);
@@ -848,301 +878,118 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  </div>
  );
 
- const renderAnalytics = () => {
- const matches = session.matches || [];
- if (matches.length === 0) {
- return (
- <div className="flex flex-col items-center justify-center py-16 animate-in slide-in-from-bottom-4 duration-500">
- <div className="relative mb-6">
- <div className="absolute inset-0 bg-[#00FF41] blur-2xl opacity-10 rounded-full"></div>
- <div className="w-20 h-20 bg-[#001645] border border-[#002266] rounded-none flex items-center justify-center relative shadow-xl transform -rotate-6">
- <BarChart3 size={40} className="text-gray-500" />
- </div>
- </div>
- <h3 className="text-xl font-black italic uppercase text-white tracking-tighter mb-2">
- No <span className="text-gray-600">Data</span> Yet
- </h3>
- <p className="text-xs font-bold text-gray-400 text-center max-w-[200px] uppercase tracking-wide">
- Play some matches to see session stats.
- </p>
- </div>
- );
- }
-
- // --- Compute analytics data ---
- const playerIds = session.checkedInPlayerIds || [];
- const pStats: Record<string, { wins: number; losses: number; played: number }> = {};
- playerIds.forEach(pid => { pStats[pid] = { wins: 0, losses: 0, played: 0 }; });
-
- // Track per-player match sequence for streaks
- const playerMatchSeq: Record<string, ('W' | 'L')[]> = {};
-
- // Track teammate/rival pairs
- const teammateCounts: Record<string, number> = {};
- const rivalCounts: Record<string, number> = {};
-
- matches.forEach(match => {
- const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
- const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
-
- winners.forEach(pid => {
- if (!pStats[pid]) pStats[pid] = { wins: 0, losses: 0, played: 0 };
- pStats[pid].wins += 1;
- pStats[pid].played += 1;
- if (!playerMatchSeq[pid]) playerMatchSeq[pid] = [];
- playerMatchSeq[pid].push('W');
- });
- losers.forEach(pid => {
- if (!pStats[pid]) pStats[pid] = { wins: 0, losses: 0, played: 0 };
- pStats[pid].losses += 1;
- pStats[pid].played += 1;
- if (!playerMatchSeq[pid]) playerMatchSeq[pid] = [];
- playerMatchSeq[pid].push('L');
- });
-
- // Teammates (same team)
- const countPairs = (ids: string[], map: Record<string, number>) => {
- for (let i = 0; i < ids.length; i++) {
- for (let j = i + 1; j < ids.length; j++) {
- const key = [ids[i], ids[j]].sort().join('|');
- map[key] = (map[key] || 0) + 1;
- }
- }
- };
- countPairs(match.team1Ids, teammateCounts);
- countPairs(match.team2Ids, teammateCounts);
-
- // Rivals (opposite teams)
- const t1 = match.team1Ids;
- const t2 = match.team2Ids;
- t1.forEach(a => t2.forEach(b => {
- const key = [a, b].sort().join('|');
- rivalCounts[key] = (rivalCounts[key] || 0) + 1;
- }));
- });
-
- // --- Hot Streak ---
- let hotStreakPlayer = '';
- let hotStreakCount = 0;
- Object.entries(playerMatchSeq).forEach(([pid, seq]) => {
- let maxStreak = 0;
- let current = 0;
- seq.forEach(r => {
- if (r === 'W') { current++; maxStreak = Math.max(maxStreak, current); }
- else { current = 0; }
- });
- if (maxStreak > hotStreakCount) {
- hotStreakCount = maxStreak;
- hotStreakPlayer = pid;
- }
- });
- const hotUser = usersMap.get(hotStreakPlayer);
-
- // --- Cold Streak (Lose Streak) ---
- let coldStreakPlayer = '';
- let coldStreakCount = 0;
- Object.entries(playerMatchSeq).forEach(([pid, seq]) => {
- let maxStreak = 0;
- let current = 0;
- seq.forEach(r => {
- if (r === 'L') { current++; maxStreak = Math.max(maxStreak, current); }
- else { current = 0; }
- });
- if (maxStreak > coldStreakCount) {
- coldStreakCount = maxStreak;
- coldStreakPlayer = pid;
- }
- });
- const coldUser = usersMap.get(coldStreakPlayer);
-
- // --- Win Rate Distribution ---
- const allPlayerIds = Object.keys(pStats).filter(pid => pStats[pid].played > 0);
- const sortedByWinRate = [...allPlayerIds].sort((a, b) => {
- const wrA = pStats[a].played > 0 ? pStats[a].wins / pStats[a].played : 0;
- const wrB = pStats[b].played > 0 ? pStats[b].wins / pStats[b].played : 0;
- return wrB - wrA;
- });
- const maxPlayed = Math.max(...allPlayerIds.map(pid => pStats[pid].played), 1);
-
- // --- Top Teammates & Rivals ---
- const topTeammates = Object.entries(teammateCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
- const topRivals = Object.entries(rivalCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
-
- return (
- <div className="space-y-8 animate-in slide-in-from-right duration-300 pb-12">
-
- {/* Streaks */}
- {(hotUser && hotStreakCount >= 2) || (coldUser && coldStreakCount >= 2) ? (
- <div className="-mx-4 sm:-mx-6">
- <div className="px-4 sm:px-6 pt-3 pb-1">
- <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Streaks</h4>
- </div>
- {hotUser && hotStreakCount >= 2 && (
- <div className="flex items-center gap-4 py-4 px-4 sm:px-6 bg-gradient-to-r from-orange-500/10 to-transparent">
- <div className="relative shrink-0">
- <div className={`rounded-full ${getRankFrameClass(hotUser.rankFrame).replace('ring-4', 'ring-2')}`}>
- <img src={hotUser.avatar} className="w-12 h-12 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(hotUser.avatar) }} />
- </div>
- <div className="absolute -top-1 -right-1 text-sm z-20">🔥</div>
- </div>
- <div className="flex-1 min-w-0">
- <div className="text-sm font-bold text-white">{hotUser.name}</div>
- <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">
- {hotStreakCount} Win Streak
- </div>
- </div>
- <div className="flex gap-0.5 items-end">
- {Array.from({ length: hotStreakCount }).map((_, i) => (
- <div key={i} className="w-1.5 bg-gradient-to-t from-orange-500 to-yellow-400 rounded-full opacity-80" style={{ height: `${12 + i * 3}px` }}></div>
- ))}
- </div>
- </div>
- )}
- {coldUser && coldStreakCount >= 2 && (
- <div className="flex items-center gap-4 py-4 px-4 sm:px-6 bg-gradient-to-r from-blue-500/10 to-transparent">
- <div className="relative shrink-0">
- <div className={`rounded-full ${getRankFrameClass(coldUser.rankFrame).replace('ring-4', 'ring-2')}`}>
- <img src={coldUser.avatar} className="w-12 h-12 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(coldUser.avatar) }} />
- </div>
- <div className="absolute -top-1 -right-1 text-sm z-20">🥶</div>
- </div>
- <div className="flex-1 min-w-0">
- <div className="text-sm font-bold text-white">{coldUser.name}</div>
- <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">
- {coldStreakCount} Lose Streak
- </div>
- </div>
- <div className="flex gap-0.5 items-end">
- {Array.from({ length: coldStreakCount }).map((_, i) => (
- <div key={i} className="w-1.5 bg-gradient-to-t from-blue-600 to-blue-400 rounded-full opacity-80" style={{ height: `${12 + i * 3}px` }}></div>
- ))}
- </div>
- </div>
- )}
- </div>
- ) : null}
-
- {/* Teammates & Rivals */}
- {(topTeammates.length > 0 || topRivals.length > 0) && (
- <div className="-mx-4 sm:-mx-6 space-y-6">
- {/* Top Duos */}
- {topTeammates.length > 0 && (
- <div>
- <div className="px-4 sm:px-6 pt-3 pb-1">
- <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Top Duos</h4>
- </div>
- {topTeammates.map(([key, count]) => {
- const [id1, id2] = key.split('|');
- const u1 = usersMap.get(id1);
- const u2 = usersMap.get(id2);
- if (!u1 || !u2) return null;
- return (
- <div key={key} className="flex items-center gap-4 py-3 px-4 sm:px-6 bg-gradient-to-r from-green-500/10 to-transparent">
- <div className="flex -space-x-2 shrink-0">
- <img src={u1.avatar} className="w-10 h-10 rounded-full border-2 border-[#000B29] object-cover z-10" style={{ backgroundColor: getAvatarColor(u1.avatar) }} />
- <img src={u2.avatar} className="w-10 h-10 rounded-full border-2 border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(u2.avatar) }} />
- </div>
- <div className="flex-1 min-w-0">
- <div className="text-sm font-bold text-white">{u1.name.split(' ')[0]} & {u2.name.split(' ')[0]}</div>
- <div className="text-[10px] font-bold text-green-400 uppercase tracking-widest">{count} games together</div>
- </div>
- </div>
- );
- })}
- </div>
- )}
-
- {/* Top Rivals */}
- {topRivals.length > 0 && (
- <div>
- <div className="px-4 sm:px-6 pt-3 pb-1">
- <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Top Rivals</h4>
- </div>
- {topRivals.map(([key, count]) => {
- const [id1, id2] = key.split('|');
- const u1 = usersMap.get(id1);
- const u2 = usersMap.get(id2);
- if (!u1 || !u2) return null;
- return (
- <div key={key} className="flex items-center gap-4 py-3 px-4 sm:px-6 bg-gradient-to-r from-red-500/10 to-transparent">
- <div className="flex -space-x-2 shrink-0">
- <img src={u1.avatar} className="w-10 h-10 rounded-full border-2 border-[#000B29] object-cover z-10" style={{ backgroundColor: getAvatarColor(u1.avatar) }} />
- <img src={u2.avatar} className="w-10 h-10 rounded-full border-2 border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(u2.avatar) }} />
- </div>
- <div className="flex-1 min-w-0">
- <div className="text-sm font-bold text-white">{u1.name.split(' ')[0]} vs {u2.name.split(' ')[0]}</div>
- <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest">{count} matchups</div>
- </div>
- </div>
- );
- })}
- </div>
- )}
- </div>
- )}
-
- {/* Win Rate Distribution */}
- <div>
- <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-4">Win Rate</h4>
- <div className="-mx-4 sm:-mx-6 flex flex-col">
- <div className="">
- {sortedByWinRate.map(pid => {
- const user = usersMap.get(pid);
- if (!user) return null;
- const s = pStats[pid];
- const wr = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
- const barWidth = s.played > 0 ? (s.played / maxPlayed) * 100 : 0;
- const winPortion = s.played > 0 ? (s.wins / s.played) * barWidth : 0;
- const lossPortion = barWidth - winPortion;
-
- return (
- <div key={pid} onClick={() => { triggerHaptic('light'); onPlayerClick?.(pid); }} className="py-3 px-4 sm:px-6 cursor-pointer transition-colors">
- <div className="flex items-center justify-between mb-2">
- <div className="flex items-center gap-3">
- <div className={`rounded-full ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
- <img src={user.avatar} className="w-8 h-8 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
- </div>
- <span className="text-sm font-bold text-white">{user.name}</span>
- </div>
- <div className="flex items-center gap-3">
- <span className="text-[10px] font-bold text-gray-400">{s.wins}W - {s.losses}L</span>
- <span className={`text-sm font-mono font-black ${wr >= 60 ? 'text-[#00FF41]' : wr >= 40 ? 'text-yellow-500' : 'text-red-500'}`}>{wr}%</span>
- </div>
- </div>
- <div className="flex h-1.5 rounded-full overflow-hidden bg-[#000B29]">
- <div className="bg-green-500 rounded-l-full transition-all duration-700" style={{ width: `${winPortion}%` }}></div>
- <div className="bg-red-500/60 rounded-r-full transition-all duration-700" style={{ width: `${lossPortion}%` }}></div>
- </div>
- </div>
- );
- })}
- </div>
- </div>
- </div>
-
- </div>
- );
- };
-
  const renderScoreboard = () => {
- const stats: Record<string, { wins: number; losses: number; pointsChange: number }> = {};
- // Initialize for all session players so stats persist after uncheck
-  session.playerIds.forEach(pid => { stats[pid] = { wins: 0, losses: 0, pointsChange: 0 }; });
- (session.matches || []).forEach(match => {
- const winners = match.winningTeamIndex === 1 ? match.team1Ids : match.team2Ids;
- const losers = match.winningTeamIndex === 1 ? match.team2Ids : match.team1Ids;
- winners.forEach(pid => { if (!stats[pid]) stats[pid] = { wins: 0, losses: 0, pointsChange: 0 }; stats[pid].wins += 1; stats[pid].pointsChange += getPlayerMatchDelta(match, pid); });
- losers.forEach(pid => { if (!stats[pid]) stats[pid] = { wins: 0, losses: 0, pointsChange: 0 }; stats[pid].losses += 1; stats[pid].pointsChange += getPlayerMatchDelta(match, pid); });
+ const hasVersus = opponentSlots.some(Boolean);
+ const playedIds = new Set((session.matches || []).flatMap(m => [...m.team1Ids, ...m.team2Ids]));
+ const isVersusFull = !opponentSlots.includes(null);
+ const toggleOpponent = (pid: string) => {
+ triggerHaptic('light');
+ setOpponentSlots(slots => {
+ if (slots.includes(pid)) return slots.map(id => (id === pid ? null : id));
+ const free = slots.indexOf(null);
+ return free === -1 ? slots : slots.map((id, i) => (i === free ? pid : id));
  });
- const sortedPlayerIds = Object.keys(stats).sort((a, b) => { if (stats[b].wins !== stats[a].wins) return stats[b].wins - stats[a].wins; return stats[b].pointsChange - stats[a].pointsChange; });
+ };
+
+ // While the Points Race is scrubbed, the table shows the standings as of that match
+ const { stats, order: sortedPlayerIds } = computeStandings((session.matches || []).slice(0, scrubIndex ?? undefined), session.playerIds);
 
  return (
- <div className="space-y-8 animate-in slide-in-from-left duration-300 pb-12">
+ <div className="space-y-1 animate-in slide-in-from-left duration-300 pb-12">
+ {/* Session details */}
+ <div className="pb-1">
+ <h3 className="text-base font-black italic tracking-tight text-white truncate">{session.title || session.location}</h3>
+ <p className="text-xs font-mono font-medium text-gray-400 truncate">{month} {day} • {formatTime(session.startTime)} - {formatTime(session.endTime)}{session.title ? ` • ${session.location}` : ''}</p>
+ </div>
+
+ {/* Session highlights */}
+ {(session.matches || []).length > 0 && (() => {
+ const { awards, nemesis, evidence } = computeSessionHighlights(session.matches || [], usersMap);
+ const firstNameOf = (id: string) => usersMap.get(id)?.name.split(' ')[0] ?? '';
+ const teamOf = (ids: string[]) => ids.map(firstNameOf).filter(Boolean).join(' & ');
+ const usersOf = (ids: string[]) => ids.map(id => usersMap.get(id)).filter(Boolean) as User[];
+ const boldTeam = (ids: string[]) => <strong className="font-bold text-white">{teamOf(ids)}</strong>;
+ const carry = awards.find(award => award.title === 'Carry');
+ const giantKiller = awards.find(award => award.title === 'Giant Killer');
+ const nemesisRecord = nemesis && `${nemesis.wins}–${nemesis.losses}`;
+
+ const badges = [
+ giantKiller && {
+ label: 'Giant Killer',
+ labelClass: 'text-yellow-400',
+ playerIds: [giantKiller.userId],
+ text: `${firstNameOf(giantKiller.userId)} · ${giantKiller.shortDetail}`,
+ description: giantKiller.detail,
+ rows: evidence.giantKiller.map((m): EvidenceRow => {
+ const teammates = m.winnerIds.filter(id => id !== giantKiller.userId);
+ return { key: String(m.matchNumber), avatars: usersOf(m.loserIds), title: <>Beat {boldTeam(m.loserIds)}</>, subtitle: teammates.length > 0 ? <>with {boldTeam(teammates)}</> : undefined, value: `${m.gap} pts`, valueClass: 'text-yellow-400' };
+ }),
+ },
+ carry && {
+ label: 'Carry',
+ labelClass: 'text-[#00FF41]',
+ playerIds: [carry.userId],
+ text: `${firstNameOf(carry.userId)} · ${carry.shortDetail}`,
+ description: carry.detail,
+ rows: evidence.carry.map(({ partnerId, matchNumbers }): EvidenceRow => ({
+ key: partnerId,
+ avatars: usersOf([partnerId]),
+ title: boldTeam([partnerId]),
+ value: `${matchNumbers.length} ${matchNumbers.length === 1 ? 'win' : 'wins'}`,
+ valueClass: 'text-[#00FF41]',
+ })),
+ },
+ nemesis && {
+ label: 'Nemesis',
+ labelClass: 'text-red-400',
+ playerIds: [nemesis.winnerId, nemesis.victimId],
+ text: `${firstNameOf(nemesis.winnerId)} ${nemesisRecord} ${firstNameOf(nemesis.victimId)}`,
+ description: `Beat ${firstNameOf(nemesis.victimId)} ${nemesisRecord}`,
+ rows: evidence.nemesis.map((m): EvidenceRow => {
+ const nemesisWon = m.winnerIds.includes(nemesis.winnerId);
+ return { key: String(m.matchNumber), avatars: usersOf(m.winnerIds), title: <>{boldTeam(m.winnerIds)} beat {boldTeam(m.loserIds)}</>, value: nemesisWon ? 'W' : 'L', valueClass: nemesisWon ? 'text-[#00FF41]' : 'text-red-400' };
+ }),
+ },
+ ].filter(Boolean) as { label: string; labelClass: string; playerIds: string[]; text: string; description: string; rows: EvidenceRow[] }[];
+ if (badges.length === 0) return null;
+ const activeBadge = badges.find(badge => badge.label === openBadge);
+
+ return (
+ <>
+ <div className="-mx-4 sm:-mx-6 flex gap-2 overflow-x-auto hide-scrollbar px-4 sm:px-6 py-1">
+ {badges.map(badge => (
+ <button key={badge.label} type="button" aria-haspopup="dialog" onClick={() => { triggerHaptic('light'); setOpenBadge(badge.label); }} className="shrink-0 flex items-center gap-2 bg-[#001645] px-2 py-1.5 rounded-none text-left active:scale-95 transition-transform">
+ <span className="flex -space-x-2 shrink-0">
+ {usersOf(badge.playerIds).map((u, i) => (
+ <img key={u.id} src={u.avatar} alt="" className={`w-6 h-6 rounded-full border border-[#000B29] object-cover ${i === 0 ? 'relative z-10' : ''}`} style={{ backgroundColor: getAvatarColor(u.avatar) }} />
+ ))}
+ </span>
+ <span className="block">
+ <span className={`block text-[9px] font-black italic uppercase tracking-widest leading-tight ${badge.labelClass}`}>{badge.label}</span>
+ <span className="block text-xs font-bold text-white whitespace-nowrap leading-tight">{badge.text}</span>
+ </span>
+ </button>
+ ))}
+ </div>
+ {activeBadge && usersMap.get(activeBadge.playerIds[0]) && (
+ <EvidenceSheet player={usersMap.get(activeBadge.playerIds[0])!} title={activeBadge.label} titleClass={activeBadge.labelClass} description={activeBadge.description} rows={activeBadge.rows} onClose={() => setOpenBadge(null)} />
+ )}
+ </>
+ );
+ })()}
+
+ {/* Points Race */}
+ {(session.matches || []).length > 0 && (
+ <div className="-mx-4 sm:-mx-6">
+ <PointsRaceChart matches={session.matches || []} usersMap={usersMap} currentUserId={currentUser.id} onScrub={setScrubIndex} onVersusChange={setVersusPlayers} opponentSlots={opponentSlots} isPickingOpponents={isPickingOpponents} onTogglePicking={() => setIsPickingOpponents(picking => !picking)} />
+ </div>
+ )}
+
  {/* Session Rankings */}
  <div className="space-y-4">
  {sortedPlayerIds.length === 0 ? (<div className="text-center py-10 text-gray-500 font-bold text-sm">No matches played this session.</div>) : (
  <div className="-mx-4 sm:-mx-6 flex flex-col gap-0">
- <div className="flex items-center justify-between py-2 px-4 sm:px-6 border-b border-[#002266] bg-[#000B29]/50">
+ <div className="flex items-center justify-between py-1 px-4 sm:px-6 border-b border-[#002266] bg-[#000B29]/50">
  <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 flex-1 ml-9">Player</span>
  <div className="flex items-center shrink-0">
  <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-10 text-center">M</span>
@@ -1151,10 +998,15 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  <span className="text-[9px] font-black uppercase tracking-widest text-gray-600 w-12 text-center">+/-</span>
  </div>
  </div>
- <div className="">
+ <div ref={rankingsRef} className="relative">
  {sortedPlayerIds.map((pid, index) => {
  const user = usersMap.get(pid);
  if (!user) return null;
+ // After choosing, only those players are listed, keeping their real rank numbers
+ const versusColor = hasVersus ? versusPlayers.find(p => p.id === pid)?.color : undefined;
+ if (hasVersus && !versusColor && !isPickingOpponents) return null;
+ const isSelectable = isPickingOpponents && pid !== currentUser.id && playedIds.has(pid);
+ const isOpponent = opponentSlots.includes(pid);
  const s = stats[pid];
  let rankStyle = "border-b border-[#001645] last:border-0";
  let rankBadge = <span className="text-gray-500 font-mono text-xs w-6 text-center">{index + 1}</span>;
@@ -1162,14 +1014,21 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  else if (index === 1) { rankStyle = "bg-[#000B29] border-b border-[#001645] last:border-0"; rankBadge = <span className="text-gray-300 font-black text-xs w-6 text-center">2</span>; }
  else if (index === 2) { rankStyle = "bg-[#000B29] border-b border-[#001645] last:border-0"; rankBadge = <span className="text-orange-700 font-black text-xs w-6 text-center">3</span>; }
  return (
- <div key={pid} onClick={() => { triggerHaptic('light'); onPlayerClick?.(pid); }} className={`flex items-center justify-between py-3 px-4 sm:px-6 ${rankStyle} transition-all cursor-pointer group hover:bg-white/5`}>
- <div className="flex items-center gap-3 flex-1 min-w-0">
- {rankBadge}
+ <div key={pid} data-player-row={pid} role={isSelectable ? 'checkbox' : undefined} aria-checked={isSelectable ? isOpponent : undefined} onClick={() => { if (isSelectable) { toggleOpponent(pid); return; } if (isPickingOpponents) return; triggerHaptic('light'); onPlayerClick?.(pid); }} className={`relative flex items-center justify-between py-1.5 px-4 sm:px-6 ${rankStyle} transition-colors cursor-pointer group hover:bg-white/5 ${isSelectable && isVersusFull && !isOpponent ? 'opacity-40' : ''}`}>
+ {versusColor && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px]" style={{ backgroundColor: versusColor }} />}
+ <div className="flex items-center gap-2.5 flex-1 min-w-0">
+ {isSelectable ? (
+ <span className="w-6 flex justify-center">
+ <span className={`w-4 h-4 flex items-center justify-center border ${isOpponent ? 'bg-[#00FF41] border-[#00FF41] text-[#000B29]' : 'border-gray-600'}`}>
+ {isOpponent && <Check size={12} strokeWidth={3} />}
+ </span>
+ </span>
+ ) : rankBadge}
  <div className="relative shrink-0">
  <div className={`rounded-full transition-all duration-500 ${getRankFrameClass(user.rankFrame).replace('ring-4', 'ring-2')}`}>
- <img src={user.avatar} className="w-10 h-10 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
+ <img src={user.avatar} className="w-7 h-7 rounded-full border border-[#000B29] object-cover" style={{ backgroundColor: getAvatarColor(user.avatar) }} />
  </div>
- {index === 0 && <div className="absolute -top-1 -right-1 text-[8px] bg-yellow-500 text-black px-1 rounded-full font-black z-20 shadow-md">MVP</div>}
+ {index === 0 && <div className="absolute -top-1.5 -right-2 text-[7px] bg-yellow-500 text-black px-1 rounded-full font-black z-20 shadow-md">MVP</div>}
  </div>
  <div className="text-sm font-bold text-white leading-none truncate flex items-center">
     {user.name}
@@ -1278,7 +1137,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
  {/* Scrollable Content */}
  <PullToRefresh onRefresh={onRefresh} className="flex-1 min-h-0 overflow-y-auto">
- {status !== 'PLAYING' && (
+ {status === 'OPEN' && (
  <div className="bg-[#001645] p-4">
  <div className="flex items-center gap-4">
  <div className="bg-[#000B29] w-12 h-14 rounded-none flex flex-col items-center justify-center shrink-0 shadow-lg">
@@ -1312,7 +1171,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
      {status === 'END' && (
        <>
          <button onClick={() => { triggerHaptic('light'); setSelectedTab('scoreboard'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'scoreboard' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>Scoreboard</button>
-         <button onClick={() => { triggerHaptic('light'); setSelectedTab('analytics'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'analytics' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>Stats</button>
          <button onClick={() => { triggerHaptic('light'); setSelectedTab('history'); }} className={`flex-1 pb-3 pt-2 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 mb-[-1px] ${activeTab === 'history' ? 'text-[#00FF41] border-[#00FF41]' : 'text-gray-500 border-transparent '}`}>History</button>
        </>
      )}
@@ -1335,7 +1193,6 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
      activeTab === 'history' ? renderMatchHistory() : null
    ) : status === 'END' ? (
      activeTab === 'scoreboard' ? renderScoreboard() :
-     activeTab === 'analytics' ? renderAnalytics() :
      activeTab === 'history' ? renderMatchHistory() : null
    ) : renderNormalPlayerList()}
  </div>
