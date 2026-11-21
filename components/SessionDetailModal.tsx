@@ -922,7 +922,9 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  description: giantKiller.detail,
  rows: evidence.giantKiller.map((m): EvidenceRow => {
  const teammates = m.winnerIds.filter(id => id !== giantKiller.userId);
- return { key: String(m.matchNumber), avatars: usersOf(m.loserIds), title: <>Beat {boldTeam(m.loserIds)}</>, subtitle: teammates.length > 0 ? <>with {boldTeam(teammates)}</> : undefined, value: `${m.gap} pts`, valueClass: 'text-yellow-400' };
+ const match = (session.matches || [])[m.matchNumber - 1];
+ const gained = match ? getPlayerMatchDelta(match, giantKiller.userId) : 0;
+ return { key: String(m.matchNumber), avatars: usersOf(m.loserIds), title: <>Beat {boldTeam(m.loserIds)}</>, subtitle: teammates.length > 0 ? <>with {boldTeam(teammates)}</> : undefined, value: `+${gained} pts`, valueClass: 'text-[#00FF41]' };
  }),
  },
  carry && {
@@ -947,7 +949,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
  description: `Beat ${firstNameOf(nemesis.victimId)} ${nemesisRecord}`,
  rows: evidence.nemesis.map((m): EvidenceRow => {
  const nemesisWon = m.winnerIds.includes(nemesis.winnerId);
- return { key: String(m.matchNumber), avatars: usersOf(m.winnerIds), title: <>{boldTeam(m.winnerIds)} beat {boldTeam(m.loserIds)}</>, value: nemesisWon ? 'W' : 'L', valueClass: nemesisWon ? 'text-[#00FF41]' : 'text-red-400' };
+ const opponents = nemesisWon ? m.loserIds : m.winnerIds;
+ const teammates = (nemesisWon ? m.winnerIds : m.loserIds).filter(id => id !== nemesis.winnerId);
+ const match = (session.matches || [])[m.matchNumber - 1];
+ const delta = match ? getPlayerMatchDelta(match, nemesis.winnerId) : 0;
+ return { key: String(m.matchNumber), avatars: usersOf(opponents), title: <>{nemesisWon ? 'Beat' : 'Lost to'} {boldTeam(opponents)}</>, subtitle: teammates.length > 0 ? <>with {boldTeam(teammates)}</> : undefined, value: `${delta > 0 ? '+' : ''}${delta} pts`, valueClass: delta >= 0 ? 'text-[#00FF41]' : 'text-red-400' };
  }),
  },
  ].filter(Boolean) as { label: string; labelClass: string; playerIds: string[]; text: string; description: string; rows: EvidenceRow[] }[];

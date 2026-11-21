@@ -25,3 +25,19 @@ dist-ssr
 
 # Temp utility scripts
 replace_lines.*
+
+# Xcode / iOS
+ios/DerivedData
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/**/*.moved-aside
+ios/**/*.hmap
+ios/**/*.ipa
+ios/**/*.dSYM.zip
+ios/**/*.dSYM
+ios/.swiftpm
+ios/**/Package.resolved
+*.playground
+timeline.xctimeline
+playground.xcworkspace
+ios/build/
